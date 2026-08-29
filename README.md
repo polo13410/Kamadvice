@@ -22,3 +22,8 @@ globale, le modèle de données et le workflow du MVP.
 docker compose up -d          # PostgreSQL
 cd backend && mvn spring-boot:run
 ```
+
+Les identifiants PostgreSQL par défaut (`kamadvice` / `kamadvice`,
+usage local uniquement) peuvent être surchargés en définissant
+`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` dans un fichier
+`.env` (non versionné) à la racine du projet.

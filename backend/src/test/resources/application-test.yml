@@ -6,6 +6,6 @@ spring:
     password: sa
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
   flyway:
-    enabled: false
+    enabled: true
