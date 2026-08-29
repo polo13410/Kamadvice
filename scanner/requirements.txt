@@ -1,0 +1,3 @@
+# No game-automation dependencies yet: this is a placeholder until
+# the backend<->scanner contract (see README.md) is implemented.
+requests>=2.31
