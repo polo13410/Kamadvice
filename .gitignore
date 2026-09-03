@@ -150,5 +150,7 @@ backend/target/
 
 # Python (scanner)
 scanner/.venv/
-scanner/__pycache__/
-scanner/*.pyc
+__pycache__/
+*.pyc
+.pytest_cache/
+scanner/captures/
