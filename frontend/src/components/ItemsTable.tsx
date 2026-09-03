@@ -218,19 +218,35 @@ export default function ItemsTable({
                     </Tooltip>
                   )}
 
-                  <Tooltip
-                    content={row.margin === null ? null : `${formatKamas(row.margin)} kamas`}
-                    className={`flex items-center justify-end gap-1 tabular-nums ${
-                      row.margin === null
-                        ? 'text-slate-600'
-                        : row.margin >= 0
-                          ? 'text-emerald-400'
-                          : 'text-rose-400'
-                    }`}
-                  >
-                    <TrendIcon value={row.margin} className="size-3.5 shrink-0" />
-                    {formatPercent(row.marginRatio)}
-                  </Tooltip>
+                  {/* Même distinction qu'au coût : sans recette il n'y a rien à
+                      revendre plus cher qu'on ne l'a fabriqué, donc pas de
+                      marge — et non une marge qu'on ignorerait. */}
+                  {row.craftable ? (
+                    <Tooltip
+                      content={
+                        row.margin === null
+                          ? "Marge inconnue : il manque le prix HDV ou le coût du craft"
+                          : `${formatKamas(row.margin)} kamas`
+                      }
+                      className={`flex items-center justify-end gap-1 tabular-nums ${
+                        row.margin === null
+                          ? 'text-slate-600'
+                          : row.margin >= 0
+                            ? 'text-emerald-400'
+                            : 'text-rose-400'
+                      }`}
+                    >
+                      <TrendIcon value={row.margin} className="size-3.5 shrink-0" />
+                      {formatPercent(row.marginRatio)}
+                    </Tooltip>
+                  ) : (
+                    <Tooltip
+                      content="Cet item n'a pas de recette"
+                      className="flex items-center justify-end text-slate-700"
+                    >
+                      <Icon.none className="size-3.5" aria-hidden />
+                    </Tooltip>
+                  )}
                 </div>
               )
             })}
