@@ -5,17 +5,29 @@ qu'ils permettent de crafter, et comparer le prix d'achat au coût de fabricatio
 
 ## Architecture
 
-Pas de backend, pas de base de données, pas de compte utilisateur — et ce n'est
-pas une simplification provisoire, c'est ce que les données permettent :
+Pas de backend, pas de compte utilisateur — et ce n'est pas une simplification
+provisoire, c'est ce que les données permettent :
 
 - **Le catalogue tient dans le navigateur.** Le dump brut fait 41 Mo, mais 90 %
   du poids vient des descriptions et effets en 5 langues. Réduit au français et
   aux champs affichés, l'ensemble items + recettes tombe à **1,7 Mo (~360 Ko
   gzippés)**. Il est donc chargé une fois au démarrage, puis trier, filtrer et
   chiffrer les 17 051 items se fait en mémoire, sans un seul appel réseau.
-- **Les prix sont dans `localStorage`.** Ils sont saisis à la main, par une seule
-  personne, sur une seule machine : un service distant n'apporterait rien
-  aujourd'hui.
+- **Les prix sont partagés, dans Supabase.** Relever un prix sert à tout le
+  monde : la saisie est ouverte, sans compte. Le navigateur écrit directement
+  dans Postgres via le SDK du projet, sans serveur intermédiaire — la Row Level
+  Security tient les droits (`supabase/schema.sql`), pas un code de backend. La
+  table est en ajout seul : deux contributeurs qui relèvent le même item ne
+  s'écrasent jamais, ils empilent deux relevés.
+- **Les relevés arrivent en direct.** Un canal Realtime diffuse les ajouts et
+  les suppressions à tous les onglets ouverts : un prix saisi ailleurs apparaît
+  sans rien recharger. Le canal peut se couper sans prévenir, alors les prix
+  sont aussi resynchronisés à chaque reconnexion et au retour sur l'onglet.
+- **Le navigateur reste le cache.** Les prix courants sont gardés en
+  `localStorage` pour que la page s'affiche avant la réponse réseau, et les
+  saisies partent en écriture optimiste — l'interface ne fait jamais attendre.
+  Un envoi qui échoue est mis de côté et rejoué au retour du réseau. Sans projet
+  Supabase configuré, tout fonctionne encore, en local seul.
 - **Les icônes viennent de CDN tiers, en cascade.** Aucun asset à héberger.
   `static.ankama.com` d'abord, la source officielle vers laquelle pointe le dump ;
   puis `api.dofusdb.fr` pour les ~17 % d'`iconId` qu'Ankama ne sert pas (403
@@ -23,14 +35,17 @@ pas une simplification provisoire, c'est ce que les données permettent :
   `Referer`, d'où le `referrerPolicy="no-referrer"` dans `ItemIcon`. L'ordre des
   sources se règle en un point : `ICON_BASE_URLS` dans `scripts/build-data.mjs`.
 
-Résultat : un site 100 % statique, déployable gratuitement partout, sans quota à
-surveiller.
+Résultat : un front statique déployable gratuitement partout, et pour toute
+infrastructure une table Postgres, qui tient très largement dans l'offre
+gratuite de Supabase.
 
 ## Structure
 
 ```
 dofus_data/              Dumps bruts du jeu (source, non servie)
 netlify.toml             Configuration de déploiement
+supabase/
+  schema.sql             Table des relevés, vue des prix courants, RLS
 frontend/
   scripts/
     build-data.mjs       ../dofus_data/*.json  ->  public/data/*.json
@@ -41,7 +56,10 @@ frontend/
       craft.ts           Coût de craft et marge — métier pur, sans React
     data/
       catalog.ts         Chargement + indexation du catalogue
-      prices.ts          Journal des prix saisis, persisté dans localStorage
+      supabase.ts        Client du projet, ou null en local seul
+      prices.ts          Journal des relevés : lecture, écriture optimiste,
+                         temps réel, cache
+      priceMigration.ts  Reprise des prix saisis avant le partage
     lib/
       icons.ts           Vocabulaire d'icônes (Lucide) : un concept = une icône
     components/
@@ -62,6 +80,41 @@ Chaque item garde un journal de ses relevés de prix, du plus récent au plus
 ancien ; le prix courant est simplement le premier du journal, ce qui évite
 d'avoir à tenir un champ « prix actuel » synchronisé avec l'historique. Ressaisir
 un prix identique ne crée pas de relevé, et seuls les 50 derniers sont conservés.
+La base suit exactement ce modèle : une table en ajout seul, et une vue qui n'en
+garde que le relevé le plus récent par item.
+
+Les deux volumes n'étant pas du même ordre, ils ne se chargent pas de la même
+façon : les **prix courants** arrivent d'un bloc au démarrage (une ligne par
+item, borné par le catalogue), les **journaux** complets seulement à l'ouverture
+d'une fiche item. Un champ de prix dans une liste ne déclenche donc aucun appel.
+
+## Base de données (Supabase, gratuit)
+
+1. Créer un projet sur [supabase.com](https://supabase.com) (offre gratuite).
+2. SQL Editor → coller et exécuter `supabase/schema.sql`. Il crée la table, la
+   vue, les politiques RLS, et publie la table sur le canal Realtime.
+3. Project Settings → API Keys → relever l'URL du projet et la clé
+   **publishable** (`sb_publishable_...`).
+4. Copier `frontend/.env.example` en `frontend/.env.local` et y renseigner
+   `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+La clé publiable est publique : elle est incluse dans le bundle, et c'est normal
+— les droits sont tenus par la Row Level Security, pas par le secret de la clé.
+Sans session Supabase Auth, elle résout vers le rôle `anon`, celui que ciblent
+les politiques du schéma.
+
+La clé **secrète** (`sb_secret_...`) n'a aucune place ici : elle contourne la
+RLS, et toute variable `VITE_` finit publiée dans le bundle. Supabase la refuse
+d'ailleurs depuis un navigateur, avec un 401.
+
+Sans ces variables, l'application démarre quand même et garde les prix dans le
+navigateur, sans partage. Les prix déjà saisis en local sont remontés
+automatiquement au premier démarrage connecté ; l'opération est rejouable sans
+créer de doublons, et les clés locales ne sont jamais effacées.
+
+Un projet gratuit est mis en pause après 7 jours sans requête :
+`.github/workflows/supabase-keepalive.yml` le réveille chaque semaine. Il
+attend les secrets de dépôt `SUPABASE_URL` et `SUPABASE_PUBLISHABLE_KEY`.
 
 ## Commandes
 
@@ -86,12 +139,22 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
 3. Laisser les réglages détectés et déployer. Le site est servi sur un
    sous-domaine `*.netlify.app`.
 
-Aucune variable d'environnement n'est nécessaire.
+4. *Site configuration → Environment variables* : ajouter `VITE_SUPABASE_URL` et
+   `VITE_SUPABASE_PUBLISHABLE_KEY`. Elles sont lues au build, pas à l'exécution : les
+   modifier impose un redeploy.
 
 ## Limites connues
 
-- **Les prix sont locaux au navigateur.** Vider les données du site les efface,
-  et ils ne se synchronisent pas entre machines.
+- **La saisie est ouverte et sans modération.** N'importe qui peut relever un
+  prix, et le plus récent fait foi. C'est le prix à payer pour se passer de
+  comptes ; rien n'est détruit pour autant, la table étant en ajout seul.
+- **Un seul serveur de jeu.** Les prix HDV varient pourtant d'un serveur à
+  l'autre. La colonne `server` existe déjà en base et une seule constante la
+  porte côté client (`SERVER` dans `data/supabase.ts`) : ajouter la dimension
+  n'imposera pas de migrer les relevés déjà collectés.
+- **Le SDK pèse ~59 Ko gzippés.** Il n'entre dans le bundle que si les
+  variables d'environnement sont renseignées : sans elles, Vite les remplace par
+  `undefined` et le client Supabase est éliminé au tree-shaking.
 - **Pas d'information de métier** sur les recettes : elle est absente du dump.
 - 11 recettes sont ignorées au build, leur résultat n'existant plus dans le
   catalogue (`npm run data` les liste).

@@ -1,4 +1,4 @@
-import { isStale, usePriceLog, type PricePoint } from "../data/prices";
+import { isStale, useCurrentPrice, type PricePoint } from "../data/prices";
 import type { ItemId } from "../domain/types";
 import { formatDateTime, formatRelativeDate } from "../lib/format";
 import { Icon } from "../lib/icons";
@@ -50,8 +50,10 @@ export default function PriceField({
   layout?: "row" | "column";
   className?: string;
 }) {
-  const log = usePriceLog(itemId);
-  const latest = log[0];
+  // Seulement le dernier relevé, jamais tout le journal : ce composant est
+  // rendu sur chaque ligne des listes, et charger un historique par ligne
+  // reviendrait à des centaines d'appels pour une date affichée en 10px.
+  const latest = useCurrentPrice(itemId);
   const stale = isStale(latest);
   const tip = useTooltip(describe(latest));
 

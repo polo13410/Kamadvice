@@ -3,6 +3,8 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import NavMenu, { type NavMenuItem } from './components/NavMenu'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
+import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/prices'
+import { migrateLocalPrices } from './data/priceMigration'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
 import CarburantPage from './pages/CarburantPage'
@@ -36,7 +38,39 @@ export default function App() {
         if (controller.signal.aborted) return
         setError(cause instanceof Error ? cause.message : String(cause))
       })
-    return () => controller.abort()
+
+    // Les prix, eux, ne retiennent pas l'affichage : le cache local les montre
+    // déjà, et la version partagée les remplace dès qu'elle arrive. Une panne
+    // côté Supabase ne doit pas coûter plus qu'une fraîcheur perdue.
+    loadPrices(controller.signal).catch(() => {})
+
+    // Reprise des prix saisis avant le partage, puis des envois qui avaient
+    // échoué. Les deux sont sans effet quand il n'y a rien à remonter.
+    migrateLocalPrices()
+      .then(flushOutbox)
+      .catch(() => {})
+
+    // Les relevés des autres arrivent en direct.
+    const unwatch = watchPrices()
+
+    // Filet : une connexion Realtime coupée laisse passer des relevés sans
+    // prévenir. Le retour sur l'onglet et celui du réseau resynchronisent.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshPrices()
+    }
+    const onOnline = () => {
+      void flushOutbox()
+      refreshPrices()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+
+    return () => {
+      controller.abort()
+      unwatch()
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
   }, [])
 
   if (error) {
