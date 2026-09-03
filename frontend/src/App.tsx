@@ -31,9 +31,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const { pathname } = useLocation()
 
+  /**
+   * Le châssis ne bouge pas d'une page à l'autre : logo, recherche et liens
+   * gardent leur place, même quand le contenu, lui, change de largeur.
+   */
+  const CHROME = 'max-w-[110rem]'
+
   // Un tableau de bord aligne une quinzaine de colonnes : la largeur de
   // lecture des autres pages l'étoufferait.
-  const shell = pathname.startsWith('/dashboard') ? 'max-w-[110rem]' : 'max-w-6xl'
+  const shell = pathname.startsWith('/dashboard') ? CHROME : 'max-w-6xl'
 
   useEffect(() => {
     const controller = new AbortController()
@@ -101,7 +107,7 @@ export default function App() {
     <CatalogContext.Provider value={catalog}>
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-          <div className={`mx-auto flex ${shell} items-center gap-8 px-4 py-3`}>
+          <div className={`mx-auto flex ${CHROME} items-center gap-8 px-4 py-3`}>
             {/* Les deux flancs grandissent à parts égales : c'est ce qui pose
                 la recherche au milieu du header, et non au milieu de ce que la
                 navigation lui laisse. */}
@@ -143,7 +149,7 @@ export default function App() {
           </Routes>
         </main>
 
-        <Footer shell={shell} />
+        <Footer shell={CHROME} />
       </div>
     </CatalogContext.Provider>
   )
