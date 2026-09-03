@@ -1,17 +1,18 @@
 import { useLocation } from 'react-router-dom'
 import NotFound, { type Exit } from '../components/NotFound'
 import { Icon } from '../lib/icons'
+import { FAVORITES, SEARCH } from '../lib/pages'
 
 /** Où renvoyer quelqu'un qui s'est perdu : les trois entrées du header. */
 const EXITS: Exit[] = [
   {
-    to: '/',
+    to: FAVORITES.to,
     label: 'Mes favoris',
     description: 'Les items que je suis',
     icon: Icon.favorite,
   },
   {
-    to: '/recherche',
+    to: SEARCH.to,
     label: 'Recherche',
     description: 'Fouiller tout le catalogue',
     icon: Icon.search,

@@ -4,7 +4,7 @@
  * L'URL est l'unique source de vérité : un état React parallèle se
  * désynchroniserait du bouton « retour » et une vue filtrée ne serait pas
  * partageable. Les valeurs par défaut ne sont jamais écrites, pour que
- * `/recherche` reste `/recherche` tant qu'on n'a rien filtré.
+ * `/search` reste `/search` tant qu'on n'a rien filtré.
  */
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'

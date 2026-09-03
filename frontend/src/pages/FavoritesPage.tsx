@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Adorned, { CONTROL } from '../components/Adorned'
 import ItemsTable, {
   sortRows,
@@ -13,6 +13,7 @@ import { useFavorites } from '../data/favorites'
 import type { Catalog } from '../domain/types'
 import { normalize } from '../lib/format'
 import { Icon } from '../lib/icons'
+import { SEARCH } from '../lib/pages'
 import { defaultSortDir, type SortKey } from '../lib/itemFilters'
 
 /** Puce des items sans type : aucun type réel ne porte cet id. */
@@ -78,7 +79,7 @@ const toggle = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
 }
 
 /**
- * L'accueil : les items qu'on suit, et rien d'autre.
+ * Les items qu'on suit, et rien d'autre.
  *
  * Les filtres y sont plus légers qu'à la recherche, parce que la matière l'est
  * aussi : une poignée de lignes se dégrossit à la frappe, et les types
@@ -86,8 +87,7 @@ const toggle = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
  * de trente types dont trois donnent un résultat serait un piège.
  *
  * Le tri et les filtres restent locaux, contrairement à la recherche : une vue
- * bâtie sur des favoris propres au navigateur n'a rien à partager par l'URL, et
- * l'accueil doit rester `/`.
+ * bâtie sur des favoris propres au navigateur n'a rien à partager par l'URL.
  */
 export default function FavoritesPage() {
   const catalog = useCatalog()
@@ -263,7 +263,7 @@ export default function FavoritesPage() {
                 <p className="mt-3">Aucun favori pour l'instant.</p>
                 <p className="mt-1">
                   Cherchez un item dans la{' '}
-                  <Link to="/recherche" className="text-amber-400 hover:text-amber-300">
+                  <Link to={SEARCH.to} className="text-amber-400 hover:text-amber-300">
                     recherche
                   </Link>{' '}
                   et cliquez sur son cœur pour le suivre ici.

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import Footer from './components/Footer'
-import NavMenu, { type NavMenuItem } from './components/NavMenu'
+import NavMenu from './components/NavMenu'
 import SearchBox from './components/SearchBox'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
@@ -10,21 +10,13 @@ import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/pric
 import { migrateLocalPrices } from './data/priceMigration'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
+import { DASHBOARDS, FAVORITES, SEARCH } from './lib/pages'
 import CarburantPage from './pages/CarburantPage'
 import FavoritesPage from './pages/FavoritesPage'
+import HomePage from './pages/HomePage'
 import ItemsPage from './pages/ItemsPage'
 import ItemPage from './pages/ItemPage'
 import NotFoundPage from './pages/NotFoundPage'
-
-/** Entrées du menu « Dashboard ». À garder alignées sur les routes ci-dessous. */
-const DASHBOARDS: NavMenuItem[] = [
-  {
-    to: '/dashboard/carburant',
-    label: 'Carburant',
-    icon: Icon.fuel,
-    description: "Acheter ou crafter les extraits d'enclos",
-  },
-]
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -133,18 +125,19 @@ export default function App() {
 
             <nav className="flex flex-1 items-center justify-end gap-1">
               <NavMenu label="Dashboard" icon={Icon.dashboard} items={DASHBOARDS} />
-              <NavLink to="/" icon={Icon.favorite} label="Favoris" />
+              <NavLink to={FAVORITES.to} icon={Icon.favorite} label={FAVORITES.label} />
             </nav>
           </div>
         </header>
 
-        <main className={`mx-auto w-full ${shell} flex-1 px-4 py-6`}>
+        <main className={`mx-auto flex w-full ${shell} flex-1 flex-col px-4 py-6`}>
           <Routes>
-            <Route path="/" element={<FavoritesPage />} />
-            <Route path="/recherche" element={<ItemsPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path={FAVORITES.to} element={<FavoritesPage />} />
+            <Route path={SEARCH.to} element={<ItemsPage />} />
             <Route path="/item/:id" element={<ItemPage />} />
-            <Route path="/dashboard/carburant" element={<CarburantPage />} />
-            <Route path="/dashboard" element={<Navigate to="/dashboard/carburant" replace />} />
+            <Route path={DASHBOARDS[0]!.to} element={<CarburantPage />} />
+            <Route path="/dashboard" element={<Navigate to={DASHBOARDS[0]!.to} replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

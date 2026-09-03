@@ -4,7 +4,7 @@
  * C'est une *combobox* au sens de l'APG — un champ dont un panneau propose des
  * valeurs — et non un menu : les flèches parcourent les suggestions, Entrée
  * prend celle qui est active ou, à défaut, emmène la recherche complète sur
- * `/recherche`, qui a les filtres que ce panneau n'aura jamais.
+ * la page de recherche, qui a les filtres que ce panneau n'aura jamais.
  */
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -14,6 +14,7 @@ import type { Item } from '../domain/types'
 import { normalize } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { rememberFilters } from '../lib/itemFilters'
+import { SEARCH } from '../lib/pages'
 import ItemIcon from './ItemIcon'
 
 /** Le temps qu'on laisse à la frappe avant de balayer les 17 000 items. */
@@ -27,7 +28,7 @@ const MAX_RECENT_QUERIES = 3
 
 type Entry = { kind: 'item'; item: Item } | { kind: 'query'; query: string }
 
-/** La query string que produirait cette recherche sur `/recherche`. */
+/** La query string que produirait cette recherche sur la page de recherche. */
 const toSearch = (query: string) => `?${new URLSearchParams({ q: query })}`
 
 export default function SearchBox({ className = '' }: { className?: string }) {
@@ -120,11 +121,11 @@ export default function SearchBox({ className = '' }: { className?: string }) {
     setOpen(false)
     input.current?.blur()
     if (trimmed === '') {
-      navigate('/recherche')
+      navigate(SEARCH.to)
       return
     }
     recordQuery(trimmed)
-    navigate({ pathname: '/recherche', search: toSearch(trimmed) })
+    navigate({ pathname: SEARCH.to, search: toSearch(trimmed) })
   }
 
   function choose(entry: Entry) {

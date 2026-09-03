@@ -19,6 +19,7 @@ import type { Item } from "../domain/types";
 import { formatPercent } from "../lib/format";
 import { Icon } from "../lib/icons";
 import { rememberedFilters } from "../lib/itemFilters";
+import { FAVORITES, SEARCH } from "../lib/pages";
 
 export default function ItemPage() {
   const { id } = useParams();
@@ -431,13 +432,13 @@ function MissingItem({ id }: { id: string }) {
   const exits: Exit[] = [
     ...useBackExit(),
     {
-      to: { pathname: "/recherche", search: rememberedFilters() },
+      to: { pathname: SEARCH.to, search: rememberedFilters() },
       label: "Retour à la liste",
       description: "Mes derniers filtres de recherche",
       icon: Icon.search,
     },
     {
-      to: "/",
+      to: FAVORITES.to,
       label: "Mes favoris",
       description: "Les items que je suis",
       icon: Icon.favorite,
@@ -464,7 +465,7 @@ function MissingItem({ id }: { id: string }) {
 function BackLink() {
   return (
     <Link
-      to={{ pathname: "/recherche", search: rememberedFilters() }}
+      to={{ pathname: SEARCH.to, search: rememberedFilters() }}
       className="flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-amber-400"
     >
       <Icon.back className="size-4" aria-hidden />
