@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import ItemIcon from "../components/ItemIcon";
+import Kamas from "../components/Kamas";
 import PriceField from "../components/PriceField";
 import PriceHistory from "../components/PriceHistory";
 import { Tooltip } from "../components/Tooltip";
@@ -12,7 +13,7 @@ import { setIgnored, useIgnored } from "../data/ignored";
 import { usePrices } from "../data/prices";
 import { createEvaluator } from "../domain/craft";
 import type { Item } from "../domain/types";
-import { formatKamas, formatPercent } from "../lib/format";
+import { formatPercent } from "../lib/format";
 import { Icon } from "../lib/icons";
 import { rememberedFilters } from "../lib/itemFilters";
 
@@ -181,13 +182,17 @@ export default function ItemPage() {
                           inStock ? "text-slate-600" : "text-slate-300"
                         }`}
                       >
-                        {inStock
-                          ? "0"
-                          : formatKamas(
+                        {inStock ? (
+                          "0"
+                        ) : (
+                          <Kamas
+                            value={
                               unitPrice === null
                                 ? null
-                                : unitPrice * entry.quantity,
-                            )}
+                                : unitPrice * entry.quantity
+                            }
+                          />
+                        )}
                       </td>
                     </tr>
                   );
@@ -224,7 +229,7 @@ export default function ItemPage() {
                               value={report.margin}
                               className="size-4 shrink-0"
                             />
-                            {formatKamas(report.margin)}
+                            <Kamas value={report.margin} />
                             <span className="text-xs text-slate-500">
                               {formatPercent(report.marginRatio)}
                             </span>
@@ -234,7 +239,7 @@ export default function ItemPage() {
 
                       <FooterStat icon={Icon.craft} label="Coût du craft">
                         <span className="text-base font-medium tabular-nums text-slate-100">
-                          {formatKamas(report.craft?.cost ?? null)}
+                          <Kamas value={report.craft?.cost ?? null} />
                         </span>
                       </FooterStat>
                     </div>
@@ -319,12 +324,14 @@ export default function ItemPage() {
                         {quantity}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-300">
-                        {formatKamas(target.buy)}
+                        <Kamas value={target.buy} />
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-300">
-                        {formatKamas(
-                          target.craft?.complete ? target.craft.cost : null,
-                        )}
+                        <Kamas
+                          value={
+                            target.craft?.complete ? target.craft.cost : null
+                          }
+                        />
                       </td>
                     </tr>
                   );

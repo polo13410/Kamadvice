@@ -64,14 +64,15 @@ export interface CarburantRow {
   decision: Decision | null
   /** Gain à fabriquer plutôt qu'acheter : `buy - craft`. */
   craftMargin: number | null
-  kamasPerPoint: number | null
+  /** Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est. */
+  pointsPerKama: number | null
   maxing: MaxingEstimate[]
 }
 
 export interface CarburantGroup {
   gauge: GaugeInfo
   rows: CarburantRow[]
-  /** Ligne au meilleur ka/point de la jauge. `null` si aucune n'est chiffrée. */
+  /** Ligne au meilleur rendement de la jauge. `null` si aucune n'est chiffrée. */
   bestId: ItemId | null
 }
 
@@ -129,7 +130,7 @@ function buildRow(
     decision,
     // `report.margin` est déjà `buy - craft`, gardé sur un chiffrage complet.
     craftMargin: report.margin,
-    kamasPerPoint: unitCost === null ? null : unitCost / points,
+    pointsPerKama: unitCost === null || unitCost === 0 ? null : points / unitCost,
     maxing: gauge.targets.map((target) => estimate(target, points, unitCost)),
   }
 }
@@ -158,10 +159,10 @@ export function buildCarburantGroups(
     // Égalité de ratio : on garde le premier, donc le plus petit calibre, qui
     // laisse le moins de surplus perdu.
     let bestId: ItemId | null = null
-    let bestRatio = Infinity
+    let bestRatio = -Infinity
     for (const row of rows) {
-      if (row.kamasPerPoint === null || row.kamasPerPoint >= bestRatio) continue
-      bestRatio = row.kamasPerPoint
+      if (row.pointsPerKama === null || row.pointsPerKama <= bestRatio) continue
+      bestRatio = row.pointsPerKama
       bestId = row.item.id
     }
 

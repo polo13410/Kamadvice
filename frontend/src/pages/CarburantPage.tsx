@@ -14,6 +14,7 @@ import { Fragment, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import ItemIcon from '../components/ItemIcon'
 import PriceField from '../components/PriceField'
+import Kamas from '../components/Kamas'
 import { Tooltip } from '../components/Tooltip'
 import { SIZE_LABELS } from '../data/carburants'
 import { useCatalog } from '../data/catalogContext'
@@ -30,7 +31,7 @@ import { formatKamas, formatRatio } from '../lib/format'
 import { Icon } from '../lib/icons'
 
 /** Nombre de colonnes du tableau, pour le `colSpan` des lignes de groupe. */
-const COLUMNS = 13
+const COLUMNS = 12
 
 /**
  * Reprise de la carte de chaleur du tableur : plus l'écart est gros, plus la
@@ -99,8 +100,8 @@ export default function CarburantPage() {
           Carburants d'enclos
         </h1>
         <p className="text-sm text-slate-500">
-          Le coût retenu est le moins cher entre l'achat à l'HDV et la fabrication ; le ka/point
-          départage ensuite les calibres d'une même jauge.
+          Le coût retenu est le moins cher entre l'achat à l'HDV et la fabrication ; les
+          points/kama départagent ensuite les calibres d'une même jauge.
         </p>
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
@@ -128,24 +129,24 @@ export default function CarburantPage() {
               redistribuent les largeurs et plus rien ne s'aligne d'une jauge à
               l'autre. `min-w` garde les colonnes lisibles sur petit écran, au
               prix d'un défilement horizontal. */}
-          <table className="w-full min-w-[94rem] table-fixed text-sm">
+          <table className="w-full min-w-[95rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
                 <Th width="w-16">ID</Th>
                 <Th width="w-40" icon={Icon.size}>
                   Calibre
                 </Th>
-                <Th width="w-32" icon={Icon.price}>
+                <Th width="w-40" icon={Icon.price}>
                   Prix HDV
                 </Th>
-                <Th width="w-36" icon={Icon.recipe}>
+                <Th width="w-40" icon={Icon.recipe}>
                   Ingrédient 1
                 </Th>
-                <Th width="w-36" icon={Icon.recipe}>
+                <Th width="w-40" icon={Icon.recipe}>
                   Ingrédient 2
                 </Th>
                 <Th
-                  width="w-24"
+                  width="w-28"
                   align="right"
                   icon={Icon.craft}
                   tip="Somme des ingrédients. Vide tant qu'un prix manque."
@@ -155,14 +156,11 @@ export default function CarburantPage() {
                 <Th
                   width="w-24"
                   align="right"
-                  tip="Le moins cher entre l'achat à l'HDV et la fabrication"
+                  tip="Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est"
                 >
-                  Coût retenu
+                  Points/kama
                 </Th>
-                <Th width="w-24" align="right" tip="Coût retenu divisé par les points rendus">
-                  Ka/point
-                </Th>
-                <Th width="w-24" align="right" tip="Prix HDV moins coût du craft">
+                <Th width="w-28" align="right" tip="Prix HDV moins coût du craft">
                   Rentabilité
                 </Th>
                 <Th width="w-24" align="center">
@@ -175,7 +173,7 @@ export default function CarburantPage() {
                   Nb maxer
                 </Th>
                 <Th
-                  width="w-40"
+                  width="w-44"
                   align="right"
                   icon={Icon.target}
                   tip="Calculé sur le nombre exact d'extraits : le surplus du dernier resservira"
@@ -216,7 +214,7 @@ export default function CarburantPage() {
       <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <Icon.best className="size-3.5 shrink-0 text-amber-300" aria-hidden />
-          Meilleur ka/point de la jauge
+          Meilleur rendement de la jauge
         </span>
         <span className="flex items-center gap-1.5">
           <span className="size-3 rounded-sm bg-emerald-500/20" aria-hidden />
@@ -273,24 +271,21 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-300">
         <CraftCost row={row} />
       </td>
-      <td className="px-2 py-1.5 text-right font-medium tabular-nums text-slate-100">
-        {row.unitCost === null ? NONE : formatKamas(row.unitCost)}
-      </td>
       <td
         className={`px-2 py-1.5 text-right tabular-nums ${
           best ? 'font-medium text-amber-300' : 'text-slate-300'
         }`}
       >
-        {row.kamasPerPoint === null ? (
+        {row.pointsPerKama === null ? (
           NONE
         ) : (
           <span className="flex items-center justify-end gap-1">
             {best && (
-              <Tooltip content="Meilleur ka/point de la jauge">
+              <Tooltip content="Meilleur rendement de la jauge">
                 <Icon.best className="size-3.5 shrink-0" aria-hidden />
               </Tooltip>
             )}
-            {formatRatio(row.kamasPerPoint)}
+            {formatRatio(row.pointsPerKama)}
           </span>
         )}
       </td>
@@ -299,12 +294,10 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
           row.craftMargin === null ? '' : heat(row.craftMargin, scale)
         }`}
       >
-        {row.craftMargin === null
-          ? NONE
-          : `${row.craftMargin > 0 ? '+' : ''}${formatKamas(row.craftMargin)}`}
+        <Kamas value={row.craftMargin} signed />
       </td>
       <td className="px-2 py-1.5 text-center">
-        <Decision decision={row.decision} />
+        <Decision decision={row.decision} cost={row.unitCost} />
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">
         {row.points.toLocaleString('fr-FR')}
@@ -315,7 +308,7 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
         <Maxing maxing={row.maxing} render={(step) => step.count.toLocaleString('fr-FR')} />
       </td>
       <td className="px-2 py-1.5 align-middle">
-        <Maxing maxing={row.maxing} render={(step) => formatKamas(step.cost)} />
+        <Maxing maxing={row.maxing} render={(step) => <Kamas value={step.cost} />} />
       </td>
     </tr>
   )
@@ -349,7 +342,7 @@ function CraftCost({ row }: { row: CarburantRow }) {
           <Icon.inStock className="size-3.5 shrink-0 cursor-help text-slate-500" aria-hidden />
         </Tooltip>
       )}
-      {formatKamas(row.craft)}
+      <Kamas value={row.craft} />
     </span>
   )
 }
@@ -389,15 +382,23 @@ function Ingredient({ ingredient }: { ingredient: CarburantIngredient | undefine
   )
 }
 
-/** Pastille ACHAT / CRAFT. L'ambre du craft ne mord pas sur l'emerald des marges. */
-function Decision({ decision }: { decision: CarburantRow['decision'] }) {
+/**
+ * Pastille ACHAT / CRAFT, qui porte le coût retenu dans sa bulle : une colonne
+ * entière pour un chiffre que la décision explique déjà n'en valait pas la
+ * peine.
+ *
+ * L'ambre du craft ne mord pas sur l'emerald des marges.
+ */
+function Decision({ decision, cost }: { decision: CarburantRow['decision']; cost: number | null }) {
   if (decision === null) return NONE
 
   const craft = decision === 'craft'
   const Glyph = craft ? Icon.craft : Icon.price
+  const verb = craft ? 'Fabriquer' : "Acheter à l'HDV"
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${
+    <Tooltip
+      content={`${verb} revient à ${formatKamas(cost)} kamas l'unité`}
+      className={`inline-flex cursor-help items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${
         craft
           ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
           : 'border-slate-700 bg-slate-800 text-slate-300'
@@ -405,7 +406,7 @@ function Decision({ decision }: { decision: CarburantRow['decision'] }) {
     >
       <Glyph className="size-3 shrink-0" aria-hidden />
       {craft ? 'CRAFT' : 'ACHAT'}
-    </span>
+    </Tooltip>
   )
 }
 
@@ -418,13 +419,13 @@ function Maxing({
   render,
 }: {
   maxing: MaxingEstimate[]
-  render: (step: MaxingEstimate) => string
+  render: (step: MaxingEstimate) => ReactNode
 }) {
   if (maxing.length <= 1) {
     const only = maxing[0]
     return (
       <span className="block text-right tabular-nums text-slate-300">
-        {only ? render(only) : '—'}
+        {only ? render(only) : NONE}
       </span>
     )
   }
@@ -478,7 +479,12 @@ function Th({
   )
 
   return (
-    <th className={`px-2 py-2 font-medium ${width} ${TEXT_ALIGN[align]}`}>
+    // `sticky` sur les `th` plutôt que sur `thead` : avec `border-collapse`,
+    // seule la cellule se fige. La bordure du bas passe en ombre interne, une
+    // bordure fusionnée ne suivant pas la cellule collée.
+    <th
+      className={`sticky top-0 z-10 bg-slate-900 px-2 py-2 font-medium shadow-[inset_0_-1px_0_var(--color-slate-800)] ${width} ${TEXT_ALIGN[align]}`}
+    >
       {tip ? (
         <Tooltip
           content={tip}

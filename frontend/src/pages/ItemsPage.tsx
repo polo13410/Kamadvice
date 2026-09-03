@@ -10,6 +10,7 @@ import type { Item } from '../domain/types'
 import { formatKamas, formatPercent, normalize } from '../lib/format'
 import { defaultSortDir, rememberFilters, useFilters, type SortDir, type SortKey } from '../lib/itemFilters'
 import ItemIcon from '../components/ItemIcon'
+import Kamas from '../components/Kamas'
 import PriceField from '../components/PriceField'
 import TrendIcon from '../components/TrendIcon'
 import { Tooltip } from '../components/Tooltip'
@@ -244,7 +245,9 @@ export default function ItemsPage() {
 
                   <PriceField itemId={row.item.id} />
 
-                  <span className="text-right tabular-nums text-slate-300">{formatKamas(row.craft)}</span>
+                  <span className="flex items-center justify-end tabular-nums text-slate-300">
+                    <Kamas value={row.craft} />
+                  </span>
 
                   <Tooltip
                     content={row.margin === null ? null : `${formatKamas(row.margin)} kamas`}

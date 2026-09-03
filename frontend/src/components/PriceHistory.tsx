@@ -2,6 +2,7 @@ import { removePricePoint, usePriceLog } from '../data/prices'
 import { formatDateTime, formatKamas, formatPercent, formatRelativeDate } from '../lib/format'
 import type { ItemId } from '../domain/types'
 import { Icon } from '../lib/icons'
+import Kamas from './Kamas'
 import { Tooltip } from './Tooltip'
 import TrendIcon from './TrendIcon'
 
@@ -61,7 +62,7 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
                   )}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-slate-200">
-                  {formatKamas(point.price)}
+                  <Kamas value={point.price} />
                 </td>
                 <td
                   className={`px-3 py-2 tabular-nums ${
@@ -70,7 +71,7 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
                 >
                   <span className="flex items-center justify-end gap-1.5">
                     <TrendIcon value={delta} className="size-3.5 shrink-0" />
-                    {delta === null ? '—' : `${delta >= 0 ? '+' : '−'}${formatKamas(Math.abs(delta))}`}
+                    <Kamas value={delta} signed />
                     {ratio !== null && (
                       <span className="text-xs text-slate-500">{formatPercent(ratio)}</span>
                     )}

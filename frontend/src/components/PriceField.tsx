@@ -2,6 +2,7 @@ import { isStale, usePriceLog, type PricePoint } from "../data/prices";
 import type { ItemId } from "../domain/types";
 import { formatDateTime, formatRelativeDate } from "../lib/format";
 import { Icon } from "../lib/icons";
+import { KamaIcon } from "./Kamas";
 import PriceInput from "./PriceInput";
 import { useTooltip } from "./Tooltip";
 
@@ -55,12 +56,17 @@ export default function PriceField({
   const tip = useTooltip(describe(latest));
 
   // `shrink-0` : dans une cellule étroite, c'est la date qui cède, pas le champ.
+  // La pièce est posée après le champ, en dehors : elle dit l'unité sans
+  // rogner la place de la saisie ni se retrouver sélectionnée avec le nombre.
   const input = (
-    <PriceInput
-      itemId={itemId}
-      value={latest?.price ?? null}
-      className="shrink-0"
-    />
+    <span className="flex shrink-0 items-center gap-1">
+      <PriceInput
+        itemId={itemId}
+        value={latest?.price ?? null}
+        className="shrink-0"
+      />
+      <KamaIcon />
+    </span>
   );
   const date = (
     <span
