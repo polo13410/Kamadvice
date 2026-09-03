@@ -8,6 +8,7 @@ import ItemIcon from "../components/ItemIcon";
 import Kamas from "../components/Kamas";
 import PriceField from "../components/PriceField";
 import PriceHistory from "../components/PriceHistory";
+import ShareButton from "../components/ShareButton";
 import { Tooltip } from "../components/Tooltip";
 import TrendIcon from "../components/TrendIcon";
 import { useCatalog } from "../data/catalogContext";
@@ -69,9 +70,12 @@ export default function ItemPage() {
       <header className="flex flex-wrap items-center gap-4">
         <ItemIcon item={item} size={56} />
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-100">
+          <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold text-slate-100">
             {item.name}
             <FavoriteButton itemId={item.id} />
+            {/* Épingler et partager sont les deux gestes qu'on fait d'un item
+                sans le quitter : ils voisinent avec son nom. */}
+            <ShareButton className="ml-1 font-normal" />
           </h1>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
             <span className="flex items-center gap-1.5">

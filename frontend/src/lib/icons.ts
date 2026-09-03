@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Boxes,
+  Check,
   ChevronDown,
   ChevronsUp,
   Clock,
@@ -37,6 +38,7 @@ import {
   Ruler,
   ScrollText,
   Search,
+  Share2,
   Tag,
   Target,
   Trash2,
@@ -111,6 +113,10 @@ export const Icon = {
 
   // Actions
   delete: Trash2,
+  /** Copier le lien de la page courante. */
+  share: Share2,
+  /** Action accomplie, le temps qu'on s'en aperçoive. */
+  done: Check,
 
   // Tri
   sortAsc: ArrowUp,
