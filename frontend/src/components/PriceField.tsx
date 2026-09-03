@@ -1,10 +1,28 @@
-import { isStale, useCurrentPrice, type PricePoint } from "../data/prices";
+import {
+  freshness,
+  isStale,
+  useCurrentPrice,
+  type Freshness,
+  type PricePoint,
+} from "../data/prices";
 import type { ItemId } from "../domain/types";
 import { formatDateTime, formatRelativeDate } from "../lib/format";
 import { Icon } from "../lib/icons";
 import { KamaIcon } from "./Kamas";
 import PriceInput from "./PriceInput";
 import { useTooltip } from "./Tooltip";
+
+/**
+ * Un feu tricolore sur la date : vert dans l'heure, jaune dans la journée,
+ * orange dans la semaine, rouge au-delà. La couleur seule dit s'il faut
+ * revérifier avant de se fier au montant affiché à côté.
+ */
+const AGE_COLOR: Record<Freshness, string> = {
+  fresh: "text-slate-600",
+  recent: "text-yellow-500/80",
+  aging: "text-orange-500/80",
+  stale: "text-red-500/80",
+};
 
 /** Ce que dit la bulle de la date : quand, et s'il faut s'en méfier. */
 function describe(latest: PricePoint | undefined): string | null {
@@ -24,9 +42,9 @@ function describe(latest: PricePoint | undefined): string | null {
  * faire descendre, et un prix modifié depuis n'importe quel autre endroit de la
  * page se reflète ici immédiatement.
  *
- * La date porte aussi l'alerte de péremption : un relevé trop vieux passe en
- * orange, ce qui la signale partout où un prix se lit, sans avertissement à
- * placer vue par vue.
+ * La date porte aussi l'alerte de péremption : sa couleur suit l'âge du relevé
+ * (cf. `AGE_COLOR`), ce qui la signale partout où un prix se lit, sans
+ * avertissement à placer vue par vue.
  */
 export default function PriceField({
   itemId,
@@ -54,7 +72,7 @@ export default function PriceField({
   // rendu sur chaque ligne des listes, et charger un historique par ligne
   // reviendrait à des centaines d'appels pour une date affichée en 10px.
   const latest = useCurrentPrice(itemId);
-  const stale = isStale(latest);
+  const age = freshness(latest);
   const tip = useTooltip(describe(latest));
 
   // `shrink-0` : dans une cellule étroite, c'est la date qui cède, pas le champ.
@@ -76,7 +94,7 @@ export default function PriceField({
     <span
       {...tip.props}
       className={`flex h-3 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[10px] leading-none ${
-        stale ? "text-amber-500/80" : "text-slate-600"
+        age ? AGE_COLOR[age] : "text-slate-600"
       }`}
     >
       {latest && (

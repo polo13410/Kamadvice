@@ -66,16 +66,35 @@ const STALE_AFTER_MS = 7 * 86_400_000
 const REFRESH_EVERY_MS = 30_000
 
 /**
- * Relevé dont le prix a eu le temps de bouger sans qu'on le revérifie. Un
- * relevé sans date (repris de l'ancien format) compte comme périmé : ne rien
+ * Fraîcheur d'un relevé, du plus sûr au moins sûr. Les paliers suivent le
+ * rythme auquel un prix HDV bouge : dans l'heure il vaut encore, dans la
+ * journée il se discute, au-delà d'une semaine il ne veut plus rien dire.
+ */
+export type Freshness = 'fresh' | 'recent' | 'aging' | 'stale'
+
+const FRESHNESS_STEPS: [Freshness, number][] = [
+  ['stale', STALE_AFTER_MS],
+  ['aging', 86_400_000],
+  ['recent', 3_600_000],
+]
+
+/**
+ * Un relevé sans date (repris de l'ancien format) compte comme périmé : ne rien
  * savoir de sa fraîcheur n'est pas une raison de s'y fier.
  */
-export function isStale(point: PricePoint | undefined): boolean {
-  if (!point) return false
-  if (point.at === null) return true
+export function freshness(point: PricePoint | undefined): Freshness | null {
+  if (!point) return null
+  if (point.at === null) return 'stale'
   const at = new Date(point.at).getTime()
-  return Number.isFinite(at) && Date.now() - at > STALE_AFTER_MS
+  if (!Number.isFinite(at)) return 'stale'
+  const elapsed = Date.now() - at
+  for (const [level, since] of FRESHNESS_STEPS) if (elapsed > since) return level
+  return 'fresh'
 }
+
+/** Relevé dont le prix a eu le temps de bouger sans qu'on le revérifie. */
+export const isStale = (point: PricePoint | undefined): boolean =>
+  freshness(point) === 'stale'
 
 /** Instant d'un relevé, en millisecondes. Un relevé sans date est le plus ancien. */
 const time = (at: string | null): number => {
