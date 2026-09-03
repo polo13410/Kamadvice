@@ -5,13 +5,23 @@
  * fabriquer ? ». Volontairement pur — aucune dépendance à React ni au réseau —
  * pour rester testable et servir de socle aux vues.
  */
-import type { Catalog, ItemId, PriceMap } from './types'
+import type { Catalog, IgnoredSet, ItemId, PriceMap } from './types'
+
+const NONE_IGNORED: IgnoredSet = new Set()
 
 export interface CraftCost {
-  /** Coût de fabrication d'une unité, `null` si un prix d'ingrédient manque. */
+  /**
+   * Coût de fabrication d'une unité. Quand des prix manquent, c'est un total
+   * partiel — un plancher, meilleur qu'aucun chiffre. `null` seulement si aucun
+   * ingrédient n'a de prix : il n'y aurait alors rien à additionner.
+   */
   cost: number | null
-  /** Ingrédients sans prix saisi qui empêchent le chiffrage. Vide si `cost` est connu. */
+  /** Ingrédients sans prix saisi. Vide si le chiffrage est complet. */
   missing: ItemId[]
+  /** Ingrédients déjà en stock : comptés pour 0, ils ne manquent pas. */
+  ignored: ItemId[]
+  /** `true` si tous les ingrédients ont un prix : seul cas où `cost` est le coût réel. */
+  complete: boolean
 }
 
 export interface CraftReport {
@@ -29,34 +39,52 @@ export interface CraftReport {
  * Crée un évaluateur lié à un couple (catalogue, prix). En recréer un dès que les
  * prix changent : chiffrer les 17 000 items prend une dizaine de millisecondes.
  */
-export function createEvaluator(catalog: Catalog, prices: PriceMap) {
+export function createEvaluator(
+  catalog: Catalog,
+  prices: PriceMap,
+  ignored: IgnoredSet = NONE_IGNORED,
+) {
   const buy = (itemId: ItemId): number | null => prices.get(itemId) ?? null
 
   function craftCost(itemId: ItemId): CraftCost | null {
     const recipe = catalog.recipeFor.get(itemId)
     if (!recipe) return null
 
-    let cost: number | null = 0
+    let subtotal = 0
+    let accounted = 0
     const missing: ItemId[] = []
-    // On parcourt toute la recette même une fois le coût perdu : la liste
-    // complète des ingrédients à renseigner est plus utile que le premier trouvé.
+    const inStock: ItemId[] = []
     for (const entry of recipe.entries) {
+      if (ignored.has(entry.itemId)) {
+        inStock.push(entry.itemId)
+        accounted += 1
+        continue
+      }
+
       const unitPrice = buy(entry.itemId)
       if (unitPrice === null) {
         missing.push(entry.itemId)
-        cost = null
-      } else if (cost !== null) {
-        cost += unitPrice * entry.quantity
+      } else {
+        subtotal += unitPrice * entry.quantity
+        accounted += 1
       }
     }
 
-    return { cost, missing }
+    return {
+      cost: accounted === 0 ? null : subtotal,
+      missing,
+      ignored: inStock,
+      complete: missing.length === 0,
+    }
   }
 
   function report(itemId: ItemId): CraftReport {
     const buyPrice = buy(itemId)
     const craft = craftCost(itemId)
-    const margin = buyPrice !== null && craft?.cost != null ? buyPrice - craft.cost : null
+    // Un coût partiel donnerait une marge trop belle : on n'annonce un gain que
+    // sur un chiffrage complet.
+    const margin =
+      buyPrice !== null && craft?.complete && craft.cost !== null ? buyPrice - craft.cost : null
 
     return {
       buy: buyPrice,

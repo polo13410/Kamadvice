@@ -110,23 +110,32 @@ function commit(next: Map<ItemId, PricePoint[]>) {
 }
 
 /**
- * Enregistre un relevé de prix. `null` efface l'item, historique compris.
- * Ressaisir le prix déjà en place ne crée pas de relevé : ça ne dit rien de
- * nouveau sur le marché et ça polluerait l'historique.
+ * Enregistre un relevé de prix. Ressaisir le prix déjà en place ne crée pas de
+ * relevé : ça ne dit rien de nouveau sur le marché et ça polluerait l'historique.
  */
-export function setPrice(itemId: ItemId, price: number | null) {
+export function setPrice(itemId: ItemId, price: number) {
   const points = log.get(itemId) ?? EMPTY
-  if (price === null) {
-    if (points.length === 0) return
-    const next = new Map(log)
-    next.delete(itemId)
-    commit(next)
-    return
-  }
-
   if (points[0]?.price === price) return
+
   const next = new Map(log)
   next.set(itemId, [{ price, at: new Date().toISOString() }, ...points].slice(0, MAX_POINTS))
+  commit(next)
+}
+
+/**
+ * Supprime un relevé, désigné par son rang dans le journal. Retirer le relevé
+ * courant fait remonter le précédent ; retirer le dernier laisse l'item sans
+ * prix. C'est la seule façon d'effacer un prix : un champ vidé par mégarde ne
+ * doit pas détruire d'historique.
+ */
+export function removePricePoint(itemId: ItemId, index: number) {
+  const points = log.get(itemId)
+  if (!points || index < 0 || index >= points.length) return
+
+  const remaining = points.filter((_, rank) => rank !== index)
+  const next = new Map(log)
+  if (remaining.length === 0) next.delete(itemId)
+  else next.set(itemId, remaining)
   commit(next)
 }
 
@@ -141,6 +150,15 @@ export function usePrices(): PriceMap {
     subscribe,
     () => current,
     () => current,
+  )
+}
+
+/** Journaux de tous les items, pour juger de la fraîcheur d'un lot de prix. */
+export function usePriceLogs(): ReadonlyMap<ItemId, readonly PricePoint[]> {
+  return useSyncExternalStore(
+    subscribe,
+    () => log,
+    () => log,
   )
 }
 

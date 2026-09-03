@@ -41,3 +41,6 @@ export interface Catalog {
 
 /** Prix HDV connus, en kamas. Un item absent de la map n'a pas de prix saisi. */
 export type PriceMap = ReadonlyMap<ItemId, number>
+
+/** Items déjà en stock, dont le coût ne compte pas dans les crafts. */
+export type IgnoredSet = ReadonlySet<ItemId>

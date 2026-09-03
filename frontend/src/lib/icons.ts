@@ -22,10 +22,12 @@ import {
   LoaderCircle,
   Minus,
   Package,
+  PackageCheck,
   Scale,
   ScrollText,
   Search,
   Tag,
+  Trash2,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
@@ -51,6 +53,8 @@ export const Icon = {
   price: Coins,
   usedIn: Boxes,
   history: History,
+  /** Ingrédient déjà en stock, écarté du coût. */
+  inStock: PackageCheck,
 
   // Variations de valeur
   gain: TrendingUp,
@@ -62,6 +66,9 @@ export const Icon = {
   error: CircleAlert,
   warning: TriangleAlert,
   missingImage: ImageOff,
+
+  // Actions
+  delete: Trash2,
 
   // Tri
   sortAsc: ArrowUp,

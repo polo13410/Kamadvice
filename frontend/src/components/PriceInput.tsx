@@ -6,6 +6,9 @@ import type { ItemId } from '../domain/types'
 /**
  * Saisie d'un prix HDV. La valeur n'est validée qu'à la sortie du champ ou sur
  * Entrée : on évite ainsi de recalculer tous les coûts de craft à chaque frappe.
+ *
+ * Un champ laissé vide est une saisie abandonnée, pas un prix : elle est
+ * annulée, comme avec Échap. Effacer un prix passe par l'historique.
  */
 export default function PriceInput({
   itemId,
@@ -24,7 +27,8 @@ export default function PriceInput({
 
   const commit = () => {
     if (draft === null) return
-    setPrice(itemId, parseKamas(draft))
+    const price = parseKamas(draft)
+    if (price !== null) setPrice(itemId, price)
     setDraft(null)
   }
 

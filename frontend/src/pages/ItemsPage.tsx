@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCatalog } from '../data/catalogContext'
 import { usePrices } from '../data/prices'
+import { useIgnored } from '../data/ignored'
 import { createEvaluator } from '../domain/craft'
 import type { Item } from '../domain/types'
 import { formatKamas, formatPercent, normalize } from '../lib/format'
@@ -24,8 +25,8 @@ interface Row {
 type SortKey = 'name' | 'level' | 'buy' | 'craft' | 'margin'
 type SortDir = 'asc' | 'desc'
 
-/** Assez haut pour loger l'input de prix et sa date de relevé. */
-const ROW_HEIGHT = 56
+/** Assez haut pour loger l'input de prix, désormais sur une seule ligne. */
+const ROW_HEIGHT = 44
 
 /** Style commun des contrôles de la barre d'outils (le `pl-9` loge l'icône). */
 const CONTROL =
@@ -34,6 +35,7 @@ const CONTROL =
 export default function ItemsPage() {
   const catalog = useCatalog()
   const prices = usePrices()
+  const ignored = useIgnored()
 
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState<number | null>(null)
@@ -44,19 +46,21 @@ export default function ItemsPage() {
   // Un seul évaluateur par jeu de prix : la mémoïsation interne rend le chiffrage
   // des 17 000 items négligeable, et tout se recalcule dès qu'un prix change.
   const rows = useMemo<Row[]>(() => {
-    const evaluate = createEvaluator(catalog, prices)
+    const evaluate = createEvaluator(catalog, prices, ignored)
     return catalog.items.map((item) => {
       const report = evaluate.report(item.id)
       return {
         item,
         search: normalize(item.name),
         buy: report.buy,
-        craft: report.craft?.cost ?? null,
+        // Coût complet uniquement : un total partiel n'est pas comparable aux
+        // autres lignes, et « trier par coût » n'y répondrait plus.
+        craft: report.craft?.complete ? report.craft.cost : null,
         margin: report.margin,
         marginRatio: report.marginRatio,
       }
     })
-  }, [catalog, prices])
+  }, [catalog, prices, ignored])
 
   /** Types proposés au filtre, restreints à la catégorie sélectionnée. */
   const types = useMemo(
@@ -178,7 +182,7 @@ export default function ItemsPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-800">
-        <div className="grid grid-cols-[1fr_9rem_3.5rem_9rem_8rem_6rem] items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-400">
+        <div className="grid grid-cols-[1fr_9rem_3.5rem_16rem_8rem_6rem] items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-400">
           <SortHeader label="Item" icon={Icon.item} active={sort} sortKey="name" onClick={toggleSort} />
           <span className="flex items-center gap-1.5">
             <Icon.type className="size-3.5" aria-hidden />
@@ -219,7 +223,7 @@ export default function ItemsPage() {
               return (
                 <div
                   key={row.item.id}
-                  className="absolute inset-x-0 grid grid-cols-[1fr_9rem_3.5rem_9rem_8rem_6rem] items-center gap-3 border-b border-slate-800/60 px-3 hover:bg-slate-900/60"
+                  className="absolute inset-x-0 grid grid-cols-[1fr_9rem_3.5rem_16rem_8rem_6rem] items-center gap-3 border-b border-slate-800/60 px-3 hover:bg-slate-900/60"
                   style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
                 >
                   <Link

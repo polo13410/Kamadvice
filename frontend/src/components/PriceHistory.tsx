@@ -1,4 +1,4 @@
-import { usePriceLog } from '../data/prices'
+import { removePricePoint, usePriceLog } from '../data/prices'
 import { formatDateTime, formatKamas, formatPercent, formatRelativeDate } from '../lib/format'
 import type { ItemId } from '../domain/types'
 import { Icon } from '../lib/icons'
@@ -38,6 +38,9 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
               </span>
             </th>
             <th className="w-32 px-3 py-2 text-right font-medium">Variation</th>
+            <th className="w-10 px-3 py-2">
+              <span className="sr-only">Supprimer</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -71,6 +74,17 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
                       <span className="text-xs text-slate-500">{formatPercent(ratio)}</span>
                     )}
                   </span>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => removePricePoint(itemId, index)}
+                    title="Supprimer ce relevé"
+                    aria-label={`Supprimer le relevé de ${formatKamas(point.price)} kamas`}
+                    className="text-slate-600 hover:text-rose-400"
+                  >
+                    <Icon.delete className="size-3.5" aria-hidden />
+                  </button>
                 </td>
               </tr>
             )
