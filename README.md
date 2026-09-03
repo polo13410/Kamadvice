@@ -1,3 +1,6 @@
+[![Netlify Status](https://api.netlify.com/api/v1/badges/0dfa243e-0ecb-4b2d-b46f-7d03e13faceb/deploy-status)](https://app.netlify.com/projects/kamadvice/deploys)
+![quality](https://img.shields.io/badge/quality-trust_me_bro-brightgreen)
+
 # Kamadvice
 
 Aide à la décision pour Dofus : parcourir les items, voir leur recette et ce
