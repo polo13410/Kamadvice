@@ -16,9 +16,12 @@ import {
   ChevronsUp,
   CircleAlert,
   Coins,
+  Compass,
+  Filter,
   Fuel,
   Gauge,
   Hammer,
+  Heart,
   History,
   ImageOff,
   Layers3,
@@ -27,6 +30,7 @@ import {
   Minus,
   Package,
   PackageCheck,
+  PackageX,
   RotateCcw,
   Ruler,
   ScrollText,
@@ -54,6 +58,8 @@ export const Icon = {
   level: ChevronsUp,
   pods: Weight,
   search: Search,
+  /** Restriction posée sur une liste. */
+  filter: Filter,
 
   // Métier
   recipe: ScrollText,
@@ -61,6 +67,8 @@ export const Icon = {
   price: Coins,
   usedIn: Boxes,
   history: History,
+  /** Item épinglé par l'utilisateur. Rempli quand il l'est, vide sinon. */
+  favorite: Heart,
   /** Ingrédient déjà en stock, écarté du coût. */
   inStock: PackageCheck,
 
@@ -90,6 +98,10 @@ export const Icon = {
   error: CircleAlert,
   warning: TriangleAlert,
   missingImage: ImageOff,
+  /** Adresse qui ne mène à rien : on est perdu, pas en panne. */
+  notFound: Compass,
+  /** Identifiant d'item absent du catalogue. */
+  missingItem: PackageX,
 
   // Actions
   delete: Trash2,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 import NavMenu, { type NavMenuItem } from './components/NavMenu'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
@@ -8,8 +9,10 @@ import { migrateLocalPrices } from './data/priceMigration'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
 import CarburantPage from './pages/CarburantPage'
+import FavoritesPage from './pages/FavoritesPage'
 import ItemsPage from './pages/ItemsPage'
 import ItemPage from './pages/ItemPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 /** Entrées du menu « Dashboard ». À garder alignées sur les routes ci-dessous. */
 const DASHBOARDS: NavMenuItem[] = [
@@ -113,6 +116,8 @@ export default function App() {
               Kamadvice
             </Link>
             <nav className="flex items-center gap-1">
+              <NavLink to="/" icon={Icon.favorite} label="Favoris" />
+              <NavLink to="/recherche" icon={Icon.search} label="Recherche" />
               <NavMenu label="Dashboard" icon={Icon.dashboard} items={DASHBOARDS} />
             </nav>
             <span className="ml-auto flex items-center gap-3 text-xs text-slate-500">
@@ -130,15 +135,37 @@ export default function App() {
 
         <main className={`mx-auto w-full ${shell} flex-1 px-4 py-6`}>
           <Routes>
-            <Route path="/" element={<ItemsPage />} />
+            <Route path="/" element={<FavoritesPage />} />
+            <Route path="/recherche" element={<ItemsPage />} />
             <Route path="/item/:id" element={<ItemPage />} />
             <Route path="/dashboard/carburant" element={<CarburantPage />} />
             <Route path="/dashboard" element={<Navigate to="/dashboard/carburant" replace />} />
-            <Route path="*" element={<p className="text-slate-400">Page introuvable.</p>} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
       </div>
     </CatalogContext.Provider>
+  )
+}
+
+/**
+ * Lien du header, accordé au bouton de `NavMenu` : les deux se côtoient dans la
+ * même barre, un écart de style s'y verrait.
+ */
+function NavLink({ to, icon: Glyph, label }: { to: string; icon: LucideIcon; label: string }) {
+  const { pathname } = useLocation()
+  const current = pathname === to
+  return (
+    <Link
+      to={to}
+      aria-current={current ? 'page' : undefined}
+      className={`flex items-center gap-1.5 rounded px-2 py-1 text-sm hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+        current ? 'text-slate-100' : 'text-slate-400'
+      }`}
+    >
+      <Glyph className="size-4 shrink-0" aria-hidden />
+      {label}
+    </Link>
   )
 }
 

@@ -3,17 +3,17 @@
  *
  * L'URL est l'unique source de vérité : un état React parallèle se
  * désynchroniserait du bouton « retour » et une vue filtrée ne serait pas
- * partageable. Les valeurs par défaut ne sont jamais écrites, pour que `/`
- * reste `/` tant qu'on n'a rien filtré.
+ * partageable. Les valeurs par défaut ne sont jamais écrites, pour que
+ * `/recherche` reste `/recherche` tant qu'on n'a rien filtré.
  */
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { Catalog } from '../domain/types'
 
-export type SortKey = 'name' | 'level' | 'buy' | 'craft' | 'margin'
+export type SortKey = 'name' | 'type' | 'level' | 'buy' | 'craft' | 'margin'
 export type SortDir = 'asc' | 'desc'
 
-const SORT_KEYS: SortKey[] = ['name', 'level', 'buy', 'craft', 'margin']
+const SORT_KEYS: SortKey[] = ['name', 'type', 'level', 'buy', 'craft', 'margin']
 
 export interface Filters {
   search: string
@@ -27,7 +27,8 @@ export interface Filters {
  * Sens initial d'un tri : alphabétique par le début, chiffres par le haut —
  * « le plus rentable » est la question qu'on se pose en cliquant sur Marge.
  */
-export const defaultSortDir = (key: SortKey): SortDir => (key === 'name' ? 'asc' : 'desc')
+export const defaultSortDir = (key: SortKey): SortDir =>
+  key === 'name' || key === 'type' ? 'asc' : 'desc'
 
 const toId = (raw: string | null): number | null => {
   if (raw === null) return null

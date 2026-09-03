@@ -2,6 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
+import NotFound, { useBackExit, type Exit } from "../components/NotFound";
+import FavoriteButton from "../components/FavoriteButton";
 import ItemIcon from "../components/ItemIcon";
 import Kamas from "../components/Kamas";
 import PriceField from "../components/PriceField";
@@ -47,14 +49,7 @@ export default function ItemPage() {
       .sort((a, b) => a.result.name.localeCompare(b.result.name, "fr"));
   }, [catalog, itemId]);
 
-  if (!item) {
-    return (
-      <div className="space-y-4">
-        <BackLink />
-        <p className="text-slate-400">Item introuvable.</p>
-      </div>
-    );
-  }
+  if (!item) return <MissingItem id={id ?? ""} />;
 
   const report = evaluate.report(itemId);
   const recipe = catalog.recipeFor.get(itemId);
@@ -66,7 +61,10 @@ export default function ItemPage() {
       <header className="flex flex-wrap items-center gap-4">
         <ItemIcon item={item} size={56} />
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold text-slate-100">{item.name}</h1>
+          <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-100">
+            {item.name}
+            <FavoriteButton itemId={item.id} />
+          </h1>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
             <span className="flex items-center gap-1.5">
               <Icon.type className="size-3.5" aria-hidden />
@@ -395,21 +393,71 @@ function ItemLink({
   focusable?: boolean;
 }) {
   return (
-    <Link
-      to={`/item/${item.id}`}
-      tabIndex={focusable ? undefined : -1}
-      className="flex items-center gap-2 text-slate-200 hover:text-amber-400"
-    >
-      <ItemIcon item={item} size={24} />
-      <span className="truncate">{item.name}</span>
-    </Link>
+    <span className="flex min-w-0 items-center gap-2">
+      {/* Le cœur reste en dehors du lien : imbriqués, un clic sur l'un
+          déclencherait l'autre. */}
+      <FavoriteButton itemId={item.id} focusable={focusable} />
+      <Link
+        to={`/item/${item.id}`}
+        tabIndex={focusable ? undefined : -1}
+        className="flex min-w-0 items-center gap-2 text-slate-200 hover:text-amber-400"
+      >
+        <ItemIcon item={item} size={24} />
+        <span className="truncate">{item.name}</span>
+      </Link>
+    </span>
+  );
+}
+
+/**
+ * L'impasse propre à une fiche : l'id demandé n'est pas au catalogue.
+ *
+ * Le cas vient presque toujours d'un lien — partagé, mis en favori du
+ * navigateur, ou saisi à la main — donc l'id fautif est affiché en grand :
+ * c'est la seule information qui permette de comprendre ce qui a raté.
+ */
+function MissingItem({ id }: { id: string }) {
+  const catalog = useCatalog();
+  // Les mêmes destinations que `BackLink`, et le retour arrière quand il y a
+  // un « avant ». `rememberedFilters` se lit au rendu : les filtres changent
+  // d'une visite à l'autre.
+  const exits: Exit[] = [
+    ...useBackExit(),
+    {
+      to: { pathname: "/recherche", search: rememberedFilters() },
+      label: "Retour à la liste",
+      description: "Mes derniers filtres de recherche",
+      icon: Icon.search,
+    },
+    {
+      to: "/",
+      label: "Mes favoris",
+      description: "Les items que je suis",
+      icon: Icon.favorite,
+    },
+  ];
+
+  return (
+    <NotFound
+      code={id || "?"}
+      glyph={Icon.missingItem}
+      title="Item introuvable"
+      message={
+        <>
+          Aucun item ne porte cet identifiant parmi les{" "}
+          {catalog.items.length.toLocaleString("fr-FR")} du catalogue. Le lien
+          est peut-être tronqué, ou l'item a disparu d'une mise à jour du jeu.
+        </>
+      }
+      exits={exits}
+    />
   );
 }
 
 function BackLink() {
   return (
     <Link
-      to={{ pathname: "/", search: rememberedFilters() }}
+      to={{ pathname: "/recherche", search: rememberedFilters() }}
       className="flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-amber-400"
     >
       <Icon.back className="size-4" aria-hidden />

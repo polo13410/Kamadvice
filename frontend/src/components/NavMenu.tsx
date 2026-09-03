@@ -11,6 +11,9 @@
  * Pas de portail non plus, contrairement à `Tooltip` : le header est
  * `sticky` sans `overflow-hidden`, un panneau positionné en absolu s'en
  * échappe déjà proprement.
+ *
+ * Le survol ouvre le panneau, mais seulement à la souris : au doigt, le même
+ * événement partirait au premier appui et se battrait avec le clic.
  */
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
@@ -24,6 +27,12 @@ export interface NavMenuItem {
   /** Une ligne pour dire ce qu'on y trouve. Facultatif. */
   description?: string
 }
+
+/**
+ * Délai avant la fermeture au survol. Le panneau est décollé du bouton : sans
+ * ce sursis, traverser les quelques pixels qui les séparent le refermerait.
+ */
+const CLOSE_DELAY_MS = 150
 
 export default function NavMenu({
   label,
@@ -41,7 +50,11 @@ export default function NavMenu({
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const panelId = useId()
+  const closing = useRef<number | undefined>(undefined)
   const { pathname } = useLocation()
+
+  const cancelClose = () => window.clearTimeout(closing.current)
+  useEffect(() => cancelClose, [])
 
   const active = items.some((item) => item.to === pathname)
 
@@ -108,6 +121,16 @@ export default function NavMenu({
       // conteneur referme le panneau resté ouvert derrière.
       onBlur={(event) => {
         if (!root.current?.contains(event.relatedTarget)) setOpen(false)
+      }}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== 'mouse') return
+        cancelClose()
+        setOpen(true)
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== 'mouse') return
+        cancelClose()
+        closing.current = window.setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
       }}
     >
       <button

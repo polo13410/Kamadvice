@@ -13,9 +13,9 @@ import PriceInput from "./PriceInput";
 import { useTooltip } from "./Tooltip";
 
 /**
- * Un feu tricolore sur la date : vert dans l'heure, jaune dans la journée,
- * orange dans la semaine, rouge au-delà. La couleur seule dit s'il faut
- * revérifier avant de se fier au montant affiché à côté.
+ * L'âge du relevé, en couleur : gris dans l'heure, jaune dans la journée,
+ * orange dans la semaine, rouge au-delà. Un prix frais reste discret — la
+ * couleur n'apparaît que quand il y a lieu de revérifier avant de s'y fier.
  */
 const AGE_COLOR: Record<Freshness, string> = {
   fresh: "text-slate-600",
