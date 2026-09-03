@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import NotFound, { useBackExit, type Exit } from "../components/NotFound";
 import FavoriteButton from "../components/FavoriteButton";
@@ -13,6 +13,7 @@ import TrendIcon from "../components/TrendIcon";
 import { useCatalog } from "../data/catalogContext";
 import { setIgnored, useIgnored } from "../data/ignored";
 import { usePrices } from "../data/prices";
+import { recordItem } from "../data/recent";
 import { createEvaluator } from "../domain/craft";
 import type { Item } from "../domain/types";
 import { formatPercent } from "../lib/format";
@@ -48,6 +49,12 @@ export default function ItemPage() {
       })
       .sort((a, b) => a.result.name.localeCompare(b.result.name, "fr"));
   }, [catalog, itemId]);
+
+  // La barre de recherche propose ce qu'on vient de consulter : c'est ici que
+  // la consultation se constate, pas au clic qui y menait.
+  useEffect(() => {
+    if (item) recordItem(item.id);
+  }, [item]);
 
   if (!item) return <MissingItem id={id ?? ""} />;
 

@@ -177,7 +177,7 @@ export default function CarburantPage() {
       )}
 
       <div className="overflow-hidden rounded-lg border border-slate-800">
-        <div className="max-h-[calc(100vh-18rem)] min-h-96 overflow-auto">
+        <div className="max-h-[calc(100vh-21rem)] min-h-96 overflow-auto">
           {/* `table-fixed` : sans lui, les lignes de groupe en `colSpan`
               redistribuent les largeurs et plus rien ne s'aligne d'une jauge à
               l'autre. `min-w` garde les colonnes lisibles sur petit écran, au

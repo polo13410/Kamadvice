@@ -602,6 +602,18 @@ export function usePrices(): PriceMap {
   )
 }
 
+/**
+ * Tous les derniers relevés, prix *et* dates. Réservé à ce qui raisonne sur la
+ * fraîcheur de l'ensemble : le moteur de craft, lui, se contente de `usePrices`.
+ */
+export function useCurrentPrices(): ReadonlyMap<ItemId, PricePoint> {
+  return useSyncExternalStore(
+    subscribe,
+    () => current,
+    () => current,
+  )
+}
+
 /** Dernier relevé d'un item : le prix et sa date, sans charger tout l'historique. */
 export function useCurrentPrice(itemId: ItemId): PricePoint | undefined {
   return useSyncExternalStore(

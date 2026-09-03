@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import Footer from './components/Footer'
 import NavMenu, { type NavMenuItem } from './components/NavMenu'
+import SearchBox from './components/SearchBox'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
 import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/prices'
@@ -99,37 +101,34 @@ export default function App() {
     <CatalogContext.Provider value={catalog}>
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-          <div className={`mx-auto flex ${shell} items-center gap-4 px-4 py-3`}>
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-100 hover:text-amber-400"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}data/logo.webp`}
-                alt=""
-                aria-hidden
-                // Dimensions natives : sans elles, le titre sursaute au chargement.
-                width={96}
-                height={96}
-                className="size-7 shrink-0 select-none"
-              />
-              Kamadvice
-            </Link>
-            <nav className="flex items-center gap-1">
-              <NavLink to="/" icon={Icon.favorite} label="Favoris" />
-              <NavLink to="/recherche" icon={Icon.search} label="Recherche" />
+          <div className={`mx-auto flex ${shell} items-center gap-8 px-4 py-3`}>
+            {/* Les deux flancs grandissent à parts égales : c'est ce qui pose
+                la recherche au milieu du header, et non au milieu de ce que la
+                navigation lui laisse. */}
+            <div className="flex flex-1 items-center">
+              <Link
+                to="/"
+                className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight text-slate-100 hover:text-amber-400"
+              >
+                <img
+                  src={`${import.meta.env.BASE_URL}data/logo.webp`}
+                  alt=""
+                  aria-hidden
+                  // Dimensions natives : sans elles, le titre sursaute au chargement.
+                  width={96}
+                  height={96}
+                  className="size-7 shrink-0 select-none"
+                />
+                Kamadvice
+              </Link>
+            </div>
+
+            <SearchBox className="w-full max-w-2xl" />
+
+            <nav className="flex flex-1 items-center justify-end gap-1">
               <NavMenu label="Dashboard" icon={Icon.dashboard} items={DASHBOARDS} />
+              <NavLink to="/" icon={Icon.favorite} label="Favoris" />
             </nav>
-            <span className="ml-auto flex items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <Icon.item className="size-3.5" aria-hidden />
-                {catalog.items.length.toLocaleString('fr-FR')} items
-              </span>
-              <span className="flex items-center gap-1">
-                <Icon.recipe className="size-3.5" aria-hidden />
-                {catalog.recipeFor.size.toLocaleString('fr-FR')} recettes
-              </span>
-            </span>
           </div>
         </header>
 
@@ -143,6 +142,8 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
+
+        <Footer shell={shell} />
       </div>
     </CatalogContext.Provider>
   )

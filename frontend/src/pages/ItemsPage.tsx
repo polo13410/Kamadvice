@@ -130,7 +130,7 @@ export default function ItemsPage() {
         rows={visible}
         sort={sort}
         onSort={toggleSort}
-        height="h-[calc(100vh-19rem)] min-h-80"
+        height="h-[calc(100vh-22rem)] min-h-80"
       />
     </div>
   )

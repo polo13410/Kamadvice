@@ -254,7 +254,7 @@ export default function FavoritesPage() {
         rows={visible}
         sort={sort}
         onSort={toggleSort}
-        height="h-[calc(100vh-24rem)] min-h-80"
+        height="h-[calc(100vh-27rem)] min-h-80"
         empty={
           <div className="px-4 py-12 text-center text-sm text-slate-500">
             <Icon.favorite className="mx-auto size-8 text-slate-700" aria-hidden />

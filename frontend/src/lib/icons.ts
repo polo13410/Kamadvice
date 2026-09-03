@@ -14,7 +14,9 @@ import {
   Boxes,
   ChevronDown,
   ChevronsUp,
+  Clock,
   CircleAlert,
+  CircleSlash,
   Coins,
   Compass,
   Filter,
@@ -67,6 +69,8 @@ export const Icon = {
   price: Coins,
   usedIn: Boxes,
   history: History,
+  /** Instant d'un relevé, par opposition à son journal. */
+  time: Clock,
   /** Item épinglé par l'utilisateur. Rempli quand il l'est, vide sinon. */
   favorite: Heart,
   /** Ingrédient déjà en stock, écarté du coût. */
@@ -98,6 +102,8 @@ export const Icon = {
   error: CircleAlert,
   warning: TriangleAlert,
   missingImage: ImageOff,
+  /** Valeur sans objet : elle n'existe pas, elle n'est pas seulement inconnue. */
+  none: CircleSlash,
   /** Adresse qui ne mène à rien : on est perdu, pas en panne. */
   notFound: Compass,
   /** Identifiant d'item absent du catalogue. */

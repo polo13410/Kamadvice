@@ -27,6 +27,8 @@ export interface ItemRow {
   /** Nom normalisé, prêt pour la recherche. */
   search: string
   buy: number | null
+  /** L'item a une recette. Sans quoi son coût de craft n'est pas inconnu : il n'existe pas. */
+  craftable: boolean
   craft: number | null
   margin: number | null
   marginRatio: number | null
@@ -64,6 +66,7 @@ export function useItemRows(): ItemRow[] {
         item,
         search: normalize(item.name),
         buy: report.buy,
+        craftable: report.craft !== null,
         // Coût complet uniquement : un total partiel n'est pas comparable aux
         // autres lignes, et « trier par coût » n'y répondrait plus.
         craft: report.craft?.complete ? report.craft.cost : null,
@@ -197,9 +200,23 @@ export default function ItemsTable({
 
                   <PriceField itemId={row.item.id} />
 
-                  <span className="flex items-center justify-end tabular-nums text-slate-300">
-                    <Kamas value={row.craft} />
-                  </span>
+                  {/* Un tiret dit « on ne sait pas », ce qui serait faux d'un
+                      item qui ne se crafte pas : lui n'a pas de coût du tout. */}
+                  {row.craftable ? (
+                    <Tooltip
+                      content={row.craft === null ? "Coût inconnu : au moins un ingrédient n'a pas de prix" : null}
+                      className="flex items-center justify-end tabular-nums text-slate-300"
+                    >
+                      <Kamas value={row.craft} />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip
+                      content="Cet item n'a pas de recette"
+                      className="flex items-center justify-end text-slate-700"
+                    >
+                      <Icon.none className="size-3.5" aria-hidden />
+                    </Tooltip>
+                  )}
 
                   <Tooltip
                     content={row.margin === null ? null : `${formatKamas(row.margin)} kamas`}
