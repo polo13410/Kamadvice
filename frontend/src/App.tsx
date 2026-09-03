@@ -101,7 +101,15 @@ export default function App() {
               to="/"
               className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-100 hover:text-amber-400"
             >
-              <Icon.app className="size-5 text-amber-400" aria-hidden />
+              <img
+                src={`${import.meta.env.BASE_URL}data/logo.webp`}
+                alt=""
+                aria-hidden
+                // Dimensions natives : sans elles, le titre sursaute au chargement.
+                width={96}
+                height={96}
+                className="size-7 shrink-0 select-none"
+              />
               Kamadvice
             </Link>
             <nav className="flex items-center gap-1">

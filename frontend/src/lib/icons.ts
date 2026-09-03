@@ -29,7 +29,6 @@ import {
   PackageCheck,
   RotateCcw,
   Ruler,
-  Scale,
   ScrollText,
   Search,
   Tag,
@@ -44,8 +43,6 @@ import {
 } from 'lucide-react'
 
 export const Icon = {
-  /** Identité de l'app : peser achat contre craft. */
-  app: Scale,
   back: ArrowLeft,
   /** Ouverture d'un menu déroulant. */
   dropdown: ChevronDown,
