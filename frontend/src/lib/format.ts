@@ -13,6 +13,21 @@ const PERCENT = new Intl.NumberFormat('fr-FR', {
 export const formatPercent = (ratio: number | null): string =>
   ratio === null ? '—' : PERCENT.format(ratio)
 
+const RATIO = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
+})
+
+/**
+ * Rapport à trois décimales, en fr-FR. `—` quand la valeur est inconnue.
+ *
+ * Trois décimales et pas moins : sur le ka/point d'un carburant, l'écart utile
+ * entre deux calibres se joue au millième (0,007 contre 0,081), là où
+ * `formatKamas` les arrondirait tous les deux à 0.
+ */
+export const formatRatio = (value: number | null | undefined): string =>
+  value === null || value === undefined ? '—' : RATIO.format(value)
+
 /** Accepte « 1 250 », « 1.250 » ou « 1250 ». Retourne `null` si vide ou invalide. */
 export function parseKamas(input: string): number | null {
   const digits = input.replace(/\D/g, '')

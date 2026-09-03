@@ -2,6 +2,7 @@ import { removePricePoint, usePriceLog } from '../data/prices'
 import { formatDateTime, formatKamas, formatPercent, formatRelativeDate } from '../lib/format'
 import type { ItemId } from '../domain/types'
 import { Icon } from '../lib/icons'
+import { Tooltip } from './Tooltip'
 import TrendIcon from './TrendIcon'
 
 /**
@@ -51,8 +52,8 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
 
             return (
               <tr key={`${point.at ?? 'inconnu'}-${index}`} className="border-t border-slate-800/60">
-                <td className="px-3 py-2 text-slate-300" title={formatDateTime(point.at)}>
-                  {formatRelativeDate(point.at)}
+                <td className="px-3 py-2 text-slate-300">
+                  <Tooltip content={formatDateTime(point.at)}>{formatRelativeDate(point.at)}</Tooltip>
                   {index === 0 && (
                     <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
                       actuel
@@ -76,15 +77,16 @@ export default function PriceHistory({ itemId }: { itemId: ItemId }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => removePricePoint(itemId, index)}
-                    title="Supprimer ce relevé"
-                    aria-label={`Supprimer le relevé de ${formatKamas(point.price)} kamas`}
-                    className="text-slate-600 hover:text-rose-400"
-                  >
-                    <Icon.delete className="size-3.5" aria-hidden />
-                  </button>
+                  <Tooltip content="Supprimer ce relevé">
+                    <button
+                      type="button"
+                      onClick={() => removePricePoint(itemId, index)}
+                      aria-label={`Supprimer le relevé de ${formatKamas(point.price)} kamas`}
+                      className="text-slate-600 hover:text-rose-400"
+                    >
+                      <Icon.delete className="size-3.5" aria-hidden />
+                    </button>
+                  </Tooltip>
                 </td>
               </tr>
             )

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCatalog } from '../data/catalogContext'
@@ -8,9 +8,11 @@ import { useIgnored } from '../data/ignored'
 import { createEvaluator } from '../domain/craft'
 import type { Item } from '../domain/types'
 import { formatKamas, formatPercent, normalize } from '../lib/format'
+import { defaultSortDir, rememberFilters, useFilters, type SortDir, type SortKey } from '../lib/itemFilters'
 import ItemIcon from '../components/ItemIcon'
 import PriceField from '../components/PriceField'
 import TrendIcon from '../components/TrendIcon'
+import { Tooltip } from '../components/Tooltip'
 import { Icon } from '../lib/icons'
 
 interface Row {
@@ -21,9 +23,6 @@ interface Row {
   margin: number | null
   marginRatio: number | null
 }
-
-type SortKey = 'name' | 'level' | 'buy' | 'craft' | 'margin'
-type SortDir = 'asc' | 'desc'
 
 /** Assez haut pour loger l'input de prix, désormais sur une seule ligne. */
 const ROW_HEIGHT = 44
@@ -37,11 +36,11 @@ export default function ItemsPage() {
   const prices = usePrices()
   const ignored = useIgnored()
 
-  const [search, setSearch] = useState('')
-  const [categoryId, setCategoryId] = useState<number | null>(null)
-  const [typeId, setTypeId] = useState<number | null>(null)
-  const [craftableOnly, setCraftableOnly] = useState(false)
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'name', dir: 'asc' })
+  const [{ search, categoryId, typeId, craftableOnly, sort }, update] = useFilters(catalog)
+
+  // La fiche d'un item ramène à la liste telle qu'on l'a quittée.
+  const { search: query } = useLocation()
+  useEffect(() => rememberFilters(query), [query])
 
   // Un seul évaluateur par jeu de prix : la mémoïsation interne rend le chiffrage
   // des 17 000 items négligeable, et tout se recalcule dès qu'un prix change.
@@ -105,11 +104,12 @@ export default function ItemsPage() {
   })
 
   const toggleSort = (key: SortKey) =>
-    setSort((current) =>
-      current.key === key
-        ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: key === 'name' ? 'asc' : 'desc' },
-    )
+    update({
+      sort:
+        sort.key === key
+          ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+          : { key, dir: defaultSortDir(key) },
+    })
 
   const priced = rows.filter((row) => row.buy !== null).length
 
@@ -119,7 +119,7 @@ export default function ItemsPage() {
         <Adorned icon={Icon.search} className="min-w-56 flex-1">
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => update({ search: event.target.value }, { replace: true })}
             placeholder="Rechercher un item…"
             className={`${CONTROL} w-full`}
           />
@@ -128,10 +128,13 @@ export default function ItemsPage() {
         <Adorned icon={Icon.category}>
           <select
             value={categoryId ?? ''}
-            onChange={(event) => {
-              setCategoryId(event.target.value === '' ? null : Number(event.target.value))
-              setTypeId(null)
-            }}
+            onChange={(event) =>
+              // Changer de catégorie remet le type à zéro : l'ancien n'y existe pas.
+              update({
+                categoryId: event.target.value === '' ? null : Number(event.target.value),
+                typeId: null,
+              })
+            }
             className={CONTROL}
           >
             <option value="">Toutes catégories</option>
@@ -146,7 +149,9 @@ export default function ItemsPage() {
         <Adorned icon={Icon.type}>
           <select
             value={typeId ?? ''}
-            onChange={(event) => setTypeId(event.target.value === '' ? null : Number(event.target.value))}
+            onChange={(event) =>
+              update({ typeId: event.target.value === '' ? null : Number(event.target.value) })
+            }
             className={`${CONTROL} max-w-56`}
           >
             <option value="">Tous types</option>
@@ -162,7 +167,7 @@ export default function ItemsPage() {
           <input
             type="checkbox"
             checked={craftableOnly}
-            onChange={(event) => setCraftableOnly(event.target.checked)}
+            onChange={(event) => update({ craftableOnly: event.target.checked })}
             className="accent-amber-500"
           />
           <Icon.craft className="size-4" aria-hidden />
@@ -241,7 +246,8 @@ export default function ItemsPage() {
 
                   <span className="text-right tabular-nums text-slate-300">{formatKamas(row.craft)}</span>
 
-                  <span
+                  <Tooltip
+                    content={row.margin === null ? null : `${formatKamas(row.margin)} kamas`}
                     className={`flex items-center justify-end gap-1 tabular-nums ${
                       row.margin === null
                         ? 'text-slate-600'
@@ -249,11 +255,10 @@ export default function ItemsPage() {
                           ? 'text-emerald-400'
                           : 'text-rose-400'
                     }`}
-                    title={row.margin === null ? undefined : `${formatKamas(row.margin)} kamas`}
                   >
                     <TrendIcon value={row.margin} className="size-3.5 shrink-0" />
                     {formatPercent(row.marginRatio)}
-                  </span>
+                  </Tooltip>
                 </div>
               )
             })}

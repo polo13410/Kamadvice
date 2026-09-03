@@ -5,23 +5,21 @@ import { Link, useParams } from "react-router-dom";
 import ItemIcon from "../components/ItemIcon";
 import PriceField from "../components/PriceField";
 import PriceHistory from "../components/PriceHistory";
+import { Tooltip } from "../components/Tooltip";
 import TrendIcon from "../components/TrendIcon";
 import { useCatalog } from "../data/catalogContext";
 import { setIgnored, useIgnored } from "../data/ignored";
-import { usePriceLogs, usePrices } from "../data/prices";
+import { usePrices } from "../data/prices";
 import { createEvaluator } from "../domain/craft";
 import type { Item } from "../domain/types";
-import { formatKamas, formatPercent, formatRelativeDate } from "../lib/format";
+import { formatKamas, formatPercent } from "../lib/format";
 import { Icon } from "../lib/icons";
-
-/** Au-delà, un relevé est trop vieux pour qu'on s'y fie sans le revérifier. */
-const STALE_AFTER_MS = 7 * 86_400_000;
+import { rememberedFilters } from "../lib/itemFilters";
 
 export default function ItemPage() {
   const { id } = useParams();
   const catalog = useCatalog();
   const prices = usePrices();
-  const logs = usePriceLogs();
   const ignored = useIgnored();
 
   const itemId = Number(id);
@@ -31,31 +29,6 @@ export default function ItemPage() {
     () => createEvaluator(catalog, prices, ignored),
     [catalog, prices, ignored],
   );
-
-  /**
-   * Date du relevé le plus ancien parmi les ingrédients chiffrés, si elle
-   * dépasse le seuil de péremption. C'est ce relevé qui date le coût du craft.
-   * Les ingrédients jamais saisis ne comptent pas : ils relèvent du coût
-   * incomplet, pas de la fraîcheur. Ceux en stock non plus : leur prix ne pèse
-   * plus sur le coût.
-   */
-  const staleSince = useMemo(() => {
-    const recipe = catalog.recipeFor.get(itemId);
-    if (!recipe) return null;
-
-    let oldest: string | null = null;
-    for (const entry of recipe.entries) {
-      if (ignored.has(entry.itemId)) continue;
-      // Dates ISO en UTC : la comparaison lexicographique suffit.
-      const at = logs.get(entry.itemId)?.[0]?.at;
-      if (at && (oldest === null || at < oldest)) oldest = at;
-    }
-
-    if (oldest === null) return null;
-    return Date.now() - new Date(oldest).getTime() > STALE_AFTER_MS
-      ? oldest
-      : null;
-  }, [catalog, itemId, logs, ignored]);
 
   /** Recettes dans lesquelles cet item entre comme ingrédient. */
   const usedIn = useMemo(() => {
@@ -138,14 +111,14 @@ export default function ItemPage() {
                       Ingrédient
                     </span>
                   </th>
-                  <th
-                    className="w-28 px-3 py-2 text-center font-medium"
-                    title="Ingrédient déjà en stock : son coût n'est pas compté"
-                  >
-                    <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                  <th className="w-28 px-3 py-2 text-center font-medium">
+                    <Tooltip
+                      content="Ingrédient déjà en stock : son coût n'est pas compté"
+                      className="flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
                       <Icon.inStock className="size-3.5 shrink-0" aria-hidden />
                       En stock
-                    </span>
+                    </Tooltip>
                   </th>
                   <th className="w-16 px-3 py-2 text-right font-medium">Qté</th>
                   {/* Assez large pour loger la date du relevé à côté du champ. */}
@@ -182,19 +155,20 @@ export default function ItemPage() {
                       <td className="px-3 py-2 text-center">
                         {/* Hors tabulation : la saisie enchaîne les prix, la
                             coche se pointe à la souris. */}
-                        <input
-                          type="checkbox"
-                          checked={inStock}
-                          onChange={(event) =>
-                            setIgnored(entry.itemId, event.target.checked)
-                          }
-                          tabIndex={-1}
-                          title="Ne pas compter le coût de cet ingrédient"
-                          aria-label={`Ingrédient en stock : ${
-                            ingredient?.name ?? `item #${entry.itemId}`
-                          }`}
-                          className="size-4 cursor-pointer accent-amber-500"
-                        />
+                        <Tooltip content="Ne pas compter le coût de cet ingrédient">
+                          <input
+                            type="checkbox"
+                            checked={inStock}
+                            onChange={(event) =>
+                              setIgnored(entry.itemId, event.target.checked)
+                            }
+                            tabIndex={-1}
+                            aria-label={`Ingrédient en stock : ${
+                              ingredient?.name ?? `item #${entry.itemId}`
+                            }`}
+                            className="size-4 cursor-pointer accent-amber-500"
+                          />
+                        </Tooltip>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-400">
                         {entry.quantity}
@@ -286,13 +260,6 @@ export default function ItemPage() {
             </p>
           )}
 
-          {staleSince !== null && (
-            <p className="flex items-center gap-2 text-sm text-amber-500/80">
-              <Icon.warning className="size-4 shrink-0" aria-hidden />
-              Prix relevé {formatRelativeDate(staleSince)} : il a peut-être
-              changé depuis.
-            </p>
-          )}
         </section>
       )}
 
@@ -435,7 +402,7 @@ function ItemLink({
 function BackLink() {
   return (
     <Link
-      to="/"
+      to={{ pathname: "/", search: rememberedFilters() }}
       className="flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-amber-400"
     >
       <Icon.back className="size-4" aria-hidden />

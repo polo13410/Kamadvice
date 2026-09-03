@@ -27,6 +27,21 @@ const MAX_POINTS = 50
 
 const EMPTY: readonly PricePoint[] = []
 
+/** Au-delà, un relevé est trop vieux pour qu'on s'y fie sans le revérifier. */
+const STALE_AFTER_MS = 7 * 86_400_000
+
+/**
+ * Relevé dont le prix a eu le temps de bouger sans qu'on le revérifie. Un
+ * relevé sans date (repris de l'ancien format) compte comme périmé : ne rien
+ * savoir de sa fraîcheur n'est pas une raison de s'y fier.
+ */
+export function isStale(point: PricePoint | undefined): boolean {
+  if (!point) return false
+  if (point.at === null) return true
+  const at = new Date(point.at).getTime()
+  return Number.isFinite(at) && Date.now() - at > STALE_AFTER_MS
+}
+
 const isValidPrice = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
 
