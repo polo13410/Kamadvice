@@ -1,22 +1,32 @@
 import { useState } from 'react'
 import { useCatalog } from '../data/catalogContext'
-import type { Item } from '../domain/types'
+import type { Item, ItemId } from '../domain/types'
 import { Icon } from '../lib/icons'
 
 /**
- * Icône servie directement par le CDN d'Ankama : aucun asset à héberger.
+ * Icône d'item, servie par un CDN tiers : aucun asset à héberger.
  *
- * Quelques items retirés du jeu n'ont plus d'icône côté Ankama. On affiche alors
- * un marqueur plutôt qu'un trou : la ligne garde son alignement et l'absence est
- * explicite.
+ * Les sources de `catalog.iconBaseUrls` sont essayées dans l'ordre, chaque échec
+ * faisant passer à la suivante, jusqu'au marqueur d'absence. Ankama reste la
+ * source officielle mais ne sert pas ~17 % des iconId du dump (403 AccessDenied,
+ * une erreur XML de S3) ; DofusDB comble ces trous.
+ *
+ * `referrerPolicy="no-referrer"` n'est pas cosmétique : Ankama filtre l'en-tête
+ * `Referer` et ne répond qu'à ses propres domaines. Le navigateur envoie
+ * l'origine par défaut, ce qui vaut un 403 aussi bien depuis localhost que
+ * depuis netlify.app. Sans `Referer`, la même URL répond 200.
  */
 export default function ItemIcon({ item, size = 32 }: { item: Item; size?: number }) {
-  const { iconBaseUrl } = useCatalog()
-  // On mémorise l'item en échec, pas un simple booléen : la liste virtualisée
-  // réutilise ses composants, et un drapeau resterait collé au suivant.
-  const [failedId, setFailedId] = useState<number | null>(null)
+  const { iconBaseUrls } = useCatalog()
+  // On mémorise l'item avec la source atteinte, et pas seulement un index : la
+  // liste virtualisée réutilise ses composants, un compteur nu resterait collé
+  // à l'item suivant et lui ferait sauter des sources sans raison.
+  const [failed, setFailed] = useState<{ itemId: ItemId; source: number } | null>(null)
 
-  if (item.iconId === null || failedId === item.id) {
+  const source = failed?.itemId === item.id ? failed.source : 0
+  const baseUrl = item.iconId === null ? undefined : iconBaseUrls[source]
+
+  if (baseUrl === undefined) {
     return (
       <span
         className="flex shrink-0 items-center justify-center text-slate-700"
@@ -30,14 +40,18 @@ export default function ItemIcon({ item, size = 32 }: { item: Item; size?: numbe
 
   return (
     <img
-      src={`${iconBaseUrl}${item.iconId}.png`}
+      // Repartir sur un élément neuf à chaque source : on ne dépend pas du
+      // navigateur pour relancer un chargement sur une URL déjà en échec.
+      key={source}
+      src={`${baseUrl}${item.iconId}.png`}
       alt=""
       width={size}
       height={size}
       loading="lazy"
       decoding="async"
+      referrerPolicy="no-referrer"
       className="shrink-0 object-contain"
-      onError={() => setFailedId(item.id)}
+      onError={() => setFailed({ itemId: item.id, source: source + 1 })}
     />
   )
 }

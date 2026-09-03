@@ -30,7 +30,20 @@ const CATEGORIES = {
   5: 'Apparat',
 }
 
-const ICON_BASE_URL = 'https://static.ankama.com/dofus/www/game/items/200/'
+/**
+ * Sources d'icônes, essayées dans l'ordre par le front (voir ItemIcon).
+ *
+ * Le dump pointe vers le CDN d'Ankama, qui reste la source officielle mais ne
+ * sert pas ~17 % des iconId référencés : il répond alors 403 AccessDenied (une
+ * erreur XML de S3, pas une image), y compris sur des items actuels. DofusDB
+ * expose les mêmes icônes par iconId et comble ces trous.
+ *
+ * Ankama filtre par ailleurs l'en-tête Referer ; c'est ItemIcon qui s'en occupe.
+ */
+const ICON_BASE_URLS = [
+  'https://static.ankama.com/dofus/www/game/items/200/',
+  'https://api.dofusdb.fr/img/items/',
+]
 
 const fr = (o) => (o && typeof o === 'object' ? (o.fr ?? null) : null)
 
@@ -79,7 +92,7 @@ async function main() {
   }
 
   const meta = {
-    iconBaseUrl: ICON_BASE_URL,
+    iconBaseUrls: ICON_BASE_URLS,
     categories: CATEGORIES,
   }
 

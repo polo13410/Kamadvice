@@ -16,7 +16,12 @@ pas une simplification provisoire, c'est ce que les données permettent :
 - **Les prix sont dans `localStorage`.** Ils sont saisis à la main, par une seule
   personne, sur une seule machine : un service distant n'apporterait rien
   aujourd'hui.
-- **Les icônes viennent du CDN d'Ankama.** Aucun asset à héberger.
+- **Les icônes viennent de CDN tiers, en cascade.** Aucun asset à héberger.
+  `static.ankama.com` d'abord, la source officielle vers laquelle pointe le dump ;
+  puis `api.dofusdb.fr` pour les ~17 % d'`iconId` qu'Ankama ne sert pas (403
+  AccessDenied) ; puis un marqueur d'absence. Ankama filtre par ailleurs le
+  `Referer`, d'où le `referrerPolicy="no-referrer"` dans `ItemIcon`. L'ordre des
+  sources se règle en un point : `ICON_BASE_URLS` dans `scripts/build-data.mjs`.
 
 Résultat : un site 100 % statique, déployable gratuitement partout, sans quota à
 surveiller.

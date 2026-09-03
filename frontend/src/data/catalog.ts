@@ -9,7 +9,7 @@
 import type { Catalog, Item, ItemId, ItemType, Recipe } from '../domain/types'
 
 interface RawMeta {
-  iconBaseUrl: string
+  iconBaseUrls: string[]
   categories: Record<string, string>
 }
 
@@ -89,7 +89,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     usedIn,
     types: [...typeById.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     categories,
-    iconBaseUrl: meta.iconBaseUrl,
+    iconBaseUrls: meta.iconBaseUrls,
   }
 }
 

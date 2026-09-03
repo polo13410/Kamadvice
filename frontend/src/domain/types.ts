@@ -35,7 +35,8 @@ export interface Catalog {
   /** Types réellement présents, triés par libellé, pour alimenter les filtres. */
   types: ItemType[]
   categories: Record<number, string>
-  iconBaseUrl: string
+  /** Sources d'icônes, à essayer dans l'ordre : voir ItemIcon. */
+  iconBaseUrls: string[]
 }
 
 /** Prix HDV connus, en kamas. Un item absent de la map n'a pas de prix saisi. */
