@@ -1,0 +1,20 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA : toutes les routes inconnues retombent sur index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Les artefacts de catalogue changent seulement lors d'une MAJ Dofus (~4x/an).
+# On les sert depuis le cache tout en revalidant en arrière-plan.
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=604800"
