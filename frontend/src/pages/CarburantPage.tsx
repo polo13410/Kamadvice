@@ -10,13 +10,13 @@
  * l'écran. Pas de virtualisation non plus, pour la même raison.
  */
 import type { LucideIcon } from 'lucide-react'
-import { Fragment, useMemo, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import ItemIcon from '../components/ItemIcon'
 import PriceField from '../components/PriceField'
 import Kamas from '../components/Kamas'
 import { Tooltip } from '../components/Tooltip'
-import { SIZE_LABELS } from '../data/carburants'
+import { GAUGES, SIZE_LABELS } from '../data/carburants'
 import { useCatalog } from '../data/catalogContext'
 import { useIgnored } from '../data/ignored'
 import { usePrices } from '../data/prices'
@@ -27,6 +27,7 @@ import {
   type CarburantRow,
   type MaxingEstimate,
 } from '../domain/carburant'
+import type { ItemId } from '../domain/types'
 import { formatKamas, formatRatio } from '../lib/format'
 import { Icon } from '../lib/icons'
 
@@ -42,14 +43,14 @@ const COLUMNS = 12
  * feuille de style.
  */
 const HEAT_GAIN = [
-  'text-emerald-400/70',
   'bg-emerald-500/10 text-emerald-300',
-  'bg-emerald-500/20 text-emerald-200 font-medium',
+  'bg-emerald-500/20 text-emerald-200',
+  'bg-emerald-500/30 text-emerald-100 font-medium',
 ] as const
 const HEAT_LOSS = [
-  'text-rose-400/70',
   'bg-rose-500/10 text-rose-300',
-  'bg-rose-500/20 text-rose-200 font-medium',
+  'bg-rose-500/20 text-rose-200',
+  'bg-rose-500/30 text-rose-100 font-medium',
 ] as const
 
 /** `scale` est le plus gros écart du tableau : une seule légende suffit alors. */
@@ -61,6 +62,23 @@ function heat(value: number, scale: number): string {
 
 const NONE = <span className="tabular-nums text-slate-600">—</span>
 
+/** Libellé de jauge par clé, pour les lignes sorties de leur groupe. */
+const GAUGE_LABELS = new Map(GAUGES.map((gauge) => [gauge.key, gauge.label]))
+
+/** Colonnes triables, et le chiffre que chacune compare. */
+const SORTABLE = {
+  ratio: (row: CarburantRow) => row.pointsPerKama,
+  margin: (row: CarburantRow) => row.craftMargin,
+} as const
+
+type SortKey = keyof typeof SORTABLE
+/** Sur les deux colonnes triables, « avantageux » veut dire « élevé ». */
+type SortDir = 'best' | 'worst'
+interface Sort {
+  key: SortKey
+  dir: SortDir
+}
+
 export default function CarburantPage() {
   const catalog = useCatalog()
   const prices = usePrices()
@@ -71,8 +89,43 @@ export default function CarburantPage() {
     [catalog, prices, ignored],
   )
   const absent = useMemo(() => missingExtraits(catalog), [catalog])
+  const [sort, setSort] = useState<Sort | null>(null)
 
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups])
+
+  /** Meilleur rendement de chaque jauge : le repère survit au tri à plat. */
+  const bestIds = useMemo(
+    () => new Set(groups.map((group) => group.bestId).filter((id): id is ItemId => id !== null)),
+    [groups],
+  )
+
+  /** Premier clic : le plus avantageux d'abord. Les suivants basculent le sens. */
+  const toggleSort = (key: SortKey) =>
+    setSort((current) =>
+      current?.key === key
+        ? { key, dir: current.dir === 'best' ? 'worst' : 'best' }
+        : { key, dir: 'best' },
+    )
+
+  /**
+   * Trier casse le regroupement par jauge : les six sections laissent la place
+   * à une liste unique, et chaque ligne rappelle alors sa jauge elle-même.
+   */
+  const sorted = useMemo(() => {
+    if (sort === null) return null
+    const value = SORTABLE[sort.key]
+    const sign = sort.dir === 'best' ? -1 : 1
+    return [...rows].sort((left, right) => {
+      // Une ligne sans chiffre ne répond ni au « plus » ni au « moins » : elle
+      // reste en bas dans les deux sens.
+      const a = value(left)
+      const b = value(right)
+      if (a === null && b === null) return 0
+      if (a === null) return 1
+      if (b === null) return -1
+      return sign * (a - b)
+    })
+  }, [rows, sort])
 
   /**
    * De quoi orienter la saisie : combien de prix sont attendus (les extraits
@@ -129,7 +182,7 @@ export default function CarburantPage() {
               redistribuent les largeurs et plus rien ne s'aligne d'une jauge à
               l'autre. `min-w` garde les colonnes lisibles sur petit écran, au
               prix d'un défilement horizontal. */}
-          <table className="w-full min-w-[95rem] table-fixed text-sm">
+          <table className="w-full min-w-[98rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
                 <Th width="w-16">ID</Th>
@@ -154,13 +207,27 @@ export default function CarburantPage() {
                   Coût craft
                 </Th>
                 <Th
-                  width="w-24"
+                  width="w-28"
                   align="right"
-                  tip="Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est"
+                  tip="Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est. Cliquer pour trier."
+                  sort={{
+                    dir: sort?.key === 'ratio' ? sort.dir : null,
+                    onToggle: () => toggleSort('ratio'),
+                    onReset: () => setSort(null),
+                  }}
                 >
                   Points/kama
                 </Th>
-                <Th width="w-28" align="right" tip="Prix HDV moins coût du craft">
+                <Th
+                  width="w-32"
+                  align="right"
+                  tip="Prix HDV moins coût du craft. Cliquer pour trier."
+                  sort={{
+                    dir: sort?.key === 'margin' ? sort.dir : null,
+                    onToggle: () => toggleSort('margin'),
+                    onReset: () => setSort(null),
+                  }}
+                >
                   Rentabilité
                 </Th>
                 <Th width="w-24" align="center">
@@ -183,30 +250,44 @@ export default function CarburantPage() {
               </tr>
             </thead>
 
-            {groups.map((group) => (
-              <tbody key={group.gauge.key}>
-                <tr className="border-t border-slate-800 bg-slate-900/60">
-                  <td colSpan={COLUMNS} className="px-2 py-1.5">
-                    <span className="flex flex-wrap items-center gap-x-2 text-xs">
-                      <Icon.gauge className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                      <span className="font-medium uppercase tracking-wide text-slate-300">
-                        {group.gauge.label}
-                      </span>
-                      <span className="text-slate-500">{group.gauge.note}</span>
-                    </span>
-                  </td>
-                </tr>
-
-                {group.rows.map((row) => (
+            {sorted ? (
+              <tbody>
+                {sorted.map((row) => (
                   <Row
                     key={row.item.id}
                     row={row}
-                    best={row.item.id === group.bestId}
+                    best={bestIds.has(row.item.id)}
                     scale={scale}
+                    showGauge
                   />
                 ))}
               </tbody>
-            ))}
+            ) : (
+              groups.map((group) => (
+                <tbody key={group.gauge.key}>
+                  <tr className="border-t border-slate-800 bg-slate-900/60">
+                    <td colSpan={COLUMNS} className="px-2 py-1.5">
+                      <span className="flex flex-wrap items-center gap-x-2 text-xs">
+                        <Icon.gauge className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+                        <span className="font-medium uppercase tracking-wide text-slate-300">
+                          {group.gauge.label}
+                        </span>
+                        <span className="text-slate-500">{group.gauge.note}</span>
+                      </span>
+                    </td>
+                  </tr>
+
+                  {group.rows.map((row) => (
+                    <Row
+                      key={row.item.id}
+                      row={row}
+                      best={bestIds.has(row.item.id)}
+                      scale={scale}
+                    />
+                  ))}
+                </tbody>
+              ))
+            )}
           </table>
         </div>
       </div>
@@ -229,7 +310,18 @@ export default function CarburantPage() {
   )
 }
 
-function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: number }) {
+function Row({
+  row,
+  best,
+  scale,
+  showGauge = false,
+}: {
+  row: CarburantRow
+  best: boolean
+  scale: number
+  /** Hors regroupement, la jauge n'est plus rappelée en tête de section. */
+  showGauge?: boolean
+}) {
   // Deux emplacements fixes : toutes les recettes d'extrait tiennent en deux
   // ingrédients. Une recette plus courte laisse la cellule vide plutôt que de
   // décaler les colonnes suivantes.
@@ -249,7 +341,14 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
             className="flex min-w-0 items-center gap-2 text-slate-300 hover:text-amber-400"
           >
             <ItemIcon item={row.item} size={24} />
-            <span className="truncate">{SIZE_LABELS[row.info.size]}</span>
+            <span className="min-w-0">
+              <span className="block truncate">{SIZE_LABELS[row.info.size]}</span>
+              {showGauge && (
+                <span className="block truncate text-[10px] text-slate-500">
+                  {GAUGE_LABELS.get(row.info.gauge)}
+                </span>
+              )}
+            </span>
           </Link>
         </Tooltip>
       </td>
@@ -457,18 +556,36 @@ const JUSTIFY = {
   center: 'justify-center',
 } as const
 
-/** En-tête de colonne : icône facultative, bulle facultative pour la formule. */
+/**
+ * `sticky` sur les `th` plutôt que sur `thead` : avec `border-collapse`, seule
+ * la cellule se fige. La bordure du bas passe en ombre interne, une bordure
+ * fusionnée ne suivant pas la cellule collée.
+ */
+const TH_SHELL =
+  'sticky top-0 z-10 bg-slate-900 px-2 py-2 font-medium shadow-[inset_0_-1px_0_var(--color-slate-800)]'
+
+/**
+ * En-tête de colonne : icône facultative, bulle facultative pour la formule, et
+ * commande de tri facultative.
+ */
 function Th({
   width = '',
   align = 'left',
   icon: Glyph,
   tip,
+  sort,
   children,
 }: {
   width?: string
   align?: keyof typeof TEXT_ALIGN
   icon?: LucideIcon
   tip?: string
+  /** Rend l'en-tête cliquable. `dir` est `null` quand le tri porte ailleurs. */
+  sort?: {
+    dir: SortDir | null
+    onToggle: () => void
+    onReset: () => void
+  }
   children: ReactNode
 }) {
   const inner = (
@@ -477,25 +594,55 @@ function Th({
       {children}
     </>
   )
+  const line = `flex items-center gap-1.5 whitespace-nowrap ${JUSTIFY[align]}`
+
+  if (sort) {
+    // La flèche pointe vers le bas quand les plus avantageux sont en tête.
+    const Arrow = sort.dir === 'worst' ? Icon.sortAsc : Icon.sortDesc
+    return (
+      <th
+        aria-sort={sort.dir === 'best' ? 'descending' : sort.dir === 'worst' ? 'ascending' : 'none'}
+        className={TH_SHELL + ` ${width} ${TEXT_ALIGN[align]}`}
+      >
+        <span className={`flex items-center gap-1 ${JUSTIFY[align]}`}>
+          {sort.dir && (
+            <Tooltip content="Annuler le tri et revenir au classement par jauge">
+              <button
+                type="button"
+                onClick={sort.onReset}
+                aria-label="Annuler le tri"
+                className="flex text-slate-500 hover:text-amber-400"
+              >
+                <Icon.sortReset className="size-3" aria-hidden />
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip content={tip}>
+            <button
+              type="button"
+              onClick={sort.onToggle}
+              className={`${line} hover:text-amber-400 ${sort.dir ? 'text-amber-400' : ''}`}
+            >
+              {inner}
+              <Arrow
+                className={`size-3 shrink-0 ${sort.dir ? '' : 'text-slate-600'}`}
+                aria-hidden
+              />
+            </button>
+          </Tooltip>
+        </span>
+      </th>
+    )
+  }
 
   return (
-    // `sticky` sur les `th` plutôt que sur `thead` : avec `border-collapse`,
-    // seule la cellule se fige. La bordure du bas passe en ombre interne, une
-    // bordure fusionnée ne suivant pas la cellule collée.
-    <th
-      className={`sticky top-0 z-10 bg-slate-900 px-2 py-2 font-medium shadow-[inset_0_-1px_0_var(--color-slate-800)] ${width} ${TEXT_ALIGN[align]}`}
-    >
+    <th className={TH_SHELL + ` ${width} ${TEXT_ALIGN[align]}`}>
       {tip ? (
-        <Tooltip
-          content={tip}
-          className={`flex cursor-help items-center gap-1.5 whitespace-nowrap ${JUSTIFY[align]}`}
-        >
+        <Tooltip content={tip} className={`${line} cursor-help`}>
           {inner}
         </Tooltip>
       ) : (
-        <span className={`flex items-center gap-1.5 whitespace-nowrap ${JUSTIFY[align]}`}>
-          {inner}
-        </span>
+        <span className={line}>{inner}</span>
       )}
     </th>
   )

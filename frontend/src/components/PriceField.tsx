@@ -68,10 +68,12 @@ export default function PriceField({
       <KamaIcon />
     </span>
   );
+  // `h-3` même sans relevé : la ligne garde sa hauteur, sinon une cellule
+  // sans date remonte et les champs voisins ne s'alignent plus.
   const date = (
     <span
       {...tip.props}
-      className={`flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[10px] leading-none ${
+      className={`flex h-3 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[10px] leading-none ${
         stale ? "text-amber-500/80" : "text-slate-600"
       }`}
     >

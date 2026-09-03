@@ -27,6 +27,7 @@ import {
   Minus,
   Package,
   PackageCheck,
+  RotateCcw,
   Ruler,
   Scale,
   ScrollText,
@@ -99,4 +100,6 @@ export const Icon = {
   // Tri
   sortAsc: ArrowUp,
   sortDesc: ArrowDown,
+  /** Annuler un tri et revenir au classement par défaut. */
+  sortReset: RotateCcw,
 } as const
