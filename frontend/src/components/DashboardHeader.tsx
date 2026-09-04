@@ -30,6 +30,9 @@ export default function DashboardHeader({
   /** Ce que la page pose à droite du titre : réglage du joueur, actions. */
   children?: ReactNode
 }) {
+  // Les chiffres voisinent avec les actions, à droite du titre, comme sur la
+  // page des favoris : ils disent où en est la saisie, juste à côté de ce qui
+  // permet de la faire avancer.
   return (
     <header className="space-y-1">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -37,17 +40,17 @@ export default function DashboardHeader({
           {glyph ?? <Glyph className="size-5 shrink-0 text-amber-400" aria-hidden />}
           {title}
         </h1>
-        {children}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {stats.map((stat, index) => (
+            <span key={index} className="flex items-center gap-1.5 text-xs text-slate-500">
+              <stat.icon className="size-3.5 shrink-0" aria-hidden />
+              {stat.label}
+            </span>
+          ))}
+          {children}
+        </div>
       </div>
       <p className="text-sm text-slate-500">{description}</p>
-      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-        {stats.map((stat, index) => (
-          <span key={index} className="flex items-center gap-1.5">
-            <stat.icon className="size-3.5 shrink-0" aria-hidden />
-            {stat.label}
-          </span>
-        ))}
-      </p>
     </header>
   )
 }

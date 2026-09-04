@@ -28,7 +28,7 @@ import Kamas from '../components/Kamas'
 import NotFound from '../components/NotFound'
 import PriceField from '../components/PriceField'
 import { PriceWizardButton } from '../components/PriceWizard'
-import Th from '../components/TableHead'
+import Th, { INGREDIENT_GRID } from '../components/TableHead'
 import { Tooltip } from '../components/Tooltip'
 import { useCatalog } from '../data/catalogContext'
 import { useIgnored } from '../data/ignored'
@@ -288,23 +288,25 @@ function JobDashboard({ job }: { job: Job }) {
 
       <div className="overflow-hidden rounded-lg border border-slate-800">
         <div className="max-h-[calc(100vh-26rem)] min-h-96 overflow-auto">
-          <table className="w-full min-w-[104rem] table-fixed text-sm">
+          {/* Même logique que le tableau des carburants : colonnes chiffrées
+              serrées, « Ingrédients » sans largeur prend le reste et grandit
+              avec l'écran. */}
+          <table className="w-full min-w-[80rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
-                <Th width="w-60" icon={Icon.item} sort={sortControl('name')}>
+                <Th width="w-56" icon={Icon.item} sort={sortControl('name')}>
                   Item
                 </Th>
-                <Th width="w-36" icon={Icon.type} sort={sortControl('type')}>
+                <Th width="w-32" icon={Icon.type} sort={sortControl('type')}>
                   Type
                 </Th>
-                <Th width="w-16" align="right" sort={sortControl('level')}>
+                <Th width="w-14" align="right" sort={sortControl('level')}>
                   Niv.
                 </Th>
-                <Th width="w-40" icon={Icon.price} sort={sortControl('buy')}>
+                <Th width="w-36" icon={Icon.price} sort={sortControl('buy')}>
                   Prix HDV
                 </Th>
                 <Th
-                  width="w-[30rem]"
                   icon={Icon.recipe}
                   tip="Cliquer pour trier par nombre d'ingrédients"
                   sort={sortControl('ingredients')}
@@ -312,7 +314,7 @@ function JobDashboard({ job }: { job: Job }) {
                   Ingrédients
                 </Th>
                 <Th
-                  width="w-28"
+                  width="w-24"
                   align="right"
                   icon={Icon.craft}
                   tip="Somme des ingrédients. Vide tant qu'un prix manque."
@@ -321,7 +323,7 @@ function JobDashboard({ job }: { job: Job }) {
                   Coût craft
                 </Th>
                 <Th
-                  width="w-32"
+                  width="w-28"
                   align="right"
                   tip="Prix HDV moins coût du craft."
                   sort={sortControl('margin')}
@@ -329,14 +331,14 @@ function JobDashboard({ job }: { job: Job }) {
                   Rentabilité
                 </Th>
                 <Th
-                  width="w-24"
+                  width="w-20"
                   align="right"
                   tip="Rentabilité rapportée au coût du craft."
                   sort={sortControl('ratio')}
                 >
                   Marge
                 </Th>
-                <Th width="w-24" align="center">
+                <Th width="w-20" align="center">
                   Décision
                 </Th>
               </tr>
@@ -415,10 +417,9 @@ function Row({ row, scale }: { row: JobRow; scale: number }) {
           <PriceField itemId={row.item.id} layout="column" align="left" />
         </div>
       </td>
-      {/* Jusqu'à huit ingrédients : deux colonnes, sinon la ligne s'étire sur
-          un demi-écran. */}
+      {/* Jusqu'à huit ingrédients : autant par ligne que l'écran en loge. */}
       <td className="min-w-0 px-2 py-1.5">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+        <div className={INGREDIENT_GRID}>
           {row.ingredients.map((ingredient) => (
             <Ingredient key={ingredient.itemId} ingredient={ingredient} />
           ))}

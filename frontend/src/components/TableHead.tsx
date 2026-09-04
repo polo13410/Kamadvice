@@ -42,6 +42,16 @@ const JUSTIFY = {
 export const TH_SHELL =
   'sticky top-0 z-10 bg-slate-900 px-2 py-2 font-medium shadow-[inset_0_-1px_0_var(--color-slate-800)]'
 
+/**
+ * La cellule des ingrédients d'un tableau de bord : autant par ligne que la
+ * cellule en loge. 11 rem par ingrédient — le champ de prix (7 rem), la
+ * pièce, et un nom qui ne se tronque pas trop tôt. Un seul sur un petit
+ * écran, quatre ou cinq sur un grand : c'est la colonne « Ingrédients », sans
+ * largeur fixe, qui grandit avec l'écran.
+ */
+export const INGREDIENT_GRID =
+  'grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-4 gap-y-1.5'
+
 export default function Th({
   width = '',
   align = 'left',

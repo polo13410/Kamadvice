@@ -27,7 +27,7 @@ import ItemIcon from '../components/ItemIcon'
 import Kamas from '../components/Kamas'
 import PriceField from '../components/PriceField'
 import { PriceWizardButton } from '../components/PriceWizard'
-import Th from '../components/TableHead'
+import Th, { INGREDIENT_GRID } from '../components/TableHead'
 import { Tooltip } from '../components/Tooltip'
 import {
   capLabel,
@@ -269,17 +269,18 @@ export default function CarburantPage() {
       <div className="overflow-hidden rounded-lg border border-slate-800">
         <div className="max-h-[calc(100vh-24rem)] min-h-96 overflow-auto">
           {/* `table-fixed` : les largeurs viennent des en-têtes et ne bougent
-              pas d'une ligne à l'autre, même quand une liste d'ingrédients
-              s'allonge. `min-w` garde les colonnes lisibles sur petit écran,
-              au prix d'un défilement horizontal. */}
-          <table className="w-full min-w-[112rem] table-fixed text-sm">
+              pas d'une ligne à l'autre. Chaque colonne chiffrée est serrée sur
+              son contenu ; seule « Ingrédients » n'a pas de largeur, et prend
+              tout le reste — c'est elle qui grandit avec l'écran. Le `min-w`
+              lui garantit de quoi loger au moins un ingrédient. */}
+          <table className="w-full min-w-[86rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
                 <Th width="w-44" icon={Icon.fuel}>
                   Carburant
                 </Th>
                 <Th
-                  width="w-32"
+                  width="w-28"
                   icon={Icon.gauge}
                   tip="Jauge remplie. Cliquer pour trier par jauge, puis par niveau."
                   sort={sortControl('gauge')}
@@ -287,21 +288,19 @@ export default function CarburantPage() {
                   Catégorie
                 </Th>
                 <Th
-                  width="w-16"
+                  width="w-14"
                   align="right"
                   tip="Niveau d'Éleveur requis. Cliquer pour trier par niveau, puis par jauge."
                   sort={sortControl('level')}
                 >
                   Niv.
                 </Th>
-                <Th width="w-40" icon={Icon.price}>
+                <Th width="w-36" icon={Icon.price}>
                   Prix HDV
                 </Th>
-                <Th width="w-[26rem]" icon={Icon.recipe}>
-                  Ingrédients
-                </Th>
+                <Th icon={Icon.recipe}>Ingrédients</Th>
                 <Th
-                  width="w-28"
+                  width="w-24"
                   align="right"
                   icon={Icon.craft}
                   tip="Somme des ingrédients. Vide tant qu'un prix manque."
@@ -317,24 +316,24 @@ export default function CarburantPage() {
                   Points/kama
                 </Th>
                 <Th
-                  width="w-32"
+                  width="w-28"
                   align="right"
                   tip="Prix HDV moins coût du craft. Cliquer pour trier."
                   sort={sortControl('margin')}
                 >
                   Rentabilité
                 </Th>
-                <Th width="w-24" align="center">
+                <Th width="w-20" align="center">
                   Décision
                 </Th>
-                <Th width="w-24" align="right" icon={Icon.points} tip="Points de jauge rendus">
+                <Th width="w-20" align="right" icon={Icon.points} tip="Points de jauge rendus">
                   Points
                 </Th>
-                <Th width="w-28" align="right" icon={Icon.target} tip="Carburants à consommer">
+                <Th width="w-24" align="right" icon={Icon.target} tip="Carburants à consommer">
                   Nb maxer
                 </Th>
                 <Th
-                  width="w-44"
+                  width="w-36"
                   align="right"
                   icon={Icon.target}
                   tip="Calculé sur le nombre exact de carburants : le surplus du dernier resservira"
@@ -430,10 +429,11 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
           <PriceField itemId={row.item.id} layout="column" align="left" />
         </div>
       </td>
-      {/* De 2 à 5 ingrédients selon la famille : deux par ligne, comme sur les
-          métiers — un extrait tient sur une ligne, un élixir sur trois. */}
+      {/* De 2 à 5 ingrédients selon la famille. `auto-fill` en range autant
+          par ligne que la colonne en loge : un seul sur un petit écran, quatre
+          ou cinq sur un grand — la colonne, elle, grandit avec l'écran. */}
       <td className="min-w-0 px-2 py-1.5">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+        <div className={INGREDIENT_GRID}>
           {row.ingredients.map((ingredient) => (
             <Ingredient key={ingredient.itemId} ingredient={ingredient} />
           ))}
