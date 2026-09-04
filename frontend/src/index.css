@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 html {
   color-scheme: dark;
@@ -6,4 +6,91 @@ html {
 
 body {
   @apply bg-slate-950 text-slate-200 antialiased;
+}
+
+/*
+ * Arc-en-ciel qui tourne autour d'un élément : la touche de magie du
+ * remplissage assisté, sur son bouton et sur sa fenêtre.
+ *
+ * Deux pièces, pour deux raisons différentes :
+ *
+ * - `.rainbow-ring` : l'anneau net de 2 px. Un pseudo-élément par-dessus
+ *   l'élément, débordant de 2 px, peint d'un dégradé conique, et un masque
+ *   qui évide le centre — le contenu reste lisible et cliquable.
+ * - `.rainbow-halo` : le halo lumineux. Un *frère* posé avant l'élément dans
+ *   le DOM, donc peint dessous, flouté et sans masque : rien ne coupe le flou,
+ *   la lumière fond vers le transparent. En pseudo-élément masqué, le bord
+ *   extérieur du halo était net ; en `z-index` négatif, il passait par-dessus
+ *   le fond du parent. Le frère est la seule place où il est juste.
+ *
+ * Le parent (`.rainbow`) porte l'arrondi ; les deux pièces en héritent.
+ * `@property` rend l'angle animable ; sans lui (vieux navigateurs), les
+ * couleurs restent fixes, ce qui est encore joli.
+ */
+@property --rainbow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rainbow-spin {
+  to {
+    --rainbow-angle: 360deg;
+  }
+}
+
+.rainbow {
+  position: relative;
+}
+
+.rainbow-ring {
+  position: relative;
+}
+
+.rainbow-ring::before,
+.rainbow-halo {
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--rainbow-angle),
+    #f43f5e,
+    #f59e0b,
+    #facc15,
+    #22c55e,
+    #06b6d4,
+    #6366f1,
+    #d946ef,
+    #f43f5e
+  );
+  animation: rainbow-spin 4s linear infinite;
+}
+
+.rainbow-ring::before {
+  content: "";
+  inset: -2px;
+  padding: 2px;
+  /* Évide le centre : seule la marge (le `padding`) reste peinte. */
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.rainbow-halo {
+  inset: -4px;
+  filter: blur(14px);
+  opacity: 0.35;
+}
+
+/*
+ * Moins d'animations, pas zéro : une rotation six fois plus lente est un
+ * glissement de couleur, pas un mouvement. Windows désactive souvent les
+ * effets d'animation, on ne veut pas y perdre la magie.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-ring::before,
+  .rainbow-halo {
+    animation-duration: 7s;
+  }
 }

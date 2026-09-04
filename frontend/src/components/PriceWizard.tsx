@@ -103,15 +103,21 @@ export function PriceWizardButton({ items, className = '' }: { items: Item[]; cl
   return (
     <>
       <Tooltip content="Relever les prix de cette vue un par un, avec le nom copié à chaque étape">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          disabled={items.length === 0}
-          className={`${BUTTON} ${className}`}
-        >
-          <Icon.wizard className="size-4 shrink-0" aria-hidden />
-          Remplissage assisté
-        </button>
+        {/* Le halo est un frère peint sous le bouton ; l'enveloppe porte
+            l'arrondi dont les deux héritent. Voir `.rainbow` dans index.css. */}
+        <span className={`rainbow inline-flex rounded ${className}`}>
+          <span className="rainbow-halo" aria-hidden />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            disabled={items.length === 0}
+            // `border-transparent` : c'est l'anneau qui fait le bord, pas la bordure.
+            className={`${BUTTON} rainbow-ring border-transparent hover:border-transparent`}
+          >
+            <Icon.wizard className="size-4 shrink-0" aria-hidden />
+            Remplissage assisté
+          </button>
+        </span>
       </Tooltip>
       {open && <PriceWizard items={items} onClose={() => setOpen(false)} />}
     </>
@@ -175,7 +181,9 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
       aria-labelledby="price-wizard-title"
       className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
     >
-      <div className="flex max-h-full w-full max-w-xl flex-col rounded-lg border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60">
+      <div className="rainbow flex max-h-full w-full max-w-xl rounded-lg">
+        <span className="rainbow-halo" aria-hidden />
+        <div className="rainbow-ring flex max-h-full w-full flex-col rounded-lg bg-slate-900 shadow-2xl shadow-black/60">
         <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
           <Icon.wizard className="size-5 shrink-0 text-amber-400" aria-hidden />
           <h2 id="price-wizard-title" className="flex-1 text-base font-semibold text-slate-100">
@@ -270,6 +278,7 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
             </>
           )}
         </footer>
+        </div>
       </div>
     </div>,
     document.body,
