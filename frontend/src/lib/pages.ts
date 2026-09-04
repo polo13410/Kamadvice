@@ -6,7 +6,13 @@
  * seconde liste à penser à mettre à jour.
  */
 import type { NavMenuItem } from '../components/NavMenu'
+import type { Job } from '../domain/types'
 import { Icon } from './icons'
+
+/** La liste des métiers ; chaque métier vit sous `/job/:slug`. */
+export const JOBS_PATH = '/job'
+
+export const jobPath = (job: Job): string => `${JOBS_PATH}/${job.slug}`
 
 /** Entrées du menu « Dashboard ». À garder alignées sur les routes de `App`. */
 export const DASHBOARDS: NavMenuItem[] = [
@@ -14,7 +20,13 @@ export const DASHBOARDS: NavMenuItem[] = [
     to: '/dashboard/catalyst',
     label: 'Carburant',
     icon: Icon.fuel,
-    description: "Acheter ou crafter les extraits d'enclos",
+    description: "Acheter ou crafter les carburants d'enclos, par jauge et par niveau",
+  },
+  {
+    to: JOBS_PATH,
+    label: 'Métiers',
+    icon: Icon.job,
+    description: 'Chaque recette d’un métier face à son prix HDV',
   },
 ]
 

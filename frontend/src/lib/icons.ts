@@ -11,16 +11,22 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  ArrowUpToLine,
   Boxes,
+  Briefcase,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUp,
+  ClipboardCheck,
   Clock,
   CircleAlert,
   CircleSlash,
   Coins,
   Compass,
   Filter,
+  FlaskConical,
   Fuel,
   Gauge,
   Hammer,
@@ -39,6 +45,8 @@ import {
   ScrollText,
   Search,
   Share2,
+  SkipForward,
+  Store,
   Tag,
   Target,
   Trash2,
@@ -46,7 +54,9 @@ import {
   TrendingUp,
   TriangleAlert,
   Trophy,
+  WandSparkles,
   Weight,
+  X,
   Zap,
 } from 'lucide-react'
 
@@ -85,9 +95,15 @@ export const Icon = {
   fuel: Fuel,
   /** Jauge d'enclos à remplir : mangeoire, abreuvoir, dragofesse… */
   gauge: Gauge,
-  /** Calibre d'un extrait, du minuscule au gigantesque. */
+  /** Calibre d'un carburant, du minuscule au gigantesque. */
   size: Ruler,
-  /** Points de jauge rendus par un extrait. */
+  /** Famille d'un carburant : extrait, philtre, potion, élixir. */
+  family: FlaskConical,
+  /** Plafond de jauge au-delà duquel un carburant ne remplit plus. */
+  cap: ArrowUpToLine,
+  /** Un métier du joueur, et son niveau. */
+  job: Briefcase,
+  /** Points de jauge rendus par un carburant. */
   points: Zap,
   /** Palier de jauge à atteindre pour maxer. */
   target: Target,
@@ -117,6 +133,21 @@ export const Icon = {
   share: Share2,
   /** Action accomplie, le temps qu'on s'en aperçoive. */
   done: Check,
+  /** Fermer une fenêtre. */
+  close: X,
+
+  // Remplissage assisté des prix
+  /** L'assistant lui-même : il fait le tour des prix pour vous. */
+  wizard: WandSparkles,
+  /** Un hôtel de vente, là où on relève les prix. */
+  hdv: Store,
+  /** Étape précédente / suivante. */
+  previous: ChevronLeft,
+  next: ChevronRight,
+  /** Passer un prix sans le saisir. */
+  skip: SkipForward,
+  /** Nom copié dans le presse-papiers. */
+  copied: ClipboardCheck,
 
   // Tri
   sortAsc: ArrowUp,

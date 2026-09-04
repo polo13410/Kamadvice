@@ -46,6 +46,8 @@ gratuite de Supabase.
 
 ```
 dofus_data/              Dumps bruts du jeu (source, non servie)
+  items.json             MAPPED_ITEMS de dofusdude/dofus3-main
+  recipes.json, jobs.json  Assets bruts (dumps Unity) : seuls à porter le jobId
 netlify.toml             Configuration de déploiement
 supabase/
   schema.sql             Table des relevés, vue des prix courants, RLS
@@ -57,21 +59,44 @@ frontend/
     domain/
       types.ts           Types du catalogue
       craft.ts           Coût de craft et marge — métier pur, sans React
+      carburant.ts       Lignes du tableau de bord des carburants, meilleur
+                         rendement par jauge
     data/
       catalog.ts         Chargement + indexation du catalogue
+      carburants.ts      Connaissance de jeu : jauges, familles, calibres,
+                         paliers — et lecture d'un carburant depuis ses effets
+      hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
+                         relève chaque item
       supabase.ts        Client du projet, ou null en local seul
       prices.ts          Journal des relevés : lecture, écriture optimiste,
                          temps réel, cache
       priceMigration.ts  Reprise des prix saisis avant le partage
     lib/
       icons.ts           Vocabulaire d'icônes (Lucide) : un concept = une icône
+      heat.ts            Carte de chaleur d'une colonne de gains / pertes
+      range.ts           Fourchette min/max d'un filtre, lue et écrite dans l'URL
+      carburantFilters.ts  Filtres et tri du tableau de bord, portés par l'URL
     components/
       PriceField.tsx     Saisie d'un prix + date du dernier relevé
       PriceHistory.tsx   Journal des relevés d'un item, avec variations
+      PriceWizard.tsx    Remplissage assisté : les prix d'une vue un par un,
+                         par HDV, nom copié à chaque étape
       TrendIcon.tsx      Flèche de tendance : hausse, baisse, stable, inconnu
+      CopyOnAltClick.tsx Alt+clic sur un item (`data-item-name`) copie son nom
+      JobIcon.tsx        Icône d'un métier via CDN (DofusDB), pictogramme en repli
+      DashboardHeader.tsx  Titre, méthode et chiffres d'un tableau de bord
+      Adorned.tsx        Convention de taille des contrôles (FIELD, CONTROL,
+                         FIELD_TABLE, BUTTON) + champ à icône
+      FilterBar.tsx      Barre de filtres : mot-clé, puces, fourchette, coche
+                         (champs texte appliqués après 500 ms de silence)
+      TableHead.tsx      En-tête de colonne triable, avec bulle
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
+      CarburantPage.tsx  Tableau de bord des 120 carburants d'enclos
+      JobsPage.tsx       Les métiers producteurs, en cartes
+      JobPage.tsx        Tableau de bord d'un métier : ses recettes face à l'HDV,
+                         filtrées par niveau, type, coûts, ingrédients
 ```
 
 `src/domain/craft.ts` est le cœur métier : pour un item, il donne le prix

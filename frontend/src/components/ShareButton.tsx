@@ -6,6 +6,7 @@
  * aucune règle de construction à tenir à jour quand les routes bougent.
  */
 import { useEffect, useRef, useState } from 'react'
+import { copyText } from '../lib/clipboard'
 import { Icon } from '../lib/icons'
 import { useTooltip } from './Tooltip'
 
@@ -29,14 +30,7 @@ export default function ShareButton({ className = '' }: { className?: string }) 
 
   async function copy() {
     window.clearTimeout(timer.current)
-    const url = window.location.href
-    let copied = false
-    try {
-      await navigator.clipboard.writeText(url)
-      copied = true
-    } catch {
-      copied = legacyCopy(url)
-    }
+    const copied = await copyText(window.location.href)
     setState(copied ? 'done' : 'failed')
     timer.current = window.setTimeout(() => setState('idle'), CONFIRM_MS)
   }
@@ -62,26 +56,4 @@ export default function ShareButton({ className = '' }: { className?: string }) 
       {tip.tooltip}
     </button>
   )
-}
-
-/**
- * Le presse-papier moderne exige un contexte sécurisé : sur un serveur local
- * servi en http, il n'existe tout simplement pas. La vieille méthode, elle,
- * répond encore — et un champ hors écran ne dérange personne le temps du clic.
- */
-function legacyCopy(text: string): boolean {
-  const field = document.createElement('textarea')
-  field.value = text
-  field.setAttribute('readonly', '')
-  field.style.position = 'fixed'
-  field.style.top = '-100vh'
-  document.body.append(field)
-  field.select()
-  try {
-    return document.execCommand('copy')
-  } catch {
-    return false
-  } finally {
-    field.remove()
-  }
 }

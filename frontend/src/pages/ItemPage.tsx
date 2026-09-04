@@ -71,7 +71,9 @@ export default function ItemPage() {
         <ItemIcon item={item} size={56} />
         <div className="min-w-0 flex-1">
           <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold text-slate-100">
-            {item.name}
+            {/* Le nom seul porte le raccourci de copie : posé sur le titre
+                entier, Alt+clic sur le cœur copierait au lieu d'épingler. */}
+            <span data-item-name={item.name}>{item.name}</span>
             <FavoriteButton itemId={item.id} />
             {/* Épingler et partager sont les deux gestes qu'on fait d'un item
                 sans le quitter : ils voisinent avec son nom. */}
@@ -412,6 +414,7 @@ function ItemLink({
       <Link
         to={`/item/${item.id}`}
         tabIndex={focusable ? undefined : -1}
+        data-item-name={item.name}
         className="flex min-w-0 items-center gap-2 text-slate-200 hover:text-amber-400"
       >
         <ItemIcon item={item} size={24} />

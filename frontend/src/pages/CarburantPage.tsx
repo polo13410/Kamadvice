@@ -1,205 +1,306 @@
 /**
  * Tableau de bord des carburants d'enclos.
  *
- * Une ligne par extrait, avec les prix — le sien et ceux de ses deux
- * ingrédients — saisissables sur place : tout ce qui en découle (coût de
- * craft, décision, ka/point, coût pour maxer) se recalcule à la frappe.
+ * Une ligne par carburant, avec les prix — le sien et ceux de ses ingrédients —
+ * saisissables sur place : tout ce qui en découle (coût de craft, décision,
+ * ka/point, coût pour maxer) se recalcule à la frappe.
  *
- * Ni tri ni filtres, volontairement : l'ordre par jauge puis par calibre
- * croissant *est* l'ordre de lecture utile, et trente lignes tiennent à
- * l'écran. Pas de virtualisation non plus, pour la même raison.
+ * 120 carburants ne tiennent pas à l'écran : les filtres se cumulent (jauge,
+ * famille, calibre, niveau du joueur, meilleur rendement) et le tri fait
+ * l'ordre de lecture. Pas de virtualisation : sous filtre on affiche rarement
+ * plus de trente lignes, et les champs de prix supportent mal d'être
+ * démontés en plein défilement.
  */
-import type { LucideIcon } from 'lucide-react'
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import DashboardHeader from '../components/DashboardHeader'
+import {
+  FilterBar,
+  FilterChips,
+  FilterDivider,
+  FilterRange,
+  FilterReset,
+  FilterSearch,
+  FilterToggle,
+} from '../components/FilterBar'
 import ItemIcon from '../components/ItemIcon'
-import PriceField from '../components/PriceField'
 import Kamas from '../components/Kamas'
+import PriceField from '../components/PriceField'
+import { PriceWizardButton } from '../components/PriceWizard'
+import Th, { INGREDIENT_GRID } from '../components/TableHead'
 import { Tooltip } from '../components/Tooltip'
-import { GAUGES, SIZE_LABELS } from '../data/carburants'
+import {
+  capLabel,
+  carburantLabel,
+  FAMILIES,
+  GAUGE_INFO,
+  GAUGES_ALPHA,
+  SIZE_LABELS,
+  SIZES,
+} from '../data/carburants'
 import { useCatalog } from '../data/catalogContext'
 import { useIgnored } from '../data/ignored'
 import { usePrices } from '../data/prices'
 import {
-  buildCarburantGroups,
-  missingExtraits,
+  bestPerGauge,
+  buildCarburantRows,
+  unknownCarburants,
   type CarburantIngredient,
   type CarburantRow,
   type MaxingEstimate,
 } from '../domain/carburant'
-import type { ItemId } from '../domain/types'
-import { formatKamas, formatRatio } from '../lib/format'
+import {
+  defaultSortDir,
+  isFiltering,
+  NO_FILTERS,
+  useCarburantFilters,
+  type CarburantFilters,
+  type CarburantSortKey,
+} from '../lib/carburantFilters'
+import { formatKamas, formatRatio, normalize } from '../lib/format'
+import { heat, heatScale } from '../lib/heat'
 import { Icon } from '../lib/icons'
-
-/** Nombre de colonnes du tableau, pour le `colSpan` des lignes de groupe. */
-const COLUMNS = 12
-
-/**
- * Reprise de la carte de chaleur du tableur : plus l'écart est gros, plus la
- * cellule est teintée.
- *
- * Les paliers sont des classes littérales — Tailwind ne génère que ce qu'il lit
- * dans le source, une classe assemblée à la volée n'existerait jamais dans la
- * feuille de style.
- */
-const HEAT_GAIN = [
-  'bg-emerald-500/10 text-emerald-300',
-  'bg-emerald-500/20 text-emerald-200',
-  'bg-emerald-500/30 text-emerald-100 font-medium',
-] as const
-const HEAT_LOSS = [
-  'bg-rose-500/10 text-rose-300',
-  'bg-rose-500/20 text-rose-200',
-  'bg-rose-500/30 text-rose-100 font-medium',
-] as const
-
-/** `scale` est le plus gros écart du tableau : une seule légende suffit alors. */
-function heat(value: number, scale: number): string {
-  const ladder = value >= 0 ? HEAT_GAIN : HEAT_LOSS
-  const share = scale <= 0 ? 0 : Math.abs(value) / scale
-  return share >= 2 / 3 ? ladder[2] : share >= 1 / 3 ? ladder[1] : ladder[0]
-}
+import { within } from '../lib/range'
 
 const NONE = <span className="tabular-nums text-slate-600">—</span>
 
-/** Libellé de jauge par clé, pour les lignes sorties de leur groupe. */
-const GAUGE_LABELS = new Map(GAUGES.map((gauge) => [gauge.key, gauge.label]))
+/** Rang de chaque jauge dans l'ordre alphabétique, second critère des tris. */
+const GAUGE_RANK = new Map(GAUGES_ALPHA.map((gauge, index) => [gauge.key, index]))
 
-/** Colonnes triables, et le chiffre que chacune compare. */
-const SORTABLE = {
-  ratio: (row: CarburantRow) => row.pointsPerKama,
-  margin: (row: CarburantRow) => row.craftMargin,
-} as const
+const GAUGE_OPTIONS = GAUGES_ALPHA.map((gauge) => ({ value: gauge.key, label: gauge.label }))
+const FAMILY_OPTIONS = FAMILIES.map((family) => ({ value: family.key, label: family.label }))
+const SIZE_OPTIONS = SIZES.map((size) => ({ value: size, label: SIZE_LABELS[size] }))
 
-type SortKey = keyof typeof SORTABLE
-/** Sur les deux colonnes triables, « avantageux » veut dire « élevé ». */
-type SortDir = 'best' | 'worst'
-interface Sort {
-  key: SortKey
-  dir: SortDir
+/**
+ * Compare deux lignes selon le tri demandé.
+ *
+ * Le second critère ne suit pas le sens du tri : inverser « par jauge » renverse
+ * les jauges, pas l'ordre des calibres à l'intérieur d'une jauge, qui reste le
+ * plus lisible du petit au grand.
+ */
+function compare(a: CarburantRow, b: CarburantRow, sort: CarburantFilters['sort']): number {
+  const sign = sort.dir === 'asc' ? 1 : -1
+  const byGauge = (GAUGE_RANK.get(a.gauge) ?? 0) - (GAUGE_RANK.get(b.gauge) ?? 0)
+  const byLevel = a.level - b.level
+
+  if (sort.key === 'gauge') return sign * byGauge || byLevel
+  if (sort.key === 'level') return sign * byLevel || byGauge
+
+  // Une ligne sans chiffre ne répond ni au « plus » ni au « moins » : elle
+  // reste en bas dans les deux sens.
+  const left = sort.key === 'ratio' ? a.pointsPerKama : a.craftMargin
+  const right = sort.key === 'ratio' ? b.pointsPerKama : b.craftMargin
+  if (left === null && right === null) return byGauge || byLevel
+  if (left === null) return 1
+  if (right === null) return -1
+  return sign * (left - right) || byGauge || byLevel
 }
 
 export default function CarburantPage() {
   const catalog = useCatalog()
   const prices = usePrices()
   const ignored = useIgnored()
+  const [filters, update] = useCarburantFilters()
 
-  const groups = useMemo(
-    () => buildCarburantGroups(catalog, prices, ignored),
+  const rows = useMemo(
+    () => buildCarburantRows(catalog, prices, ignored),
     [catalog, prices, ignored],
   )
-  const absent = useMemo(() => missingExtraits(catalog), [catalog])
-  const [sort, setSort] = useState<Sort | null>(null)
+  const unknown = useMemo(() => unknownCarburants(catalog), [catalog])
 
-  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups])
-
-  /** Meilleur rendement de chaque jauge : le repère survit au tri à plat. */
-  const bestIds = useMemo(
-    () => new Set(groups.map((group) => group.bestId).filter((id): id is ItemId => id !== null)),
-    [groups],
+  /**
+   * Les filtres de portée d'abord, le meilleur rendement ensuite : « le
+   * meilleur » se juge parmi ce qu'on peut fabriquer et ce qu'on regarde, pas
+   * parmi les 120.
+   */
+  /** Ce que le mot-clé peut atteindre sur chaque ligne : le nom, et ceux des ingrédients. */
+  const haystacks = useMemo(
+    () =>
+      new Map(
+        rows.map((row) => [
+          row.item.id,
+          normalize(
+            [row.item.name, ...row.ingredients.map((i) => i.item?.name ?? '')].join(' '),
+          ),
+        ]),
+      ),
+    [rows],
   )
 
-  /** Premier clic : le plus avantageux d'abord. Les suivants basculent le sens. */
-  const toggleSort = (key: SortKey) =>
-    setSort((current) =>
-      current?.key === key
-        ? { key, dir: current.dir === 'best' ? 'worst' : 'best' }
-        : { key, dir: 'best' },
-    )
-
-  /**
-   * Trier casse le regroupement par jauge : les six sections laissent la place
-   * à une liste unique, et chaque ligne rappelle alors sa jauge elle-même.
-   */
-  const sorted = useMemo(() => {
-    if (sort === null) return null
-    const value = SORTABLE[sort.key]
-    const sign = sort.dir === 'best' ? -1 : 1
-    return [...rows].sort((left, right) => {
-      // Une ligne sans chiffre ne répond ni au « plus » ni au « moins » : elle
-      // reste en bas dans les deux sens.
-      const a = value(left)
-      const b = value(right)
-      if (a === null && b === null) return 0
-      if (a === null) return 1
-      if (b === null) return -1
-      return sign * (a - b)
+  const { visible, bestIds } = useMemo(() => {
+    const needle = normalize(filters.search.trim())
+    // Un ensemble vide ne restreint rien ; à l'intérieur d'un ensemble, c'est
+    // un OU (Baffeur ou Caresseur) ; entre ensembles, un ET.
+    const scoped = rows.filter((row) => {
+      if (needle && !haystacks.get(row.item.id)?.includes(needle)) return false
+      if (filters.gauges.size > 0 && !filters.gauges.has(row.gauge)) return false
+      if (filters.families.size > 0 && !filters.families.has(row.family)) return false
+      if (filters.sizes.size > 0 && !filters.sizes.has(row.size)) return false
+      if (!within(row.level, filters.level)) return false
+      return true
     })
-  }, [rows, sort])
+    const best = bestPerGauge(scoped)
+    const kept = filters.bestOnly ? scoped.filter((row) => best.has(row.item.id)) : scoped
+    return { visible: kept.sort((a, b) => compare(a, b, filters.sort)), bestIds: best }
+  }, [rows, haystacks, filters])
+
+  /** Premier clic : le sens naturel de la colonne. Les suivants basculent. */
+  const toggleSort = (key: CarburantSortKey) =>
+    update({
+      sort:
+        filters.sort.key === key
+          ? { key, dir: filters.sort.dir === 'asc' ? 'desc' : 'asc' }
+          : { key, dir: defaultSortDir(key) },
+    })
+
+  const sortControl = (key: CarburantSortKey) => ({
+    dir: filters.sort.key === key ? filters.sort.dir : null,
+    onToggle: () => toggleSort(key),
+    onReset: () => update({ sort: { key: 'gauge', dir: 'asc' } }),
+  })
 
   /**
-   * De quoi orienter la saisie : combien de prix sont attendus (les extraits
-   * plus leurs ingrédients), combien sont connus, et le plus gros écart du
-   * tableau, qui sert d'échelle à la carte de chaleur.
+   * De quoi orienter la saisie : combien de prix sont attendus (les carburants
+   * affichés plus leurs ingrédients), combien sont connus, et le plus gros
+   * écart, qui sert d'échelle à la carte de chaleur.
    */
   const { priced, expected, scale } = useMemo(() => {
     const wanted = new Set<number>()
-    let widest = 0
-    for (const row of rows) {
+    for (const row of visible) {
       wanted.add(row.item.id)
       for (const ingredient of row.ingredients) wanted.add(ingredient.itemId)
-      if (row.craftMargin !== null) widest = Math.max(widest, Math.abs(row.craftMargin))
     }
     let known = 0
     for (const id of wanted) if (prices.has(id)) known += 1
-    return { priced: known, expected: wanted.size, scale: widest }
-  }, [rows, prices])
+    return {
+      priced: known,
+      expected: wanted.size,
+      scale: heatScale(visible.map((row) => row.craftMargin)),
+    }
+  }, [visible, prices])
+
+  /**
+   * Portée du remplissage assisté : les carburants affichés d'abord — tous au
+   * même comptoir — puis leurs ingrédients. L'assistant dédoublonne.
+   */
+  const wizardItems = useMemo(
+    () => [
+      ...visible.map((row) => row.item),
+      ...visible.flatMap((row) =>
+        row.ingredients.flatMap((ingredient) => (ingredient.item ? [ingredient.item] : [])),
+      ),
+    ],
+    [visible],
+  )
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-100">
-          <Icon.fuel className="size-5 shrink-0 text-amber-400" aria-hidden />
-          Carburants d'enclos
-        </h1>
-        <p className="text-sm text-slate-500">
-          Le coût retenu est le moins cher entre l'achat à l'HDV et la fabrication ; les
-          points/kama départagent ensuite les calibres d'une même jauge.
-        </p>
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <Icon.item className="size-3.5 shrink-0" aria-hidden />
-            {rows.length} extraits
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Icon.price className="size-3.5 shrink-0" aria-hidden />
-            {priced} / {expected} prix saisis
-          </span>
-        </p>
-      </header>
+      <DashboardHeader
+        icon={Icon.fuel}
+        title="Carburants d'enclos"
+        description="Le coût retenu est le moins cher entre l'achat à l'HDV et la fabrication ; les points/kama départagent ensuite les carburants d'une même jauge."
+        stats={[
+          {
+            icon: Icon.item,
+            label: `${visible.length} / ${rows.length} carburants`,
+          },
+          { icon: Icon.price, label: `${priced} / ${expected} prix saisis` },
+        ]}
+      >
+        <PriceWizardButton items={wizardItems} />
+      </DashboardHeader>
 
-      {absent.length > 0 && (
+      {unknown.length > 0 && (
         <p className="flex items-center gap-2 text-sm text-amber-500/80">
           <Icon.warning className="size-4 shrink-0" aria-hidden />
-          {absent.length} extrait(s) déclaré(s) mais introuvable(s) au catalogue :{' '}
-          {absent.join(', ')}.
+          {unknown.length} carburant(s) du catalogue non reconnu(s), absent(s) du tableau :{' '}
+          {unknown.map((item) => item.name).join(', ')}.
         </p>
       )}
 
+      <FilterBar>
+        <FilterSearch
+          value={filters.search}
+          placeholder="Carburant ou ingrédient…"
+          onChange={(search) => update({ search }, { replace: true })}
+        />
+        <FilterDivider />
+        <FilterChips
+          icon={Icon.gauge}
+          label="Jauges"
+          value={filters.gauges}
+          options={GAUGE_OPTIONS}
+          onChange={(gauges) => update({ gauges })}
+        />
+        <FilterDivider />
+        <FilterChips
+          icon={Icon.family}
+          label="Familles"
+          value={filters.families}
+          options={FAMILY_OPTIONS}
+          onChange={(families) => update({ families })}
+        />
+        <FilterDivider />
+        <FilterChips
+          icon={Icon.size}
+          label="Calibres"
+          value={filters.sizes}
+          options={SIZE_OPTIONS}
+          onChange={(sizes) => update({ sizes })}
+        />
+        <FilterDivider />
+        <FilterRange
+          icon={Icon.level}
+          label="Niveau d'Éleveur requis"
+          value={filters.level}
+          onChange={(range) => update({ level: range }, { replace: true })}
+        />
+        <FilterDivider />
+        <FilterToggle
+          icon={Icon.best}
+          label="Meilleur rendement par jauge"
+          checked={filters.bestOnly}
+          onChange={(bestOnly) => update({ bestOnly })}
+          tip="Une ligne par jauge : le carburant qui rend le plus de points par kama, parmi ceux affichés"
+        />
+        {isFiltering(filters) && <FilterReset onClick={() => update(NO_FILTERS)} />}
+      </FilterBar>
+
       <div className="overflow-hidden rounded-lg border border-slate-800">
-        <div className="max-h-[calc(100vh-21rem)] min-h-96 overflow-auto">
-          {/* `table-fixed` : sans lui, les lignes de groupe en `colSpan`
-              redistribuent les largeurs et plus rien ne s'aligne d'une jauge à
-              l'autre. `min-w` garde les colonnes lisibles sur petit écran, au
-              prix d'un défilement horizontal. */}
-          <table className="w-full min-w-[98rem] table-fixed text-sm">
+        <div className="max-h-[calc(100vh-24rem)] min-h-96 overflow-auto">
+          {/* `table-fixed` : les largeurs viennent des en-têtes et ne bougent
+              pas d'une ligne à l'autre. Chaque colonne chiffrée est serrée sur
+              son contenu ; seule « Ingrédients » n'a pas de largeur, et prend
+              tout le reste — c'est elle qui grandit avec l'écran. Le `min-w`
+              lui garantit de quoi loger au moins un ingrédient. */}
+          <table className="w-full min-w-[86rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
-                <Th width="w-16">ID</Th>
-                <Th width="w-40" icon={Icon.size}>
-                  Calibre
-                </Th>
-                <Th width="w-40" icon={Icon.price}>
-                  Prix HDV
-                </Th>
-                <Th width="w-40" icon={Icon.recipe}>
-                  Ingrédient 1
-                </Th>
-                <Th width="w-40" icon={Icon.recipe}>
-                  Ingrédient 2
+                <Th width="w-44" icon={Icon.fuel}>
+                  Carburant
                 </Th>
                 <Th
                   width="w-28"
+                  icon={Icon.gauge}
+                  tip="Jauge remplie. Cliquer pour trier par jauge, puis par niveau."
+                  sort={sortControl('gauge')}
+                >
+                  Catégorie
+                </Th>
+                <Th
+                  width="w-14"
+                  align="right"
+                  tip="Niveau d'Éleveur requis. Cliquer pour trier par niveau, puis par jauge."
+                  sort={sortControl('level')}
+                >
+                  Niv.
+                </Th>
+                <Th width="w-36" icon={Icon.price}>
+                  Prix HDV
+                </Th>
+                <Th icon={Icon.recipe}>Ingrédients</Th>
+                <Th
+                  width="w-24"
                   align="right"
                   icon={Icon.craft}
                   tip="Somme des ingrédients. Vide tant qu'un prix manque."
@@ -210,84 +311,56 @@ export default function CarburantPage() {
                   width="w-28"
                   align="right"
                   tip="Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est. Cliquer pour trier."
-                  sort={{
-                    dir: sort?.key === 'ratio' ? sort.dir : null,
-                    onToggle: () => toggleSort('ratio'),
-                    onReset: () => setSort(null),
-                  }}
+                  sort={sortControl('ratio')}
                 >
                   Points/kama
                 </Th>
                 <Th
-                  width="w-32"
+                  width="w-28"
                   align="right"
                   tip="Prix HDV moins coût du craft. Cliquer pour trier."
-                  sort={{
-                    dir: sort?.key === 'margin' ? sort.dir : null,
-                    onToggle: () => toggleSort('margin'),
-                    onReset: () => setSort(null),
-                  }}
+                  sort={sortControl('margin')}
                 >
                   Rentabilité
                 </Th>
-                <Th width="w-24" align="center">
+                <Th width="w-20" align="center">
                   Décision
                 </Th>
-                <Th width="w-24" align="right" icon={Icon.points} tip="Points de jauge rendus">
+                <Th width="w-20" align="right" icon={Icon.points} tip="Points de jauge rendus">
                   Points
                 </Th>
-                <Th width="w-28" align="right" icon={Icon.target} tip="Extraits à consommer">
+                <Th width="w-24" align="right" icon={Icon.target} tip="Carburants à consommer">
                   Nb maxer
                 </Th>
                 <Th
-                  width="w-44"
+                  width="w-36"
                   align="right"
                   icon={Icon.target}
-                  tip="Calculé sur le nombre exact d'extraits : le surplus du dernier resservira"
+                  tip="Calculé sur le nombre exact de carburants : le surplus du dernier resservira"
                 >
                   Coût maxer
                 </Th>
               </tr>
             </thead>
 
-            {sorted ? (
-              <tbody>
-                {sorted.map((row) => (
+            <tbody>
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-2 py-8 text-center text-sm text-slate-500">
+                    Aucun carburant ne passe ces filtres.
+                  </td>
+                </tr>
+              ) : (
+                visible.map((row) => (
                   <Row
                     key={row.item.id}
                     row={row}
                     best={bestIds.has(row.item.id)}
                     scale={scale}
-                    showGauge
                   />
-                ))}
-              </tbody>
-            ) : (
-              groups.map((group) => (
-                <tbody key={group.gauge.key}>
-                  <tr className="border-t border-slate-800 bg-slate-900/60">
-                    <td colSpan={COLUMNS} className="px-2 py-1.5">
-                      <span className="flex flex-wrap items-center gap-x-2 text-xs">
-                        <Icon.gauge className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                        <span className="font-medium uppercase tracking-wide text-slate-300">
-                          {group.gauge.label}
-                        </span>
-                        <span className="text-slate-500">{group.gauge.note}</span>
-                      </span>
-                    </td>
-                  </tr>
-
-                  {group.rows.map((row) => (
-                    <Row
-                      key={row.item.id}
-                      row={row}
-                      best={bestIds.has(row.item.id)}
-                      scale={scale}
-                    />
-                  ))}
-                </tbody>
-              ))
-            )}
+                ))
+              )}
+            </tbody>
           </table>
         </div>
       </div>
@@ -295,7 +368,7 @@ export default function CarburantPage() {
       <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <Icon.best className="size-3.5 shrink-0 text-amber-300" aria-hidden />
-          Meilleur rendement de la jauge
+          Meilleur rendement de la jauge, parmi les lignes affichées
         </span>
         <span className="flex items-center gap-1.5">
           <span className="size-3 rounded-sm bg-emerald-500/20" aria-hidden />
@@ -305,70 +378,71 @@ export default function CarburantPage() {
           <span className="size-3 rounded-sm bg-rose-500/20" aria-hidden />
           Craft perdant
         </span>
+        <span className="flex items-center gap-1.5">
+          <Icon.cap className="size-3.5 shrink-0" aria-hidden />
+          Plafond de jauge : extrait 40 000, philtre 70 000, potion 90 000, élixir sans limite. La
+          jauge se vide en nourrissant les montures : on recharge en boucle, le plafond ne borne
+          pas le total.
+        </span>
       </p>
     </div>
   )
 }
 
-function Row({
-  row,
-  best,
-  scale,
-  showGauge = false,
-}: {
-  row: CarburantRow
-  best: boolean
-  scale: number
-  /** Hors regroupement, la jauge n'est plus rappelée en tête de section. */
-  showGauge?: boolean
-}) {
-  // Deux emplacements fixes : toutes les recettes d'extrait tiennent en deux
-  // ingrédients. Une recette plus courte laisse la cellule vide plutôt que de
-  // décaler les colonnes suivantes.
-  const [first, second] = row.ingredients
+function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: number }) {
+  const gauge = GAUGE_INFO.get(row.gauge)
 
   return (
-    <tr className={`border-t border-slate-800/60 ${best ? 'bg-amber-500/[0.04]' : ''}`}>
-      <td className="px-2 py-1.5 tabular-nums text-slate-600">{row.item.id}</td>
-      {/* L'icône et le calibre ne font qu'un seul lien vers la fiche. Le nom
-          complet de l'extrait n'a plus de colonne : il vit dans la bulle.
-          Hors tabulation, pour que Tab enchaîne les champs de prix. */}
+    <tr className={`border-t border-slate-800/60 align-top ${best ? 'bg-amber-500/[0.04]' : ''}`}>
+      {/* L'icône et le nom court ne font qu'un seul lien vers la fiche. Le
+          nom complet et le plafond vivent dans la bulle. Hors tabulation,
+          pour que Tab enchaîne les champs de prix. */}
       <td className="min-w-0 px-2 py-1.5">
-        <Tooltip content={row.item.name} className="block min-w-0">
+        <Tooltip content={`${row.item.name} — ${capLabel(row.cap)}`} className="block min-w-0">
           <Link
             to={`/item/${row.item.id}`}
             tabIndex={-1}
+            data-item-name={row.item.name}
             className="flex min-w-0 items-center gap-2 text-slate-300 hover:text-amber-400"
           >
             <ItemIcon item={row.item} size={24} />
-            <span className="min-w-0">
-              <span className="block truncate">{SIZE_LABELS[row.info.size]}</span>
-              {showGauge && (
-                <span className="block truncate text-[10px] text-slate-500">
-                  {GAUGE_LABELS.get(row.info.gauge)}
-                </span>
-              )}
-            </span>
+            <span className="block truncate">{carburantLabel(row.info)}</span>
           </Link>
         </Tooltip>
       </td>
       <td className="px-2 py-1.5">
-        {/* Même structure qu'une cellule d'ingrédient, ligne de nom comprise :
-            sans cette cale, le champ monterait d'un cran et les trois saisies
-            de la ligne ne s'aligneraient plus. */}
+        <Tooltip content={gauge?.note} className="flex h-6 cursor-help items-center text-slate-300">
+          {gauge?.label ?? row.gauge}
+        </Tooltip>
+      </td>
+      <td className="px-2 py-1.5">
+        <span className="flex h-6 items-center justify-end tabular-nums text-slate-400">
+          {row.level}
+        </span>
+      </td>
+      <td className="px-2 py-1.5">
+        {/* Même structure qu'une ligne d'ingrédient, ligne de nom comprise :
+            sans cette cale, le champ monterait d'un cran et les saisies de la
+            ligne ne s'aligneraient plus. */}
         <div className="space-y-0.5">
           <span className="block h-4" aria-hidden />
           <PriceField itemId={row.item.id} layout="column" align="left" />
         </div>
       </td>
+      {/* De 2 à 5 ingrédients selon la famille. `auto-fill` en range autant
+          par ligne que la colonne en loge : un seul sur un petit écran, quatre
+          ou cinq sur un grand — la colonne, elle, grandit avec l'écran. */}
       <td className="min-w-0 px-2 py-1.5">
-        <Ingredient ingredient={first} />
-      </td>
-      <td className="min-w-0 px-2 py-1.5">
-        <Ingredient ingredient={second} />
+        <div className={INGREDIENT_GRID}>
+          {row.ingredients.map((ingredient) => (
+            <Ingredient key={ingredient.itemId} ingredient={ingredient} />
+          ))}
+        </div>
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-300">
-        <CraftCost row={row} />
+        <span className="flex h-6 items-center justify-end">
+          <CraftCost row={row} />
+        </span>
       </td>
       <td
         className={`px-2 py-1.5 text-right tabular-nums ${
@@ -376,9 +450,9 @@ function Row({
         }`}
       >
         {row.pointsPerKama === null ? (
-          NONE
+          <span className="flex h-6 items-center justify-end">{NONE}</span>
         ) : (
-          <span className="flex items-center justify-end gap-1">
+          <span className="flex h-6 items-center justify-end gap-1">
             {best && (
               <Tooltip content="Meilleur rendement de la jauge">
                 <Icon.best className="size-3.5 shrink-0" aria-hidden />
@@ -393,20 +467,26 @@ function Row({
           row.craftMargin === null ? '' : heat(row.craftMargin, scale)
         }`}
       >
-        <Kamas value={row.craftMargin} signed />
+        <span className="flex h-6 items-center justify-end">
+          <Kamas value={row.craftMargin} signed />
+        </span>
       </td>
       <td className="px-2 py-1.5 text-center">
-        <Decision decision={row.decision} cost={row.unitCost} />
+        <span className="flex h-6 items-center justify-center">
+          <Decision decision={row.decision} cost={row.unitCost} />
+        </span>
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">
-        {row.points.toLocaleString('fr-FR')}
+        <span className="flex h-6 items-center justify-end">
+          {row.points.toLocaleString('fr-FR')}
+        </span>
       </td>
-      {/* Le nombre d'extraits ne dépend que du calibre : il reste affiché même
-          sans aucun prix, contrairement au coût. */}
-      <td className="px-2 py-1.5 align-middle">
+      {/* Le nombre de carburants ne dépend que du calibre : il reste affiché
+          même sans aucun prix, contrairement au coût. */}
+      <td className="px-2 py-1.5">
         <Maxing maxing={row.maxing} render={(step) => step.count.toLocaleString('fr-FR')} />
       </td>
-      <td className="px-2 py-1.5 align-middle">
+      <td className="px-2 py-1.5">
         <Maxing maxing={row.maxing} render={(step) => <Kamas value={step.cost} />} />
       </td>
     </tr>
@@ -422,7 +502,7 @@ function CraftCost({ row }: { row: CarburantRow }) {
   if (row.craft === null) {
     // Rien de saisi encore : un tiret suffit. L'orange est réservé au
     // chiffrage entamé mais incomplet, seul cas où le chiffre tromperait —
-    // sinon trente alertes s'allument sur une page vierge.
+    // sinon cent vingt alertes s'allument sur une page vierge.
     if (row.missing.length >= row.ingredients.length) return NONE
     return (
       <Tooltip
@@ -448,11 +528,9 @@ function CraftCost({ row }: { row: CarburantRow }) {
 
 /**
  * Nom de l'ingrédient au-dessus de son prix : deux lignes courtes valent mieux
- * qu'une colonne de 18rem, à quinze colonnes.
+ * qu'une colonne de 18rem, à douze colonnes.
  */
-function Ingredient({ ingredient }: { ingredient: CarburantIngredient | undefined }) {
-  if (!ingredient) return NONE
-
+function Ingredient({ ingredient }: { ingredient: CarburantIngredient }) {
   const name = ingredient.item?.name ?? `Item #${ingredient.itemId}`
   return (
     <div className="min-w-0 space-y-0.5">
@@ -466,6 +544,7 @@ function Ingredient({ ingredient }: { ingredient: CarburantIngredient | undefine
         <Link
           to={`/item/${ingredient.itemId}`}
           tabIndex={-1}
+          data-item-name={name}
           className={`truncate text-xs hover:text-amber-400 ${
             ingredient.inStock ? 'text-slate-500' : 'text-slate-400'
           }`}
@@ -523,7 +602,7 @@ function Maxing({
   if (maxing.length <= 1) {
     const only = maxing[0]
     return (
-      <span className="block text-right tabular-nums text-slate-300">
+      <span className="flex h-6 items-center justify-end tabular-nums text-slate-300">
         {only ? render(only) : NONE}
       </span>
     )
@@ -533,7 +612,7 @@ function Maxing({
   // de s'échouer à l'autre bout de la cellule, et les valeurs s'alignent
   // quand même entre elles.
   return (
-    <span className="grid grid-cols-[auto_auto] items-baseline justify-end gap-x-2 gap-y-1">
+    <span className="grid grid-cols-[auto_auto] items-baseline justify-end gap-x-2 gap-y-1 pt-1">
       {maxing.map((step) => (
         <Fragment key={step.target}>
           <span className="whitespace-nowrap text-[10px] text-slate-500">{step.label}</span>
@@ -541,109 +620,5 @@ function Maxing({
         </Fragment>
       ))}
     </span>
-  )
-}
-
-const TEXT_ALIGN = {
-  left: 'text-left',
-  right: 'text-right',
-  center: 'text-center',
-} as const
-
-const JUSTIFY = {
-  left: '',
-  right: 'justify-end',
-  center: 'justify-center',
-} as const
-
-/**
- * `sticky` sur les `th` plutôt que sur `thead` : avec `border-collapse`, seule
- * la cellule se fige. La bordure du bas passe en ombre interne, une bordure
- * fusionnée ne suivant pas la cellule collée.
- */
-const TH_SHELL =
-  'sticky top-0 z-10 bg-slate-900 px-2 py-2 font-medium shadow-[inset_0_-1px_0_var(--color-slate-800)]'
-
-/**
- * En-tête de colonne : icône facultative, bulle facultative pour la formule, et
- * commande de tri facultative.
- */
-function Th({
-  width = '',
-  align = 'left',
-  icon: Glyph,
-  tip,
-  sort,
-  children,
-}: {
-  width?: string
-  align?: keyof typeof TEXT_ALIGN
-  icon?: LucideIcon
-  tip?: string
-  /** Rend l'en-tête cliquable. `dir` est `null` quand le tri porte ailleurs. */
-  sort?: {
-    dir: SortDir | null
-    onToggle: () => void
-    onReset: () => void
-  }
-  children: ReactNode
-}) {
-  const inner = (
-    <>
-      {Glyph && <Glyph className="size-3.5 shrink-0" aria-hidden />}
-      {children}
-    </>
-  )
-  const line = `flex items-center gap-1.5 whitespace-nowrap ${JUSTIFY[align]}`
-
-  if (sort) {
-    // La flèche pointe vers le bas quand les plus avantageux sont en tête.
-    const Arrow = sort.dir === 'worst' ? Icon.sortAsc : Icon.sortDesc
-    return (
-      <th
-        aria-sort={sort.dir === 'best' ? 'descending' : sort.dir === 'worst' ? 'ascending' : 'none'}
-        className={TH_SHELL + ` ${width} ${TEXT_ALIGN[align]}`}
-      >
-        <span className={`flex items-center gap-1 ${JUSTIFY[align]}`}>
-          {sort.dir && (
-            <Tooltip content="Annuler le tri et revenir au classement par jauge">
-              <button
-                type="button"
-                onClick={sort.onReset}
-                aria-label="Annuler le tri"
-                className="flex text-slate-500 hover:text-amber-400"
-              >
-                <Icon.sortReset className="size-3" aria-hidden />
-              </button>
-            </Tooltip>
-          )}
-          <Tooltip content={tip}>
-            <button
-              type="button"
-              onClick={sort.onToggle}
-              className={`${line} hover:text-amber-400 ${sort.dir ? 'text-amber-400' : ''}`}
-            >
-              {inner}
-              <Arrow
-                className={`size-3 shrink-0 ${sort.dir ? '' : 'text-slate-600'}`}
-                aria-hidden
-              />
-            </button>
-          </Tooltip>
-        </span>
-      </th>
-    )
-  }
-
-  return (
-    <th className={TH_SHELL + ` ${width} ${TEXT_ALIGN[align]}`}>
-      {tip ? (
-        <Tooltip content={tip} className={`${line} cursor-help`}>
-          {inner}
-        </Tooltip>
-      ) : (
-        <span className={line}>{inner}</span>
-      )}
-    </th>
   )
 }

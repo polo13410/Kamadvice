@@ -5,13 +5,19 @@
  * Volontairement pur — ni React, ni formatage, ni classes CSS — et construit
  * par-dessus `createEvaluator` plutôt qu'en le redoublant : le coût de craft,
  * la marge et les ingrédients en stock sont déjà son travail.
+ *
+ * Les lignes sortent à plat, sans regroupement : avec 120 carburants et des
+ * filtres cumulables, c'est la vue qui décide de l'ordre, et le meilleur
+ * rendement se calcule sur ce qui reste affiché plutôt que sur le tout.
  */
 import {
-  EXTRAITS,
-  GAUGES,
-  POINTS_BY_SIZE,
-  type ExtraitInfo,
-  type GaugeInfo,
+  CARBURANT_TYPE_ID,
+  GAUGE_INFO,
+  readCarburant,
+  type CarburantFamily,
+  type CarburantInfo,
+  type CarburantSize,
+  type Gauge,
   type GaugeTarget,
 } from '../data/carburants'
 import { createEvaluator } from './craft'
@@ -20,16 +26,16 @@ import type { Catalog, IgnoredSet, Item, ItemId, PriceMap } from './types'
 /** Le moins cher des deux, une fois les deux chiffrés. */
 export type Decision = 'craft' | 'achat'
 
-/** Ce que coûte l'atteinte d'un palier avec ce calibre d'extrait. */
+/** Ce que coûte l'atteinte d'un palier avec ce calibre de carburant. */
 export interface MaxingEstimate {
   label: string | null
   target: number
-  /** Extraits à consommer : arrondi au supérieur, on n'en coupe pas un en deux. */
+  /** Carburants à consommer : arrondi au supérieur, on n'en coupe pas un en deux. */
   count: number
   /**
-   * Coût du remplissage, sur le nombre *fractionnaire* d'extraits.
+   * Coût du remplissage, sur le nombre *fractionnaire* de carburants.
    *
-   * Le surplus du dernier extrait n'est pas perdu — il resservira au prochain
+   * Le surplus du dernier n'est pas perdu — il resservira au prochain
    * remplissage. Arrondir ici gonflerait les petits calibres, qui gaspillent
    * pourtant le moins, et rendrait les lignes incomparables entre elles.
    */
@@ -46,12 +52,20 @@ export interface CarburantIngredient {
 }
 
 export interface CarburantRow {
-  info: ExtraitInfo
+  info: CarburantInfo
   item: Item
+  gauge: Gauge
+  family: CarburantFamily
+  size: CarburantSize
+  /** Niveau d'Éleveur requis pour le fabriquer. */
+  level: number
   /** Points de jauge rendus par une unité. */
   points: number
+  /** Valeur de jauge au-delà de laquelle il ne remplit plus. `null` sans plafond. */
+  cap: number | null
   /** Prix d'achat HDV, `null` si non saisi. */
   buy: number | null
+  /** De 2 ingrédients pour un extrait à 5 pour un élixir. */
   ingredients: CarburantIngredient[]
   /** Coût de fabrication, seulement si tous les ingrédients ont un prix. */
   craft: number | null
@@ -69,13 +83,6 @@ export interface CarburantRow {
   maxing: MaxingEstimate[]
 }
 
-export interface CarburantGroup {
-  gauge: GaugeInfo
-  rows: CarburantRow[]
-  /** Ligne au meilleur rendement de la jauge. `null` si aucune n'est chiffrée. */
-  bestId: ItemId | null
-}
-
 /** Chiffre un palier pour un calibre donné. */
 function estimate(target: GaugeTarget, points: number, unitCost: number | null): MaxingEstimate {
   const units = target.points / points
@@ -88,15 +95,13 @@ function estimate(target: GaugeTarget, points: number, unitCost: number | null):
 }
 
 function buildRow(
-  info: ExtraitInfo,
+  info: CarburantInfo,
   item: Item,
-  gauge: GaugeInfo,
   catalog: Catalog,
   ignored: IgnoredSet,
   evaluate: ReturnType<typeof createEvaluator>,
 ): CarburantRow {
   const report = evaluate.report(info.id)
-  const points = POINTS_BY_SIZE[info.size]
 
   // Un chiffrage partiel n'est jamais retenu : il sous-estimerait le craft et
   // ferait basculer la décision à tort. Même parti-pris que `craft.ts`, qui
@@ -117,10 +122,17 @@ function buildRow(
     inStock: ignored.has(entry.itemId),
   }))
 
+  const targets = GAUGE_INFO.get(info.gauge)?.targets ?? []
+
   return {
     info,
     item,
-    points,
+    gauge: info.gauge,
+    family: info.family,
+    size: info.size,
+    level: item.level,
+    points: info.points,
+    cap: info.cap,
     buy,
     ingredients,
     craft,
@@ -130,52 +142,67 @@ function buildRow(
     decision,
     // `report.margin` est déjà `buy - craft`, gardé sur un chiffrage complet.
     craftMargin: report.margin,
-    pointsPerKama: unitCost === null || unitCost === 0 ? null : points / unitCost,
-    maxing: gauge.targets.map((target) => estimate(target, points, unitCost)),
+    pointsPerKama: unitCost === null || unitCost === 0 ? null : info.points / unitCost,
+    maxing: targets.map((target) => estimate(target, info.points, unitCost)),
   }
 }
 
 /**
- * Une ligne par extrait, groupée par jauge dans l'ordre de `GAUGES` et par
- * calibre croissant.
+ * Une ligne par carburant reconnu, dans l'ordre du dump.
  *
- * Les extraits introuvables au catalogue sont ignorés : la page les signale à
- * part, via `missingExtraits`.
+ * Les carburants que les tables de jeu ne reconnaissent pas sont écartés : la
+ * page les signale à part, via `unknownCarburants`.
  */
-export function buildCarburantGroups(
+export function buildCarburantRows(
   catalog: Catalog,
   prices: PriceMap,
   ignored?: IgnoredSet,
-): CarburantGroup[] {
+): CarburantRow[] {
   const inStock = ignored ?? new Set<ItemId>()
   const evaluate = createEvaluator(catalog, prices, inStock)
 
-  return GAUGES.map((gauge) => {
-    const rows = EXTRAITS.filter((info) => info.gauge === gauge.key).flatMap((info) => {
-      const item = catalog.byId.get(info.id)
-      return item ? [buildRow(info, item, gauge, catalog, inStock, evaluate)] : []
-    })
-
-    // Égalité de ratio : on garde le premier, donc le plus petit calibre, qui
-    // laisse le moins de surplus perdu.
-    let bestId: ItemId | null = null
-    let bestRatio = -Infinity
-    for (const row of rows) {
-      if (row.pointsPerKama === null || row.pointsPerKama <= bestRatio) continue
-      bestRatio = row.pointsPerKama
-      bestId = row.item.id
-    }
-
-    return { gauge, rows, bestId }
+  return catalog.carburants.flatMap((raw) => {
+    const info = readCarburant(raw)
+    const item = info && catalog.byId.get(info.id)
+    return info && item ? [buildRow(info, item, catalog, inStock, evaluate)] : []
   })
 }
 
 /**
- * Ids déclarés dans `EXTRAITS` mais absents du catalogue.
+ * Le meilleur rendement de chaque jauge, parmi les lignes reçues.
  *
- * Garde-fou de la table écrite en dur : sans lui, une mise à jour du dump
- * amputerait le tableau en silence.
+ * Calculé sur les lignes déjà filtrées, et non sur le catalogue entier : sous
+ * un filtre de niveau, « le meilleur » ne peut être un carburant qu'on ne sait
+ * pas encore fabriquer.
+ *
+ * Égalité de ratio : on garde le premier rencontré, donc le plus petit
+ * calibre, qui laisse le moins de surplus perdu.
  */
-export function missingExtraits(catalog: Catalog): ItemId[] {
-  return EXTRAITS.filter((info) => !catalog.byId.has(info.id)).map((info) => info.id)
+export function bestPerGauge(rows: CarburantRow[]): Set<ItemId> {
+  const best = new Map<Gauge, { id: ItemId; ratio: number }>()
+  for (const row of rows) {
+    if (row.pointsPerKama === null) continue
+    const current = best.get(row.gauge)
+    if (current && current.ratio >= row.pointsPerKama) continue
+    best.set(row.gauge, { id: row.item.id, ratio: row.pointsPerKama })
+  }
+  return new Set([...best.values()].map((entry) => entry.id))
+}
+
+/**
+ * Carburants du catalogue que les tables de jeu ne savent pas lire.
+ *
+ * Garde-fou de la dérivation : sans lui, un calibre inédit ou un plafond
+ * changé amputerait le tableau en silence. On repart du type d'item plutôt que
+ * de la tranche dérivée, pour attraper aussi ce que le build aurait écarté.
+ */
+export function unknownCarburants(catalog: Catalog): Item[] {
+  const known = new Set<ItemId>()
+  for (const raw of catalog.carburants) {
+    if (readCarburant(raw)) known.add(raw.id)
+  }
+
+  return catalog.items.filter(
+    (item) => item.type?.id === CARBURANT_TYPE_ID && !known.has(item.id),
+  )
 }
