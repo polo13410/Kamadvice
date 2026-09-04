@@ -183,18 +183,25 @@ export default function ItemsTable({
                 >
                   <FavoriteButton itemId={row.item.id} />
 
-                  <Link
-                    to={`/item/${row.item.id}`}
-                    data-item-name={row.item.name}
-                    className="flex min-w-0 items-center gap-2 text-slate-200 hover:text-amber-400"
-                  >
-                    <ItemIcon item={row.item} size={28} />
-                    <span className="truncate">{row.item.name}</span>
-                  </Link>
+                  {/* Nom et type se tronquent dans leur colonne : la bulle
+                      porte le texte entier. */}
+                  <Tooltip content={row.item.name} className="block min-w-0">
+                    <Link
+                      to={`/item/${row.item.id}`}
+                      data-item-name={row.item.name}
+                      className="flex min-w-0 items-center gap-2 text-slate-200 hover:text-amber-400"
+                    >
+                      <ItemIcon item={row.item} size={28} />
+                      <span className="truncate">{row.item.name}</span>
+                    </Link>
+                  </Tooltip>
 
-                  <span className="truncate text-xs text-slate-500">
+                  <Tooltip
+                    content={row.item.type?.name}
+                    className="block min-w-0 truncate text-xs text-slate-500"
+                  >
                     {row.item.type?.name ?? '—'}
-                  </span>
+                  </Tooltip>
                   <span className="text-right text-xs tabular-nums text-slate-500">
                     {row.item.level}
                   </span>

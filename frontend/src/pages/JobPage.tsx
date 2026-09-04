@@ -389,21 +389,26 @@ function JobDashboard({ job }: { job: Job }) {
 function Row({ row, scale }: { row: JobRow; scale: number }) {
   return (
     <tr className="border-t border-slate-800/60 align-top">
+      {/* Nom et type se tronquent dans leur colonne : la bulle porte le texte
+          entier. Le lien reste hors tabulation, pour que Tab enchaîne les
+          champs de prix. */}
       <td className="min-w-0 px-2 py-1.5">
-        <Link
-          to={`/item/${row.item.id}`}
-          tabIndex={-1}
-          data-item-name={row.item.name}
-          className="flex h-6 min-w-0 items-center gap-2 text-slate-300 hover:text-amber-400"
-        >
-          <ItemIcon item={row.item} size={24} />
-          <span className="block truncate">{row.item.name}</span>
-        </Link>
+        <Tooltip content={row.item.name} className="block min-w-0">
+          <Link
+            to={`/item/${row.item.id}`}
+            tabIndex={-1}
+            data-item-name={row.item.name}
+            className="flex h-6 min-w-0 items-center gap-2 text-slate-300 hover:text-amber-400"
+          >
+            <ItemIcon item={row.item} size={24} />
+            <span className="block truncate">{row.item.name}</span>
+          </Link>
+        </Tooltip>
       </td>
-      <td className="px-2 py-1.5">
-        <span className="flex h-6 items-center truncate text-xs text-slate-400">
-          {row.item.type?.name ?? '—'}
-        </span>
+      <td className="min-w-0 px-2 py-1.5">
+        <Tooltip content={row.item.type?.name} className="flex h-6 min-w-0 items-center">
+          <span className="truncate text-xs text-slate-400">{row.item.type?.name ?? '—'}</span>
+        </Tooltip>
       </td>
       <td className="px-2 py-1.5">
         <span className="flex h-6 items-center justify-end tabular-nums text-slate-400">
