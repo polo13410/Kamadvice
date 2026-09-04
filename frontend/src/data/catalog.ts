@@ -1,7 +1,7 @@
 /**
  * Chargement du catalogue statique.
  *
- * Les 5 fichiers de `public/data/` sont générés par `scripts/build-data.mjs` et
+ * Les 6 fichiers de `public/data/` sont générés par `scripts/build-data.mjs` et
  * servis par le CDN (~1,7 Mo, ~360 Ko gzippés). On les charge une seule fois au
  * démarrage et on construit les index en mémoire : c'est ce qui permet de trier,
  * filtrer et chiffrer 17 000 items sans le moindre appel réseau ensuite.
@@ -42,7 +42,13 @@ interface RawCarburant {
 }
 
 async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${import.meta.env.BASE_URL}data/${name}.json`, { signal })
+  // `?v=` change avec le contenu des données (voir `vite.config.ts`) : le
+  // navigateur ne peut pas resservir un fichier d'un déploiement précédent à
+  // un bundle qui en attend un autre.
+  const response = await fetch(
+    `${import.meta.env.BASE_URL}data/${name}.json?v=${__DATA_VERSION__}`,
+    { signal },
+  )
   if (!response.ok) {
     throw new Error(`Chargement de ${name}.json impossible (HTTP ${response.status})`)
   }

@@ -14,6 +14,11 @@
 
 # Les artefacts de catalogue changent seulement lors d'une MAJ Dofus (~4x/an).
 # On les sert depuis le cache tout en revalidant en arrière-plan.
+#
+# Le front ajoute `?v=<empreinte des données>` à chaque URL de JSON (voir
+# frontend/vite.config.ts) : un déploiement qui change les données change
+# leurs URLs, et ce cache ne peut pas resservir un fichier d'avant à un bundle
+# d'après. Sans ça, le JS neuf plantait sur un meta.json gardé en cache.
 [[headers]]
   for = "/data/*"
   [headers.values]

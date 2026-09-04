@@ -10,3 +10,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** Empreinte des fichiers de `public/data/`, injectée au build : voir `vite.config.ts`. */
+declare const __DATA_VERSION__: string
