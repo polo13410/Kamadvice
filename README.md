@@ -57,21 +57,37 @@ frontend/
     domain/
       types.ts           Types du catalogue
       craft.ts           Coût de craft et marge — métier pur, sans React
+      carburant.ts       Lignes du tableau de bord des carburants, meilleur
+                         rendement par jauge
     data/
       catalog.ts         Chargement + indexation du catalogue
+      carburants.ts      Connaissance de jeu : jauges, familles, calibres,
+                         paliers — et lecture d'un carburant depuis ses effets
+      jobLevels.ts       Niveau du joueur par métier (localStorage)
+      hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
+                         relève chaque item
       supabase.ts        Client du projet, ou null en local seul
       prices.ts          Journal des relevés : lecture, écriture optimiste,
                          temps réel, cache
       priceMigration.ts  Reprise des prix saisis avant le partage
     lib/
       icons.ts           Vocabulaire d'icônes (Lucide) : un concept = une icône
+      heat.ts            Carte de chaleur d'une colonne de gains / pertes
+      carburantFilters.ts  Filtres et tri du tableau de bord, portés par l'URL
     components/
       PriceField.tsx     Saisie d'un prix + date du dernier relevé
       PriceHistory.tsx   Journal des relevés d'un item, avec variations
+      PriceWizard.tsx    Remplissage assisté : les prix d'une vue un par un,
+                         par HDV, nom copié à chaque étape
       TrendIcon.tsx      Flèche de tendance : hausse, baisse, stable, inconnu
+      CopyOnAltClick.tsx Alt+clic sur un item (`data-item-name`) copie son nom
+      DashboardHeader.tsx  Titre, méthode et chiffres d'un tableau de bord
+      FilterBar.tsx      Barre de filtres : liste, nombre, coche
+      TableHead.tsx      En-tête de colonne triable, avec bulle
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
+      CarburantPage.tsx  Tableau de bord des 120 carburants d'enclos
 ```
 
 `src/domain/craft.ts` est le cœur métier : pour un item, il donne le prix

@@ -232,6 +232,7 @@ export default function SearchBox({ className = '' }: { className?: string }) {
                 id={`${panelId}-${position}`}
                 role="option"
                 aria-selected={position === active}
+                data-item-name={entry.kind === 'item' ? entry.item.name : undefined}
                 // Le pointeur ne doit pas voler le focus au champ : sans ça, le
                 // panneau se referme avant que le clic n'atteigne sa cible.
                 onMouseDown={(event) => event.preventDefault()}

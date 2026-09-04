@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import CopyOnAltClick from './components/CopyOnAltClick'
 import Footer from './components/Footer'
 import NavMenu from './components/NavMenu'
 import SearchBox from './components/SearchBox'
@@ -97,6 +98,7 @@ export default function App() {
 
   return (
     <CatalogContext.Provider value={catalog}>
+      <CopyOnAltClick />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
           <div className={`mx-auto flex ${CHROME} items-center gap-8 px-4 py-3`}>

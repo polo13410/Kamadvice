@@ -185,6 +185,7 @@ export default function ItemsTable({
 
                   <Link
                     to={`/item/${row.item.id}`}
+                    data-item-name={row.item.name}
                     className="flex min-w-0 items-center gap-2 text-slate-200 hover:text-amber-400"
                   >
                     <ItemIcon item={row.item} size={28} />

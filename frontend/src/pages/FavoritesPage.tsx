@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Adorned, { CONTROL } from '../components/Adorned'
+import { PriceWizardButton } from '../components/PriceWizard'
 import ItemsTable, {
   sortRows,
   useItemRows,
@@ -160,6 +161,9 @@ export default function FavoritesPage() {
   const filtering =
     search !== '' || active.types.size > 0 || active.bands.size > 0 || active.flags.size > 0
 
+  /** Portée du remplissage assisté : ce que les filtres laissent à l'écran. */
+  const wizardItems = useMemo(() => visible.map((row) => row.item), [visible])
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -167,12 +171,15 @@ export default function FavoritesPage() {
           <Icon.favorite className="size-5 shrink-0 fill-current text-rose-400" aria-hidden />
           Mes favoris
         </h1>
-        <span className="flex items-center gap-1.5 text-xs text-slate-500">
-          <Icon.item className="size-3.5" aria-hidden />
-          {filtering
-            ? `${visible.length} item${visible.length > 1 ? 's' : ''} sur ${pinned.length}`
-            : `${pinned.length} item${pinned.length > 1 ? 's' : ''} suivi${pinned.length > 1 ? 's' : ''}`}
-        </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Icon.item className="size-3.5" aria-hidden />
+            {filtering
+              ? `${visible.length} item${visible.length > 1 ? 's' : ''} sur ${pinned.length}`
+              : `${pinned.length} item${pinned.length > 1 ? 's' : ''} suivi${pinned.length > 1 ? 's' : ''}`}
+          </span>
+          <PriceWizardButton items={wizardItems} />
+        </div>
       </div>
 
       {pinned.length > 0 && (

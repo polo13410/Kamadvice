@@ -1,12 +1,12 @@
 /**
  * Chargement du catalogue statique.
  *
- * Les 4 fichiers de `public/data/` sont générés par `scripts/build-data.mjs` et
+ * Les 5 fichiers de `public/data/` sont générés par `scripts/build-data.mjs` et
  * servis par le CDN (~1,7 Mo, ~360 Ko gzippés). On les charge une seule fois au
  * démarrage et on construit les index en mémoire : c'est ce qui permet de trier,
  * filtrer et chiffrer 17 000 items sans le moindre appel réseau ensuite.
  */
-import type { Catalog, Item, ItemId, ItemType, Recipe } from '../domain/types'
+import type { Carburant, Catalog, Item, ItemId, ItemType, Recipe } from '../domain/types'
 
 interface RawMeta {
   iconBaseUrls: string[]
@@ -26,6 +26,12 @@ interface RawRecipe {
   r: number
   e: { i: number; q: number }[]
 }
+interface RawCarburant {
+  i: number
+  g: number
+  p: number
+  c: number | null
+}
 
 async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${import.meta.env.BASE_URL}data/${name}.json`, { signal })
@@ -36,11 +42,14 @@ async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
 }
 
 export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
-  const [meta, rawTypes, rawItems, rawRecipes] = await Promise.all([
+  const [meta, rawTypes, rawItems, rawRecipes, rawCarburants] = await Promise.all([
     fetchJson<RawMeta>('meta', signal),
     fetchJson<RawTypes>('types', signal),
     fetchJson<RawItem[]>('items', signal),
     fetchJson<RawRecipe[]>('recipes', signal),
+    // 5 Ko : les charger avec le reste évite un second état de chargement dans
+    // le tableau de bord, pour un poids qui ne se voit pas.
+    fetchJson<RawCarburant[]>('carburants', signal),
   ])
 
   const typeById = new Map<number, ItemType>()
@@ -82,6 +91,13 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
   const categories: Record<number, string> = {}
   for (const [id, label] of Object.entries(meta.categories)) categories[Number(id)] = label
 
+  const carburants: Carburant[] = rawCarburants.map((raw) => ({
+    id: raw.i,
+    gaugeElementId: raw.g,
+    points: raw.p,
+    cap: raw.c,
+  }))
+
   return {
     items,
     byId,
@@ -89,6 +105,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     usedIn,
     types: [...typeById.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     categories,
+    carburants,
     iconBaseUrls: meta.iconBaseUrls,
   }
 }

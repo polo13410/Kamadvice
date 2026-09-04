@@ -66,6 +66,12 @@ export default function HomePage() {
             <Icon.favorite className="size-3.5 shrink-0 text-rose-400" aria-hidden />
             Le cœur d'une ligne épingle l'item dans vos favoris.
           </span>
+
+          <span className="flex items-center gap-2">
+            <Icon.copied className="size-3.5 shrink-0 text-emerald-400" aria-hidden />
+            <kbd className="rounded border border-slate-700 px-1 text-[10px]">Alt</kbd> + clic sur un
+            item copie son nom, à coller dans la recherche de l'HDV.
+          </span>
         </div>
       </div>
     </div>

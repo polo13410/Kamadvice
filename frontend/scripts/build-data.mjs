@@ -47,6 +47,65 @@ const ICON_BASE_URLS = [
 
 const fr = (o) => (o && typeof o === 'object' ? (o.fr ?? null) : null)
 
+/**
+ * Type des carburants d'enclos, le métier d'Éleveur en entier côté craft avec
+ * les Makina et les filets de capture.
+ */
+const CARBURANT_TYPE_ID = 326
+
+/**
+ * Ce que le catalogue générique ne peut pas porter : les carburants d'enclos.
+ *
+ * Le catalogue ne garde ni les effets ni les descriptions — c'est ce qui le
+ * ramène de 41 Mo à 1,2 Mo. Or tout ce qui fait un carburant vit précisément
+ * là : les points de jauge rendus, la jauge visée et le plafond au-delà duquel
+ * il ne remplit plus. On extrait donc cette tranche à part, dans un fichier que
+ * seul le tableau de bord charge.
+ *
+ * Trois champs suffisent, le reste s'en déduit côté front :
+ * - `g` : `element_id` de l'effet, l'identifiant de jeu de la jauge (263
+ *   Caresseur, 265 Baffeur, 267 Foudroyeur, 268 Dragofesse, 269 Mangeoire,
+ *   270 Abreuvoir) ;
+ * - `p` : points rendus, qui déterminent à eux seuls le calibre (1000
+ *   minuscule → 5000 gigantesque) ;
+ * - `c` : plafond de jauge, `null` quand il n'y en a pas. Il détermine à lui
+ *   seul la famille : 40 000 extrait, 70 000 philtre, 90 000 potion, aucun
+ *   plafond élixir.
+ *
+ * Les points ne survivent que dans le libellé rendu (`templated`) : le dump
+ * mappe le jet de dés sur `min`/`max` et laisse tomber la valeur. `max` porte
+ * en revanche le plafond, au centuple (400 → 40 000).
+ */
+function buildCarburants(rawItems) {
+  const rows = []
+  const skipped = []
+
+  for (const item of rawItems) {
+    if (item.type?.id !== CARBURANT_TYPE_ID) continue
+
+    const effect = item.effects?.[0]
+    const points = Number(/\+(\d+)/.exec(fr(effect?.templated) ?? '')?.[1])
+    const gauge = effect?.element_id
+
+    // Un carburant illisible est écarté plutôt que deviné : mieux vaut une
+    // ligne manquante, que le front signale, qu'une ligne au mauvais chiffre.
+    if (!Number.isInteger(gauge) || !Number.isFinite(points) || points <= 0) {
+      skipped.push(`${item.ankama_id} ${fr(item.name)}`)
+      continue
+    }
+
+    rows.push({
+      i: item.ankama_id,
+      g: gauge,
+      p: points,
+      c: effect.max > 0 ? effect.max * 100 : null,
+    })
+  }
+
+  rows.sort((a, b) => a.i - b.i)
+  return { rows, skipped }
+}
+
 async function main() {
   const [rawItems, rawRecipes] = await Promise.all([
     readFile(join(SRC, 'items.json'), 'utf8').then(JSON.parse),
@@ -91,6 +150,9 @@ async function main() {
     })
   }
 
+  // --- Carburants d'enclos ---------------------------------------------------
+  const carburants = buildCarburants(rawItems)
+
   const meta = {
     iconBaseUrls: ICON_BASE_URLS,
     categories: CATEGORIES,
@@ -103,6 +165,7 @@ async function main() {
     ['types', types],
     ['items', items],
     ['recipes', recipes],
+    ['carburants', carburants.rows],
   ]) {
     const json = JSON.stringify(payload)
     await writeFile(join(OUT, `${name}.json`), json)
@@ -113,9 +176,12 @@ async function main() {
     console.log(`  public/data/${name}.json`.padEnd(30), `${(bytes / 1024).toFixed(0)} Ko`)
   }
   console.log(`
-${items.length} items, ${recipes.length} recettes.`)
+${items.length} items, ${recipes.length} recettes, ${carburants.rows.length} carburants.`)
   if (dropped.length) {
     console.log(`${dropped.length} recettes ignorées (résultat hors catalogue) : ${dropped.join(', ')}`)
+  }
+  if (carburants.skipped.length) {
+    console.log(`${carburants.skipped.length} carburant(s) sans effet lisible : ${carburants.skipped.join(', ')}`)
   }
 }
 

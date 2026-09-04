@@ -14,7 +14,7 @@ export const DASHBOARDS: NavMenuItem[] = [
     to: '/dashboard/catalyst',
     label: 'Carburant',
     icon: Icon.fuel,
-    description: "Acheter ou crafter les extraits d'enclos",
+    description: "Acheter ou crafter les carburants d'enclos, par jauge et par niveau",
   },
 ]
 
