@@ -39,6 +39,18 @@ body {
   }
 }
 
+/*
+ * Fraction du tour qui est allumée, de midi dans le sens horaire. À 100 %
+ * (défaut) l'anneau est entier ; la fenêtre du remplissage assisté la fait
+ * monter au fil des items, et la transition « allume » chaque bout d'arc.
+ * `inherits: true` : posée sur `.rainbow`, lue par l'anneau et le halo.
+ */
+@property --rainbow-progress {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 100%;
+}
+
 .rainbow {
   position: relative;
 }
@@ -48,7 +60,8 @@ body {
 }
 
 .rainbow-ring::before,
-.rainbow-halo {
+.rainbow-halo::before {
+  content: "";
   position: absolute;
   pointer-events: none;
   border-radius: inherit;
@@ -67,30 +80,52 @@ body {
 }
 
 .rainbow-ring::before {
-  content: "";
   inset: -2px;
   padding: 2px;
-  /* Évide le centre : seule la marge (le `padding`) reste peinte. */
-  mask:
-    linear-gradient(#000 0 0) content-box,
+  /*
+   * Deux masques : le secteur allumé (de midi — 0° d'un `conic-gradient` —
+   * dans le sens horaire, jusqu'à `--rainbow-progress`), moins le centre —
+   * seule la marge (le `padding`) reste peinte, et seulement sur la fraction
+   * du tour déjà gagnée.
+   */
+  mask-image:
+    conic-gradient(#000 var(--rainbow-progress), transparent 0),
     linear-gradient(#000 0 0);
-  mask-composite: exclude;
+  mask-clip: border-box, content-box;
+  mask-composite: subtract;
+  transition: --rainbow-progress 500ms ease-out;
 }
 
+/*
+ * Le halo est en deux couches, parce qu'un masque clippe l'élément à sa boîte
+ * et couperait le flou net : la peinture et le masque en secteur vont sur le
+ * pseudo-élément, le flou sur le halo lui-même, qui n'est plus clippé et
+ * fond librement vers le transparent.
+ */
 .rainbow-halo {
+  position: absolute;
   inset: -4px;
+  pointer-events: none;
+  border-radius: inherit;
   filter: blur(14px);
   opacity: 0.35;
 }
 
+.rainbow-halo::before {
+  inset: 0;
+  /* Même secteur que l'anneau : le halo suit la progression. */
+  mask-image: conic-gradient(#000 var(--rainbow-progress), transparent 0);
+  transition: --rainbow-progress 500ms ease-out;
+}
+
 /*
- * Moins d'animations, pas zéro : une rotation six fois plus lente est un
- * glissement de couleur, pas un mouvement. Windows désactive souvent les
- * effets d'animation, on ne veut pas y perdre la magie.
+ * Moins d'animations, pas zéro : une rotation plus lente est un glissement
+ * de couleur, pas un mouvement. Windows désactive souvent les effets
+ * d'animation, on ne veut pas y perdre la magie.
  */
 @media (prefers-reduced-motion: reduce) {
   .rainbow-ring::before,
-  .rainbow-halo {
+  .rainbow-halo::before {
     animation-duration: 7s;
   }
 }

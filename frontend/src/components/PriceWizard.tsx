@@ -20,7 +20,7 @@
  * a moins d'une heure et n'est pas redemandé, il reprend donc de lui-même là
  * où on l'a quitté.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { hdvOf, type HdvInfo } from '../data/hdv'
 import { freshness, setPrice, useCurrentPrice, useCurrentPrices, type PricePoint } from '../data/prices'
@@ -137,6 +137,18 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
 
   const step = steps[index] ?? { kind: 'done' as const }
   const total = useMemo(() => steps.filter((s) => s.kind === 'item').length, [steps])
+
+  /**
+   * Part du tour de fenêtre allumée : les items déjà passés — saisis ou non —
+   * sur le total. Revenir en arrière éteint ce qu'on redéfait ; l'intro part
+   * de zéro, la fin fait le tour complet.
+   */
+  const done = useMemo(
+    () => steps.slice(0, index).filter((s) => s.kind === 'item').length,
+    [steps, index],
+  )
+  const progress =
+    phase === 'intro' ? 0 : step.kind === 'done' || total === 0 ? 100 : Math.round((done / total) * 100)
   const ignored = useMemo(() => {
     const seen = new Set<ItemId>()
     let count = 0
@@ -181,9 +193,14 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
       aria-labelledby="price-wizard-title"
       className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
     >
-      <div className="rainbow flex max-h-full w-full max-w-xl rounded-lg">
+      {/* L'anneau est une jauge : `--rainbow-progress` allume la part du tour
+          déjà faite (voir index.css). La bordure grise dessous fait le rail. */}
+      <div
+        className="rainbow flex max-h-full w-full max-w-xl rounded-lg"
+        style={{ '--rainbow-progress': `${progress}%` } as CSSProperties}
+      >
         <span className="rainbow-halo" aria-hidden />
-        <div className="rainbow-ring flex max-h-full w-full flex-col rounded-lg bg-slate-900 shadow-2xl shadow-black/60">
+        <div className="rainbow-ring flex max-h-full w-full flex-col rounded-lg border border-slate-800 bg-slate-900 shadow-2xl shadow-black/60">
         <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
           <Icon.wizard className="size-5 shrink-0 text-amber-400" aria-hidden />
           <h2 id="price-wizard-title" className="flex-1 text-base font-semibold text-slate-100">
