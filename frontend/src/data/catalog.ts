@@ -6,10 +6,12 @@
  * démarrage et on construit les index en mémoire : c'est ce qui permet de trier,
  * filtrer et chiffrer 17 000 items sans le moindre appel réseau ensuite.
  */
-import type { Carburant, Catalog, Item, ItemId, ItemType, Recipe } from '../domain/types'
+import type { Carburant, Catalog, Item, ItemId, ItemType, Job, Recipe } from '../domain/types'
+import { normalize } from '../lib/format'
 
 interface RawMeta {
   iconBaseUrls: string[]
+  jobIconBaseUrls: string[]
   categories: Record<string, string>
 }
 
@@ -24,7 +26,13 @@ interface RawItem {
 }
 interface RawRecipe {
   r: number
+  j: number
   e: { i: number; q: number }[]
+}
+interface RawJob {
+  id: number
+  n: string
+  i: number | null
 }
 interface RawCarburant {
   i: number
@@ -42,11 +50,12 @@ async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
 }
 
 export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
-  const [meta, rawTypes, rawItems, rawRecipes, rawCarburants] = await Promise.all([
+  const [meta, rawTypes, rawItems, rawRecipes, rawJobs, rawCarburants] = await Promise.all([
     fetchJson<RawMeta>('meta', signal),
     fetchJson<RawTypes>('types', signal),
     fetchJson<RawItem[]>('items', signal),
     fetchJson<RawRecipe[]>('recipes', signal),
+    fetchJson<RawJob[]>('jobs', signal),
     // 5 Ko : les charger avec le reste évite un second état de chargement dans
     // le tableau de bord, pour un poids qui ne se voit pas.
     fetchJson<RawCarburant[]>('carburants', signal),
@@ -78,15 +87,29 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
   // millisecondes et éviter un 6ᵉ fichier à garder synchronisé.
   const recipeFor = new Map<ItemId, Recipe>()
   const usedIn = new Map<ItemId, ItemId[]>()
+  const recipesByJob = new Map<number, Recipe[]>()
   for (const raw of rawRecipes) {
     const entries = raw.e.map((entry) => ({ itemId: entry.i, quantity: entry.q }))
-    recipeFor.set(raw.r, { resultId: raw.r, entries })
+    const recipe: Recipe = { resultId: raw.r, jobId: raw.j, entries }
+    recipeFor.set(raw.r, recipe)
     for (const entry of entries) {
       const consumers = usedIn.get(entry.itemId)
       if (consumers) consumers.push(raw.r)
       else usedIn.set(entry.itemId, [raw.r])
     }
+    const ofJob = recipesByJob.get(raw.j)
+    if (ofJob) ofJob.push(recipe)
+    else recipesByJob.set(raw.j, [recipe])
   }
+
+  // Le slug vient du nom, sans accent ni espace : « Éleveur » -> `eleveur`.
+  // Il ne sert qu'aux routes ; l'id de jeu reste la clé partout ailleurs.
+  const jobs: Job[] = rawJobs.map((raw) => ({
+    id: raw.id,
+    name: raw.n,
+    slug: normalize(raw.n).replace(/[^a-z0-9]+/g, '-'),
+    iconId: raw.i,
+  }))
 
   const categories: Record<number, string> = {}
   for (const [id, label] of Object.entries(meta.categories)) categories[Number(id)] = label
@@ -103,10 +126,13 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     byId,
     recipeFor,
     usedIn,
+    jobs,
+    recipesByJob,
     types: [...typeById.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     categories,
     carburants,
     iconBaseUrls: meta.iconBaseUrls,
+    jobIconBaseUrls: meta.jobIconBaseUrls,
   }
 }
 

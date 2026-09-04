@@ -3,8 +3,6 @@
  *
  * Même parti-pris que `itemFilters` : l'URL est l'unique source de vérité, une
  * vue filtrée se partage, et les valeurs par défaut ne sont jamais écrites.
- * Le niveau d'Éleveur, lui, n'y figure pas — il décrit le joueur, pas la vue :
- * voir `data/jobLevels`.
  *
  * Jauges, familles et calibres se cumulent : « Baffeur et Caresseur, en
  * minuscule, petit ou normal ». Un ensemble vide ne restreint rien.
@@ -20,6 +18,7 @@ import {
   type Gauge,
 } from '../data/carburants'
 import type { SortDir } from '../components/TableHead'
+import { isBounded, NO_RANGE, readRange, writeRange, type Range } from './range'
 
 /**
  * `gauge` et `level` sont des tris de lecture, `ratio` et `margin` des tris de
@@ -34,8 +33,8 @@ export interface CarburantFilters {
   gauges: ReadonlySet<Gauge>
   families: ReadonlySet<CarburantFamily>
   sizes: ReadonlySet<CarburantSize>
-  /** Ne garder que ce que le niveau d'Éleveur du joueur permet de fabriquer. */
-  atMyLevel: boolean
+  /** Niveau d'Éleveur requis, borné. */
+  level: Range
   /** Ne garder que le meilleur rendement de chaque jauge. */
   bestOnly: boolean
   sort: { key: CarburantSortKey; dir: SortDir }
@@ -74,7 +73,7 @@ function parse(params: URLSearchParams): CarburantFilters {
     gauges: pickAll<Gauge>(params.get('gauge'), GAUGE_KEYS),
     families: pickAll<CarburantFamily>(params.get('family'), FAMILY_KEYS),
     sizes: pickAll<CarburantSize>(params.get('size'), SIZE_KEYS),
-    atMyLevel: params.get('lvl') === '1',
+    level: readRange(params, 'l'),
     bestOnly: params.get('best') === '1',
     sort: { key, dir: dir === 'asc' || dir === 'desc' ? dir : defaultSortDir(key) },
   }
@@ -86,7 +85,7 @@ function serialize(filters: CarburantFilters): URLSearchParams {
   if (filters.gauges.size > 0) params.set('gauge', [...filters.gauges].join(','))
   if (filters.families.size > 0) params.set('family', [...filters.families].join(','))
   if (filters.sizes.size > 0) params.set('size', [...filters.sizes].join(','))
-  if (filters.atMyLevel) params.set('lvl', '1')
+  writeRange(params, 'l', filters.level)
   if (filters.bestOnly) params.set('best', '1')
   if (filters.sort.key !== DEFAULT_SORT_KEY) params.set('sort', filters.sort.key)
   if (filters.sort.dir !== defaultSortDir(filters.sort.key)) params.set('dir', filters.sort.dir)
@@ -94,14 +93,11 @@ function serialize(filters: CarburantFilters): URLSearchParams {
 }
 
 /** Tout ce que « Tout effacer » remet à zéro : les filtres, pas le tri. */
-export const NO_FILTERS: Pick<
-  CarburantFilters,
-  'gauges' | 'families' | 'sizes' | 'atMyLevel' | 'bestOnly'
-> = {
+export const NO_FILTERS: Omit<CarburantFilters, 'sort'> = {
   gauges: new Set(),
   families: new Set(),
   sizes: new Set(),
-  atMyLevel: false,
+  level: NO_RANGE,
   bestOnly: false,
 }
 
@@ -110,17 +106,21 @@ export const isFiltering = (filters: CarburantFilters): boolean =>
   filters.gauges.size > 0 ||
   filters.families.size > 0 ||
   filters.sizes.size > 0 ||
-  filters.atMyLevel ||
+  isBounded(filters.level) ||
   filters.bestOnly
 
 export function useCarburantFilters() {
   const [params, setParams] = useSearchParams()
   const filters = useMemo(() => parse(params), [params])
 
-  /** Chaque choix pousse une entrée d'historique : un retour annule le dernier. */
+  /**
+   * `replace` pour la frappe dans une borne : sans lui, chaque chiffre
+   * laisserait une entrée d'historique. Les puces et coches poussent au
+   * contraire une entrée, pour qu'un retour annule le dernier choix.
+   */
   const update = useCallback(
-    (patch: Partial<CarburantFilters>) => {
-      setParams(serialize({ ...filters, ...patch }))
+    (patch: Partial<CarburantFilters>, options?: { replace?: boolean }) => {
+      setParams(serialize({ ...filters, ...patch }), { replace: options?.replace ?? false })
     },
     [filters, setParams],
   )

@@ -18,7 +18,7 @@ import {
   FilterBar,
   FilterChips,
   FilterDivider,
-  FilterNumber,
+  FilterRange,
   FilterReset,
   FilterToggle,
 } from '../components/FilterBar'
@@ -31,17 +31,14 @@ import { Tooltip } from '../components/Tooltip'
 import {
   capLabel,
   carburantLabel,
-  ELEVEUR_JOB_ID,
   FAMILIES,
   GAUGE_INFO,
   GAUGES_ALPHA,
-  MAX_JOB_LEVEL,
   SIZE_LABELS,
   SIZES,
 } from '../data/carburants'
 import { useCatalog } from '../data/catalogContext'
 import { useIgnored } from '../data/ignored'
-import { setJobLevel, useJobLevel } from '../data/jobLevels'
 import { usePrices } from '../data/prices'
 import {
   bestPerGauge,
@@ -62,6 +59,7 @@ import {
 import { formatKamas, formatRatio } from '../lib/format'
 import { heat, heatScale } from '../lib/heat'
 import { Icon } from '../lib/icons'
+import { within } from '../lib/range'
 
 const NONE = <span className="tabular-nums text-slate-600">—</span>
 
@@ -101,7 +99,6 @@ export default function CarburantPage() {
   const catalog = useCatalog()
   const prices = usePrices()
   const ignored = useIgnored()
-  const level = useJobLevel(ELEVEUR_JOB_ID)
   const [filters, update] = useCarburantFilters()
 
   const rows = useMemo(
@@ -122,13 +119,13 @@ export default function CarburantPage() {
       if (filters.gauges.size > 0 && !filters.gauges.has(row.gauge)) return false
       if (filters.families.size > 0 && !filters.families.has(row.family)) return false
       if (filters.sizes.size > 0 && !filters.sizes.has(row.size)) return false
-      if (filters.atMyLevel && level !== null && row.level > level) return false
+      if (!within(row.level, filters.level)) return false
       return true
     })
     const best = bestPerGauge(scoped)
     const kept = filters.bestOnly ? scoped.filter((row) => best.has(row.item.id)) : scoped
     return { visible: kept.sort((a, b) => compare(a, b, filters.sort)), bestIds: best }
-  }, [rows, filters, level])
+  }, [rows, filters])
 
   /** Premier clic : le sens naturel de la colonne. Les suivants basculent. */
   const toggleSort = (key: CarburantSortKey) =>
@@ -193,19 +190,7 @@ export default function CarburantPage() {
           { icon: Icon.price, label: `${priced} / ${expected} prix saisis` },
         ]}
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <PriceWizardButton items={wizardItems} />
-          <FilterNumber
-            icon={Icon.job}
-            value={level}
-            min={1}
-            max={MAX_JOB_LEVEL}
-            placeholder="Niv. Éleveur"
-            onChange={(value) => setJobLevel(ELEVEUR_JOB_ID, value)}
-            tip="Votre niveau d'Éleveur. Retenu sur ce navigateur, il ne voyage pas dans les liens partagés."
-            className="w-40"
-          />
-        </div>
+        <PriceWizardButton items={wizardItems} />
       </DashboardHeader>
 
       {unknown.length > 0 && (
@@ -241,18 +226,13 @@ export default function CarburantPage() {
           onChange={(sizes) => update({ sizes })}
         />
         <FilterDivider />
-        <FilterToggle
-          icon={Icon.craft}
-          label="Craftables à mon niveau"
-          checked={filters.atMyLevel}
-          disabled={level === null}
-          onChange={(atMyLevel) => update({ atMyLevel })}
-          tip={
-            level === null
-              ? "Renseignez d'abord votre niveau d'Éleveur, en haut à droite"
-              : `Ne garder que les carburants de niveau ${level} ou moins`
-          }
+        <FilterRange
+          icon={Icon.level}
+          label="Niveau d'Éleveur requis"
+          value={filters.level}
+          onChange={(range) => update({ level: range }, { replace: true })}
         />
+        <FilterDivider />
         <FilterToggle
           icon={Icon.best}
           label="Meilleur rendement par jauge"

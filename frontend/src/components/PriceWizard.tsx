@@ -27,6 +27,7 @@ import { freshness, setPrice, useCurrentPrice, useCurrentPrices, type PricePoint
 import type { Item, ItemId } from '../domain/types'
 import { formatKamas, formatRelativeDate, parseKamas } from '../lib/format'
 import { Icon } from '../lib/icons'
+import { BUTTON } from './Adorned'
 import ItemIcon from './ItemIcon'
 import { KamaIcon } from './Kamas'
 import { Tooltip } from './Tooltip'
@@ -106,7 +107,7 @@ export function PriceWizardButton({ items, className = '' }: { items: Item[]; cl
           type="button"
           onClick={() => setOpen(true)}
           disabled={items.length === 0}
-          className={`flex items-center gap-1.5 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-300 hover:border-amber-500/60 hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+          className={`${BUTTON} ${className}`}
         >
           <Icon.wizard className="size-4 shrink-0" aria-hidden />
           Remplissage assisté

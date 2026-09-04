@@ -11,12 +11,14 @@ import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/pric
 import { migrateLocalPrices } from './data/priceMigration'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
-import { DASHBOARDS, FAVORITES, SEARCH } from './lib/pages'
+import { DASHBOARDS, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
 import CarburantPage from './pages/CarburantPage'
 import FavoritesPage from './pages/FavoritesPage'
 import HomePage from './pages/HomePage'
 import ItemsPage from './pages/ItemsPage'
 import ItemPage from './pages/ItemPage'
+import JobPage from './pages/JobPage'
+import JobsPage from './pages/JobsPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 export default function App() {
@@ -31,8 +33,10 @@ export default function App() {
   const CHROME = 'max-w-[110rem]'
 
   // Un tableau de bord aligne une quinzaine de colonnes : la largeur de
-  // lecture des autres pages l'étoufferait.
-  const shell = pathname.startsWith('/dashboard') ? CHROME : 'max-w-6xl'
+  // lecture des autres pages l'étoufferait. La liste des métiers, elle, est
+  // une page de lecture.
+  const wide = pathname.startsWith('/dashboard') || pathname.startsWith(`${JOBS_PATH}/`)
+  const shell = wide ? CHROME : 'max-w-6xl'
 
   useEffect(() => {
     const controller = new AbortController()
@@ -140,6 +144,8 @@ export default function App() {
             <Route path="/item/:id" element={<ItemPage />} />
             <Route path={DASHBOARDS[0]!.to} element={<CarburantPage />} />
             <Route path="/dashboard" element={<Navigate to={DASHBOARDS[0]!.to} replace />} />
+            <Route path={JOBS_PATH} element={<JobsPage />} />
+            <Route path={`${JOBS_PATH}/:slug`} element={<JobPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

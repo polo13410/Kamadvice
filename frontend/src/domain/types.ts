@@ -22,7 +22,19 @@ export interface RecipeEntry {
 
 export interface Recipe {
   resultId: ItemId
+  /** Métier qui la fabrique. `1` est « Base », à la portée de tous. */
+  jobId: number
   entries: RecipeEntry[]
+}
+
+/** Un métier qui fabrique quelque chose. Les métiers de modification n'y sont pas. */
+export interface Job {
+  id: number
+  name: string
+  /** `forgeron`, `eleveur`… : l'identifiant lisible des routes `/job/:slug`. */
+  slug: string
+  /** Identifiant d'icône de jeu, servi par les CDN. `null` pour un métier sans icône. */
+  iconId: number | null
 }
 
 /**
@@ -52,6 +64,10 @@ export interface Catalog {
   recipeFor: ReadonlyMap<ItemId, Recipe>
   /** Index inverse : ingrédient -> items dont il est un composant. */
   usedIn: ReadonlyMap<ItemId, ItemId[]>
+  /** Métiers producteurs, triés par nom. */
+  jobs: Job[]
+  /** Recettes de chaque métier, dans l'ordre du dump. */
+  recipesByJob: ReadonlyMap<number, Recipe[]>
   /** Types réellement présents, triés par libellé, pour alimenter les filtres. */
   types: ItemType[]
   /**
@@ -63,6 +79,8 @@ export interface Catalog {
   categories: Record<number, string>
   /** Sources d'icônes, à essayer dans l'ordre : voir ItemIcon. */
   iconBaseUrls: string[]
+  /** Même chose pour les icônes de métier : voir JobIcon. */
+  jobIconBaseUrls: string[]
 }
 
 /** Prix HDV connus, en kamas. Un item absent de la map n'a pas de prix saisi. */

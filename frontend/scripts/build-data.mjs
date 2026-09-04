@@ -8,6 +8,12 @@
  * assez petit pour être chargé intégralement dans le navigateur, ce qui évite
  * tout backend pour la partie catalogue.
  *
+ * Deux formats cohabitent dans `dofus_data/`, tous deux tirés des releases
+ * dofusdude/dofus3-main :
+ * - `items.json` est le `MAPPED_ITEMS.json`, déjà résolu (noms en clair) ;
+ * - `recipes.json` et `jobs.json` sont les assets *bruts* (dumps Unity), seuls
+ *   à porter le `jobId` d'une recette — la version mappée l'a perdu.
+ *
  *   node scripts/build-data.mjs
  */
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
@@ -45,7 +51,63 @@ const ICON_BASE_URLS = [
   'https://api.dofusdb.fr/img/items/',
 ]
 
+/**
+ * Icônes de métier, par `iconId`, même mécanique (voir JobIcon).
+ *
+ * Ankama n'en sert aucune — 403 sur toutes les formes d'URL essayées —, seul
+ * DofusDB les expose. La liste reste une liste pour le jour où une seconde
+ * source apparaît ; en attendant, le repli est un pictogramme.
+ */
+const JOB_ICON_BASE_URLS = ['https://api.dofusdb.fr/img/jobs/']
+
 const fr = (o) => (o && typeof o === 'object' ? (o.fr ?? null) : null)
+
+/**
+ * Un dump Unity range ses lignes dans `references.RefIds[].data`, et enveloppe
+ * chaque tableau dans `{ Array: [...] }`. `objectsById` n'est qu'un index, on
+ * l'ignore.
+ */
+const unityRows = (dump) => dump.references.RefIds.map((ref) => ref.data)
+const unityArray = (field) => field?.Array ?? []
+
+/**
+ * Libellés FR des métiers, par `id` de jeu.
+ *
+ * `jobs.json` ne porte qu'un `nameId` vers la table i18n (`fr.json`, 30 Mo pour
+ * 23 chaînes) : les écrire ici coûte moins que d'embarquer la table. Un id
+ * absent est signalé au build, pas inventé.
+ */
+const JOB_NAMES = {
+  1: 'Base',
+  2: 'Bûcheron',
+  11: 'Forgeron',
+  13: 'Sculpteur',
+  15: 'Cordonnier',
+  16: 'Bijoutier',
+  24: 'Mineur',
+  26: 'Alchimiste',
+  27: 'Tailleur',
+  28: 'Paysan',
+  36: 'Pêcheur',
+  41: 'Chasseur',
+  44: 'Forgemage',
+  48: 'Sculptemage',
+  60: 'Façonneur',
+  62: 'Cordomage',
+  63: 'Joaillomage',
+  64: 'Costumage',
+  65: 'Bricoleur',
+  74: 'Façomage',
+  75: 'Parchomage',
+  78: 'Bestiologue',
+  79: 'Éleveur',
+}
+
+/**
+ * Métiers qu'on ne propose pas : « Base » (1) est le métier de personne — ses
+ * recettes sont à tout le monde, il n'y a ni niveau à monter ni atelier.
+ */
+const HIDDEN_JOBS = new Set([1])
 
 /**
  * Type des carburants d'enclos, le métier d'Éleveur en entier côté craft avec
@@ -107,9 +169,10 @@ function buildCarburants(rawItems) {
 }
 
 async function main() {
-  const [rawItems, rawRecipes] = await Promise.all([
+  const [rawItems, rawRecipes, rawJobs] = await Promise.all([
     readFile(join(SRC, 'items.json'), 'utf8').then(JSON.parse),
-    readFile(join(SRC, 'recipes.json'), 'utf8').then(JSON.parse),
+    readFile(join(SRC, 'recipes.json'), 'utf8').then(JSON.parse).then(unityRows),
+    readFile(join(SRC, 'jobs.json'), 'utf8').then(JSON.parse).then(unityRows),
   ])
 
   // --- Dictionnaire de types ------------------------------------------------
@@ -139,22 +202,46 @@ async function main() {
   // retirés du jeu) : on les écarte, elles ne seraient affichables nulle part.
   const dropped = []
   const recipes = []
+  const recipesByJob = new Map()
   for (const recipe of rawRecipes) {
-    if (!knownIds.has(recipe.result_id)) {
-      dropped.push(recipe.result_id)
+    if (!knownIds.has(recipe.resultId)) {
+      dropped.push(recipe.resultId)
       continue
     }
+    const ids = unityArray(recipe.ingredientIds)
+    const quantities = unityArray(recipe.quantities)
     recipes.push({
-      r: recipe.result_id,
-      e: recipe.entries.map((entry) => ({ i: entry.item_id, q: entry.quantity })),
+      r: recipe.resultId,
+      j: recipe.jobId,
+      e: ids.map((id, index) => ({ i: id, q: quantities[index] ?? 1 })),
     })
+    recipesByJob.set(recipe.jobId, (recipesByJob.get(recipe.jobId) ?? 0) + 1)
   }
+
+  // --- Métiers --------------------------------------------------------------
+  // Seuls les métiers qui produisent quelque chose : les *mages (Forgemage,
+  // Costumage…) modifient sans fabriquer et n'ont aucune recette.
+  // `i` est l'`iconId` de jeu, que les CDN servent tel quel ; `null` quand le
+  // métier n'en a pas (-1 au dump), le front dessine alors un pictogramme.
+  const unnamed = []
+  const jobs = []
+  for (const job of rawJobs) {
+    if (!recipesByJob.has(job.id) || HIDDEN_JOBS.has(job.id)) continue
+    const name = JOB_NAMES[job.id]
+    if (!name) {
+      unnamed.push(job.id)
+      continue
+    }
+    jobs.push({ id: job.id, n: name, i: job.iconId >= 0 ? job.iconId : null })
+  }
+  jobs.sort((a, b) => a.n.localeCompare(b.n, 'fr'))
 
   // --- Carburants d'enclos ---------------------------------------------------
   const carburants = buildCarburants(rawItems)
 
   const meta = {
     iconBaseUrls: ICON_BASE_URLS,
+    jobIconBaseUrls: JOB_ICON_BASE_URLS,
     categories: CATEGORIES,
   }
 
@@ -165,6 +252,7 @@ async function main() {
     ['types', types],
     ['items', items],
     ['recipes', recipes],
+    ['jobs', jobs],
     ['carburants', carburants.rows],
   ]) {
     const json = JSON.stringify(payload)
@@ -176,9 +264,12 @@ async function main() {
     console.log(`  public/data/${name}.json`.padEnd(30), `${(bytes / 1024).toFixed(0)} Ko`)
   }
   console.log(`
-${items.length} items, ${recipes.length} recettes, ${carburants.rows.length} carburants.`)
+${items.length} items, ${recipes.length} recettes, ${jobs.length} métiers, ${carburants.rows.length} carburants.`)
   if (dropped.length) {
     console.log(`${dropped.length} recettes ignorées (résultat hors catalogue) : ${dropped.join(', ')}`)
+  }
+  if (unnamed.length) {
+    console.log(`${unnamed.length} métier(s) sans libellé dans JOB_NAMES, ignoré(s) : ${unnamed.join(', ')}`)
   }
   if (carburants.skipped.length) {
     console.log(`${carburants.skipped.length} carburant(s) sans effet lisible : ${carburants.skipped.join(', ')}`)

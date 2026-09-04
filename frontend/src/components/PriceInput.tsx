@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { setPrice } from '../data/prices'
+import { FIELD_TABLE } from './Adorned'
 import { formatKamas, parseKamas } from '../lib/format'
 import type { ItemId } from '../domain/types'
 
@@ -46,7 +47,7 @@ export default function PriceInput({
           event.currentTarget.blur()
         }
       }}
-      className={`w-28 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-right tabular-nums text-slate-100 placeholder:text-slate-600 focus:border-amber-500 focus:outline-none ${className}`}
+      className={`${FIELD_TABLE} ${className}`}
     />
   )
 }

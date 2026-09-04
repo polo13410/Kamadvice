@@ -31,9 +31,6 @@ export const CARBURANT_TYPE_ID = 326
 /** Le métier dont relèvent tous les crafts de cette page. */
 export const ELEVEUR_JOB_ID = 79
 
-/** Niveau maximum d'un métier, et donc borne haute du filtre par niveau. */
-export const MAX_JOB_LEVEL = 200
-
 // --- Jauges ------------------------------------------------------------------
 
 /** Les six jauges d'un enclos. */

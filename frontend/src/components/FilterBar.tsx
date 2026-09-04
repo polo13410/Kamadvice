@@ -7,11 +7,16 @@
  * composants ne font qu'afficher et remonter.
  */
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
-import Adorned, { CONTROL } from './Adorned'
+import Adorned, { CONTROL, FIELD_NUMBER } from './Adorned'
 import { Tooltip } from './Tooltip'
 
+/**
+ * Tous les contrôles d'une barre font la hauteur de `FIELD` (voir `Adorned`),
+ * y compris les coches et les boutons : c'est ce qui les aligne sur une ligne
+ * sans jeu de marges.
+ */
 export function FilterBar({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap items-center gap-3">{children}</div>
 }
@@ -103,7 +108,7 @@ export function FilterChips<T extends string>({
             type="button"
             onClick={() => toggle(option.value)}
             aria-pressed={active}
-            className={`rounded-full border px-2.5 py-1 text-xs focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+            className={`flex h-7 items-center rounded-full border px-2.5 text-xs focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
               active
                 ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
                 : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200'
@@ -113,6 +118,97 @@ export function FilterChips<T extends string>({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Le temps qu'on laisse à la frappe avant d'appliquer une borne : filtrer sept
+ * cents recettes à chaque touche saccade, et « 10 000 » se tape en cinq
+ * frappes. Entrée et la sortie du champ appliquent tout de suite.
+ */
+const RANGE_DEBOUNCE_MS = 500
+
+type Bounds = { min: number | null; max: number | null }
+
+const parseBound = (raw: string): number | null => {
+  const digits = raw.replace(/\D/g, '')
+  return digits === '' ? null : Number(digits)
+}
+
+/**
+ * Une fourchette : deux bornes facultatives, « min » et « max ».
+ *
+ * Les champs restent en texte avec un clavier numérique plutôt qu'en
+ * `type="number"` : on veut pouvoir taper « 10 000 » avec l'espace, comme on
+ * lit un prix, et un champ vidé doit redevenir « pas de borne ».
+ *
+ * Le champ garde un brouillon et ne remonte la valeur qu'après un temps de
+ * silence : c'est la page qui filtre, et elle le fait à chaque valeur reçue.
+ */
+export function FilterRange({
+  icon: Glyph,
+  label,
+  value,
+  onChange,
+}: {
+  icon: LucideIcon
+  /** Ce qu'on borne : « Niveau », « Prix HDV »… Sert d'accessibilité et de bulle. */
+  label: string
+  value: Bounds
+  onChange: (value: Bounds) => void
+}) {
+  const [draft, setDraft] = useState<Bounds>(value)
+  const timer = useRef<number | undefined>(undefined)
+  const latest = useRef(onChange)
+  latest.current = onChange
+
+  // Une valeur venue d'ailleurs — « Tout effacer », bouton Retour — remplace
+  // le brouillon, et annule une frappe qui n'aurait pas encore été appliquée.
+  useEffect(() => {
+    window.clearTimeout(timer.current)
+    setDraft(value)
+  }, [value])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const commit = (next: Bounds) => {
+    window.clearTimeout(timer.current)
+    if (next.min !== value.min || next.max !== value.max) latest.current(next)
+  }
+
+  const edit = (bound: 'min' | 'max', raw: string) => {
+    const next = { ...draft, [bound]: parseBound(raw) }
+    setDraft(next)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => commit(next), RANGE_DEBOUNCE_MS)
+  }
+
+  const field = (bound: 'min' | 'max') => (
+    <input
+      inputMode="numeric"
+      value={draft[bound] ?? ''}
+      placeholder={bound}
+      aria-label={`${label}, ${bound === 'min' ? 'minimum' : 'maximum'}`}
+      onChange={(event) => edit(bound, event.target.value)}
+      onBlur={() => commit(draft)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') commit(draft)
+      }}
+      className={FIELD_NUMBER}
+    />
+  )
+
+  return (
+    <div role="group" aria-label={label} className="flex items-center gap-1.5">
+      <Tooltip content={label} className="flex">
+        <Glyph className="size-4 shrink-0 cursor-help text-slate-500" aria-hidden />
+      </Tooltip>
+      {field('min')}
+      <span className="text-slate-600" aria-hidden>
+        –
+      </span>
+      {field('max')}
     </div>
   )
 }
@@ -128,7 +224,7 @@ export function FilterReset({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none"
+      className="ml-auto flex h-9 items-center gap-1.5 text-xs text-slate-500 hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none"
     >
       <Icon.sortReset className="size-3.5 shrink-0" aria-hidden />
       Tout effacer
@@ -137,53 +233,10 @@ export function FilterReset({ onClick }: { onClick: () => void }) {
 }
 
 /**
- * Nombre entier borné, vide quand la valeur est inconnue.
- *
- * Remonte `null` sur un champ vidé : c'est à la page de décider si un niveau
- * absent veut dire « tout montrer » ou « rien filtrer ».
+ * Case à cocher, avec icône et bulle facultative pour dire ce qu'elle
+ * restreint. `children` se pose après le libellé : un champ qui précise la
+ * coche, comme le niveau du joueur.
  */
-export function FilterNumber({
-  icon,
-  value,
-  min,
-  max,
-  placeholder,
-  onChange,
-  tip,
-  className = '',
-}: {
-  icon: LucideIcon
-  value: number | null
-  min: number
-  max: number
-  placeholder: string
-  onChange: (value: number | null) => void
-  tip?: string
-  className?: string
-}) {
-  const field = (
-    <Adorned icon={icon} className={className}>
-      <input
-        type="number"
-        inputMode="numeric"
-        min={min}
-        max={max}
-        value={value ?? ''}
-        placeholder={placeholder}
-        onChange={(event) => {
-          const raw = event.target.value
-          if (raw === '') return onChange(null)
-          const parsed = Number(raw)
-          if (Number.isInteger(parsed)) onChange(Math.min(max, Math.max(min, parsed)))
-        }}
-        className={`${CONTROL} w-full`}
-      />
-    </Adorned>
-  )
-  return tip ? <Tooltip content={tip}>{field}</Tooltip> : field
-}
-
-/** Case à cocher, avec icône et bulle facultative pour dire ce qu'elle restreint. */
 export function FilterToggle({
   icon: Glyph,
   label,
@@ -191,6 +244,7 @@ export function FilterToggle({
   onChange,
   tip,
   disabled = false,
+  children,
 }: {
   icon: LucideIcon
   label: string
@@ -198,10 +252,11 @@ export function FilterToggle({
   onChange: (checked: boolean) => void
   tip?: string
   disabled?: boolean
+  children?: ReactNode
 }) {
   const control = (
     <label
-      className={`flex items-center gap-2 text-sm ${
+      className={`flex h-9 items-center gap-2 text-sm ${
         disabled
           ? 'cursor-not-allowed text-slate-600'
           : 'cursor-pointer text-slate-400 hover:text-slate-200'
@@ -218,5 +273,12 @@ export function FilterToggle({
       {label}
     </label>
   )
-  return tip ? <Tooltip content={tip}>{control}</Tooltip> : control
+  const labelled = tip ? <Tooltip content={tip}>{control}</Tooltip> : control
+  if (!children) return labelled
+  return (
+    <span className="flex items-center gap-2">
+      {labelled}
+      {children}
+    </span>
+  )
 }

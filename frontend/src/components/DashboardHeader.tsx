@@ -15,12 +15,15 @@ export interface DashboardStat {
 
 export default function DashboardHeader({
   icon: Glyph,
+  glyph,
   title,
   description,
   stats,
   children,
 }: {
   icon: LucideIcon
+  /** Une image à la place de l'icône : celle d'un métier, par exemple. */
+  glyph?: ReactNode
   title: string
   description: ReactNode
   stats: DashboardStat[]
@@ -31,7 +34,7 @@ export default function DashboardHeader({
     <header className="space-y-1">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-100">
-          <Glyph className="size-5 shrink-0 text-amber-400" aria-hidden />
+          {glyph ?? <Glyph className="size-5 shrink-0 text-amber-400" aria-hidden />}
           {title}
         </h1>
         {children}
