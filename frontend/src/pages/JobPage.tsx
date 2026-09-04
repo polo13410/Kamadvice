@@ -20,6 +20,7 @@ import {
   FilterDivider,
   FilterRange,
   FilterReset,
+  FilterSearch,
 } from '../components/FilterBar'
 import ItemIcon from '../components/ItemIcon'
 import JobIcon from '../components/JobIcon'
@@ -34,7 +35,7 @@ import { useIgnored } from '../data/ignored'
 import { usePrices } from '../data/prices'
 import { buildJobRows, type JobIngredient, type JobRow } from '../domain/jobCraft'
 import type { Job } from '../domain/types'
-import { formatKamas, formatPercent } from '../lib/format'
+import { formatKamas, formatPercent, normalize } from '../lib/format'
 import { heat, heatScale } from '../lib/heat'
 import { Icon } from '../lib/icons'
 import {
@@ -141,10 +142,26 @@ function JobDashboard({ job }: { job: Job }) {
       .sort((a, b) => a.label.localeCompare(b.label, 'fr'))
   }, [rows])
 
+  /** Ce que le mot-clé peut atteindre sur chaque ligne : le nom, et ceux des ingrédients. */
+  const haystacks = useMemo(
+    () =>
+      new Map(
+        rows.map((row) => [
+          row.item.id,
+          normalize(
+            [row.item.name, ...row.ingredients.map((i) => i.item?.name ?? '')].join(' '),
+          ),
+        ]),
+      ),
+    [rows],
+  )
+
   const visible = useMemo(
     () =>
       rows
         .filter((row) => {
+          const needle = normalize(filters.search.trim())
+          if (needle && !haystacks.get(row.item.id)?.includes(needle)) return false
           if (!within(row.item.level, filters.level)) return false
           if (filters.types.size > 0 && !filters.types.has(row.item.type?.id ?? -1)) return false
           if (!within(row.buy, filters.buy)) return false
@@ -153,7 +170,7 @@ function JobDashboard({ job }: { job: Job }) {
           return true
         })
         .sort((a, b) => compare(a, b, filters.sort)),
-    [rows, filters],
+    [rows, haystacks, filters],
   )
   const shown = visible.length > MAX_ROWS ? visible.slice(0, MAX_ROWS) : visible
 
@@ -221,6 +238,12 @@ function JobDashboard({ job }: { job: Job }) {
       </DashboardHeader>
 
       <FilterBar>
+        <FilterSearch
+          value={filters.search}
+          placeholder="Item ou ingrédient…"
+          onChange={(search) => update({ search }, { replace: true })}
+        />
+        <FilterDivider />
         <FilterRange
           icon={Icon.level}
           label="Niveau requis"

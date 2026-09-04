@@ -123,11 +123,79 @@ export function FilterChips<T extends string>({
 }
 
 /**
- * Le temps qu'on laisse à la frappe avant d'appliquer une borne : filtrer sept
- * cents recettes à chaque touche saccade, et « 10 000 » se tape en cinq
+ * Le temps qu'on laisse à la frappe avant d'appliquer un champ texte : filtrer
+ * sept cents recettes à chaque touche saccade, et « 10 000 » se tape en cinq
  * frappes. Entrée et la sortie du champ appliquent tout de suite.
  */
-const RANGE_DEBOUNCE_MS = 500
+const TYPING_DEBOUNCE_MS = 500
+
+/**
+ * Un brouillon qui ne remonte à la page qu'après un temps de silence.
+ *
+ * Une valeur venue d'ailleurs — « Tout effacer », bouton Retour — remplace le
+ * brouillon et annule une frappe qui n'aurait pas encore été appliquée.
+ */
+function useDeferred<T>(value: T, onChange: (value: T) => void, same: (a: T, b: T) => boolean) {
+  const [draft, setDraft] = useState<T>(value)
+  const timer = useRef<number | undefined>(undefined)
+  const latest = useRef(onChange)
+  latest.current = onChange
+
+  useEffect(() => {
+    window.clearTimeout(timer.current)
+    setDraft(value)
+  }, [value])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const commit = (next: T) => {
+    window.clearTimeout(timer.current)
+    if (!same(next, value)) latest.current(next)
+  }
+
+  const edit = (next: T) => {
+    setDraft(next)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => commit(next), TYPING_DEBOUNCE_MS)
+  }
+
+  return { draft, edit, commit }
+}
+
+/**
+ * Recherche par mot-clé dans les lignes d'un tableau de bord.
+ *
+ * C'est la page qui décide où chercher — nom de l'item, ingrédients — et qui
+ * normalise ; le champ ne fait que remonter le texte, après le même délai que
+ * les bornes.
+ */
+export function FilterSearch({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  const { draft, edit, commit } = useDeferred(value, onChange, (a, b) => a === b)
+  return (
+    <Adorned icon={Icon.search} className="w-64">
+      <input
+        type="search"
+        value={draft}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        onChange={(event) => edit(event.target.value)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commit(draft)
+        }}
+        className={`${CONTROL} w-full`}
+      />
+    </Adorned>
+  )
+}
 
 type Bounds = { min: number | null; max: number | null }
 
@@ -158,31 +226,11 @@ export function FilterRange({
   value: Bounds
   onChange: (value: Bounds) => void
 }) {
-  const [draft, setDraft] = useState<Bounds>(value)
-  const timer = useRef<number | undefined>(undefined)
-  const latest = useRef(onChange)
-  latest.current = onChange
-
-  // Une valeur venue d'ailleurs — « Tout effacer », bouton Retour — remplace
-  // le brouillon, et annule une frappe qui n'aurait pas encore été appliquée.
-  useEffect(() => {
-    window.clearTimeout(timer.current)
-    setDraft(value)
-  }, [value])
-
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-
-  const commit = (next: Bounds) => {
-    window.clearTimeout(timer.current)
-    if (next.min !== value.min || next.max !== value.max) latest.current(next)
-  }
-
-  const edit = (bound: 'min' | 'max', raw: string) => {
-    const next = { ...draft, [bound]: parseBound(raw) }
-    setDraft(next)
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => commit(next), RANGE_DEBOUNCE_MS)
-  }
+  const { draft, edit, commit } = useDeferred(
+    value,
+    onChange,
+    (a, b) => a.min === b.min && a.max === b.max,
+  )
 
   const field = (bound: 'min' | 'max') => (
     <input
@@ -190,7 +238,7 @@ export function FilterRange({
       value={draft[bound] ?? ''}
       placeholder={bound}
       aria-label={`${label}, ${bound === 'min' ? 'minimum' : 'maximum'}`}
-      onChange={(event) => edit(bound, event.target.value)}
+      onChange={(event) => edit({ ...draft, [bound]: parseBound(event.target.value) })}
       onBlur={() => commit(draft)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') commit(draft)

@@ -20,6 +20,7 @@ import {
   FilterDivider,
   FilterRange,
   FilterReset,
+  FilterSearch,
   FilterToggle,
 } from '../components/FilterBar'
 import ItemIcon from '../components/ItemIcon'
@@ -56,7 +57,7 @@ import {
   type CarburantFilters,
   type CarburantSortKey,
 } from '../lib/carburantFilters'
-import { formatKamas, formatRatio } from '../lib/format'
+import { formatKamas, formatRatio, normalize } from '../lib/format'
 import { heat, heatScale } from '../lib/heat'
 import { Icon } from '../lib/icons'
 import { within } from '../lib/range'
@@ -112,10 +113,26 @@ export default function CarburantPage() {
    * meilleur » se juge parmi ce qu'on peut fabriquer et ce qu'on regarde, pas
    * parmi les 120.
    */
+  /** Ce que le mot-clé peut atteindre sur chaque ligne : le nom, et ceux des ingrédients. */
+  const haystacks = useMemo(
+    () =>
+      new Map(
+        rows.map((row) => [
+          row.item.id,
+          normalize(
+            [row.item.name, ...row.ingredients.map((i) => i.item?.name ?? '')].join(' '),
+          ),
+        ]),
+      ),
+    [rows],
+  )
+
   const { visible, bestIds } = useMemo(() => {
+    const needle = normalize(filters.search.trim())
     // Un ensemble vide ne restreint rien ; à l'intérieur d'un ensemble, c'est
     // un OU (Baffeur ou Caresseur) ; entre ensembles, un ET.
     const scoped = rows.filter((row) => {
+      if (needle && !haystacks.get(row.item.id)?.includes(needle)) return false
       if (filters.gauges.size > 0 && !filters.gauges.has(row.gauge)) return false
       if (filters.families.size > 0 && !filters.families.has(row.family)) return false
       if (filters.sizes.size > 0 && !filters.sizes.has(row.size)) return false
@@ -125,7 +142,7 @@ export default function CarburantPage() {
     const best = bestPerGauge(scoped)
     const kept = filters.bestOnly ? scoped.filter((row) => best.has(row.item.id)) : scoped
     return { visible: kept.sort((a, b) => compare(a, b, filters.sort)), bestIds: best }
-  }, [rows, filters])
+  }, [rows, haystacks, filters])
 
   /** Premier clic : le sens naturel de la colonne. Les suivants basculent. */
   const toggleSort = (key: CarburantSortKey) =>
@@ -202,6 +219,12 @@ export default function CarburantPage() {
       )}
 
       <FilterBar>
+        <FilterSearch
+          value={filters.search}
+          placeholder="Carburant ou ingrédient…"
+          onChange={(search) => update({ search }, { replace: true })}
+        />
+        <FilterDivider />
         <FilterChips
           icon={Icon.gauge}
           label="Jauges"
@@ -249,7 +272,7 @@ export default function CarburantPage() {
               pas d'une ligne à l'autre, même quand une liste d'ingrédients
               s'allonge. `min-w` garde les colonnes lisibles sur petit écran,
               au prix d'un défilement horizontal. */}
-          <table className="w-full min-w-[102rem] table-fixed text-sm">
+          <table className="w-full min-w-[112rem] table-fixed text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
                 <Th width="w-44" icon={Icon.fuel}>
@@ -274,7 +297,7 @@ export default function CarburantPage() {
                 <Th width="w-40" icon={Icon.price}>
                   Prix HDV
                 </Th>
-                <Th width="w-64" icon={Icon.recipe}>
+                <Th width="w-[26rem]" icon={Icon.recipe}>
                   Ingrédients
                 </Th>
                 <Th
@@ -407,9 +430,10 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
           <PriceField itemId={row.item.id} layout="column" align="left" />
         </div>
       </td>
-      {/* De 2 à 5 ingrédients selon la famille : une liste, pas des colonnes. */}
+      {/* De 2 à 5 ingrédients selon la famille : deux par ligne, comme sur les
+          métiers — un extrait tient sur une ligne, un élixir sur trois. */}
       <td className="min-w-0 px-2 py-1.5">
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           {row.ingredients.map((ingredient) => (
             <Ingredient key={ingredient.itemId} ingredient={ingredient} />
           ))}

@@ -30,6 +30,8 @@ export type CarburantSortKey = 'gauge' | 'level' | 'ratio' | 'margin'
 const SORT_KEYS: CarburantSortKey[] = ['gauge', 'level', 'ratio', 'margin']
 
 export interface CarburantFilters {
+  /** Mot-clé, cherché dans le nom du carburant et de ses ingrédients. */
+  search: string
   gauges: ReadonlySet<Gauge>
   families: ReadonlySet<CarburantFamily>
   sizes: ReadonlySet<CarburantSize>
@@ -70,6 +72,7 @@ function parse(params: URLSearchParams): CarburantFilters {
   const dir = params.get('dir')
 
   return {
+    search: params.get('q') ?? '',
     gauges: pickAll<Gauge>(params.get('gauge'), GAUGE_KEYS),
     families: pickAll<CarburantFamily>(params.get('family'), FAMILY_KEYS),
     sizes: pickAll<CarburantSize>(params.get('size'), SIZE_KEYS),
@@ -82,6 +85,7 @@ function parse(params: URLSearchParams): CarburantFilters {
 /** Ordre fixe des paramètres : deux fois les mêmes filtres donnent la même URL. */
 function serialize(filters: CarburantFilters): URLSearchParams {
   const params = new URLSearchParams()
+  if (filters.search !== '') params.set('q', filters.search)
   if (filters.gauges.size > 0) params.set('gauge', [...filters.gauges].join(','))
   if (filters.families.size > 0) params.set('family', [...filters.families].join(','))
   if (filters.sizes.size > 0) params.set('size', [...filters.sizes].join(','))
@@ -94,6 +98,7 @@ function serialize(filters: CarburantFilters): URLSearchParams {
 
 /** Tout ce que « Tout effacer » remet à zéro : les filtres, pas le tri. */
 export const NO_FILTERS: Omit<CarburantFilters, 'sort'> = {
+  search: '',
   gauges: new Set(),
   families: new Set(),
   sizes: new Set(),
@@ -103,6 +108,7 @@ export const NO_FILTERS: Omit<CarburantFilters, 'sort'> = {
 
 /** Au moins une restriction posée : de quoi afficher « Tout effacer ». */
 export const isFiltering = (filters: CarburantFilters): boolean =>
+  filters.search !== '' ||
   filters.gauges.size > 0 ||
   filters.families.size > 0 ||
   filters.sizes.size > 0 ||

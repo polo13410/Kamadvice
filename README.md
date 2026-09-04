@@ -87,7 +87,8 @@ frontend/
       DashboardHeader.tsx  Titre, méthode et chiffres d'un tableau de bord
       Adorned.tsx        Convention de taille des contrôles (FIELD, CONTROL,
                          FIELD_TABLE, BUTTON) + champ à icône
-      FilterBar.tsx      Barre de filtres : puces, fourchette (débounce), coche
+      FilterBar.tsx      Barre de filtres : mot-clé, puces, fourchette, coche
+                         (champs texte appliqués après 500 ms de silence)
       TableHead.tsx      En-tête de colonne triable, avec bulle
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)

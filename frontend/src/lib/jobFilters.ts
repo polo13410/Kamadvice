@@ -34,6 +34,8 @@ const SORT_KEYS: JobSortKey[] = [
 ]
 
 export interface JobFilters {
+  /** Mot-clé, cherché dans le nom de l'item et de ses ingrédients. */
+  search: string
   level: Range
   /** Types d'item, par id. Vide = tous. */
   types: ReadonlySet<number>
@@ -70,6 +72,7 @@ function parse(params: URLSearchParams): JobFilters {
   }
 
   return {
+    search: params.get('q') ?? '',
     level: readRange(params, 'l'),
     types,
     buy: readRange(params, 'b'),
@@ -82,6 +85,7 @@ function parse(params: URLSearchParams): JobFilters {
 /** Ordre fixe des paramètres : deux fois les mêmes filtres donnent la même URL. */
 function serialize(filters: JobFilters): URLSearchParams {
   const params = new URLSearchParams()
+  if (filters.search !== '') params.set('q', filters.search)
   writeRange(params, 'l', filters.level)
   if (filters.types.size > 0) params.set('type', [...filters.types].join(','))
   writeRange(params, 'b', filters.buy)
@@ -94,6 +98,7 @@ function serialize(filters: JobFilters): URLSearchParams {
 
 /** Tout ce que « Tout effacer » remet à zéro : les filtres, pas le tri. */
 export const NO_FILTERS: Omit<JobFilters, 'sort'> = {
+  search: '',
   level: NO_RANGE,
   types: new Set(),
   buy: NO_RANGE,
@@ -103,6 +108,7 @@ export const NO_FILTERS: Omit<JobFilters, 'sort'> = {
 
 /** Au moins une restriction posée : de quoi afficher « Tout effacer ». */
 export const isFiltering = (filters: JobFilters): boolean =>
+  filters.search !== '' ||
   isBounded(filters.level) ||
   filters.types.size > 0 ||
   isBounded(filters.buy) ||
