@@ -83,13 +83,21 @@ const FRESHNESS_STEPS: [Freshness, number][] = [
  * savoir de sa fraîcheur n'est pas une raison de s'y fier.
  */
 export function freshness(point: PricePoint | undefined): Freshness | null {
-  if (!point) return null
-  if (point.at === null) return 'stale'
-  const at = new Date(point.at).getTime()
-  if (!Number.isFinite(at)) return 'stale'
-  const elapsed = Date.now() - at
+  const elapsed = ageMs(point)
+  if (elapsed === null) return null
   for (const [level, since] of FRESHNESS_STEPS) if (elapsed > since) return level
   return 'fresh'
+}
+
+/**
+ * Âge d'un relevé en millisecondes. Sans relevé, `null` ; sans date lisible,
+ * l'infini : ne rien savoir de son âge, c'est le tenir pour le plus vieux.
+ */
+export function ageMs(point: PricePoint | undefined): number | null {
+  if (!point) return null
+  if (point.at === null) return Infinity
+  const at = new Date(point.at).getTime()
+  return Number.isFinite(at) ? Date.now() - at : Infinity
 }
 
 /** Relevé dont le prix a eu le temps de bouger sans qu'on le revérifie. */
@@ -523,9 +531,13 @@ async function push(itemId: ItemId, point: PricePoint) {
 /**
  * Enregistre un relevé de prix. Ressaisir le prix déjà en place ne crée pas de
  * relevé : ça ne dit rien de nouveau sur le marché et ça polluerait l'historique.
+ *
+ * Sauf à `confirm` : quand on vient de vérifier le prix à l'HDV, le retrouver
+ * inchangé est bien une information, et elle mérite sa date. C'est le cas du
+ * remplissage assisté, pas d'un champ de tableau qu'on quitte sans l'avoir touché.
  */
-export function setPrice(itemId: ItemId, price: number) {
-  if (current.get(itemId)?.price === price) return
+export function setPrice(itemId: ItemId, price: number, { confirm = false } = {}) {
+  if (!confirm && current.get(itemId)?.price === price) return
 
   const point: PricePoint = { id: null, price, at: new Date().toISOString() }
 

@@ -23,13 +23,15 @@ body {
  *   extérieur du halo était net ; en `z-index` négatif, il passait par-dessus
  *   le fond du parent. Le frère est la seule place où il est juste.
  *
- * Le parent (`.rainbow`) porte l'arrondi ; les deux pièces en héritent.
- * `@property` rend l'angle animable ; sans lui (vieux navigateurs), les
- * couleurs restent fixes, ce qui est encore joli.
+ * Le parent (`.rainbow`) porte l'arrondi *et l'animation* ; les deux pièces
+ * héritent des deux. Une seule horloge : l'anneau et le halo ne peuvent pas
+ * se décaler l'un de l'autre, même si un rechargement à chaud ou un rendu
+ * relance l'un sans l'autre. `@property` rend l'angle animable ; sans lui
+ * (vieux navigateurs), les couleurs restent fixes, ce qui est encore joli.
  */
 @property --rainbow-angle {
   syntax: "<angle>";
-  inherits: false;
+  inherits: true;
   initial-value: 0deg;
 }
 
@@ -53,6 +55,7 @@ body {
 
 .rainbow {
   position: relative;
+  animation: rainbow-spin 4s linear infinite;
 }
 
 .rainbow-ring {
@@ -76,7 +79,6 @@ body {
     #d946ef,
     #f43f5e
   );
-  animation: rainbow-spin 4s linear infinite;
 }
 
 .rainbow-ring::before {
@@ -124,8 +126,7 @@ body {
  * d'animation, on ne veut pas y perdre la magie.
  */
 @media (prefers-reduced-motion: reduce) {
-  .rainbow-ring::before,
-  .rainbow-halo::before {
+  .rainbow {
     animation-duration: 7s;
   }
 }

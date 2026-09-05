@@ -17,13 +17,14 @@
  * décalerait tout d'un cran sous les doigts de l'utilisateur.
  *
  * Relancer l'assistant ne demande aucune sauvegarde : ce qu'on vient de saisir
- * a moins d'une heure et n'est pas redemandé, il reprend donc de lui-même là
- * où on l'a quitté.
+ * est plus récent que le seuil choisi (une heure par défaut) et n'est pas
+ * redemandé, il reprend donc de lui-même là où on l'a quitté. Le seuil se
+ * règle au pied de la fenêtre et se retient d'une fois sur l'autre.
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { hdvOf, type HdvInfo } from '../data/hdv'
-import { freshness, setPrice, useCurrentPrice, useCurrentPrices, type PricePoint } from '../data/prices'
+import { ageMs, freshness, setPrice, useCurrentPrice, useCurrentPrices, type PricePoint } from '../data/prices'
 import type { Item, ItemId } from '../domain/types'
 import { formatKamas, formatRelativeDate, parseKamas } from '../lib/format'
 import { Icon } from '../lib/icons'
@@ -51,6 +52,69 @@ function writeSkipIntro(value: boolean) {
   }
 }
 
+const SKIP_KEY = 'kamadvice.priceWizard.skip.v1'
+
+const HOUR_MS = 3_600_000
+
+/** Seuils proposés. Une heure est le palier « frais » de la fraîcheur des prix. */
+const MAX_AGE_OPTIONS: readonly { value: number; label: string }[] = [
+  { value: HOUR_MS / 4, label: '15 min' },
+  { value: HOUR_MS / 2, label: '30 min' },
+  { value: HOUR_MS, label: '1 h' },
+  { value: 3 * HOUR_MS, label: '3 h' },
+  { value: 6 * HOUR_MS, label: '6 h' },
+  { value: 12 * HOUR_MS, label: '12 h' },
+  { value: 24 * HOUR_MS, label: '24 h' },
+]
+
+/** Le seuil tel qu'il est affiché dans le menu, pour les phrases de l'intro et de la fin. */
+const describeMaxAge = (maxAge: number): string =>
+  MAX_AGE_OPTIONS.find((option) => option.value === maxAge)?.label ?? `${maxAge / HOUR_MS} h`
+
+/**
+ * Le réglage « ignorer les items rentrés il y a moins de … » : la case et le
+ * seuil sont retenus séparément, pour que décocher puis recocher retrouve la
+ * durée choisie.
+ */
+type Skip = { enabled: boolean; maxAge: number }
+
+const DEFAULT_SKIP: Skip = { enabled: true, maxAge: HOUR_MS }
+
+/** Âge en deçà duquel un relevé n'est pas redemandé ; zéro redemande tout. */
+const thresholdOf = (skip: Skip): number => (skip.enabled ? skip.maxAge : 0)
+
+function readSkip(): Skip {
+  try {
+    const raw = localStorage.getItem(SKIP_KEY)
+    if (raw === null) return DEFAULT_SKIP
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return DEFAULT_SKIP
+    const { enabled, maxAge } = parsed as Partial<Skip>
+    return {
+      enabled: typeof enabled === 'boolean' ? enabled : DEFAULT_SKIP.enabled,
+      maxAge: MAX_AGE_OPTIONS.some((option) => option.value === maxAge)
+        ? (maxAge as number)
+        : DEFAULT_SKIP.maxAge,
+    }
+  } catch {
+    return DEFAULT_SKIP
+  }
+}
+
+function writeSkip(skip: Skip) {
+  try {
+    localStorage.setItem(SKIP_KEY, JSON.stringify(skip))
+  } catch {
+    // Stockage bloqué : le réglage reviendra à une heure, ce n'est pas grave.
+  }
+}
+
+/** Relevé assez récent pour ne pas être redemandé. */
+const settled = (point: PricePoint | undefined, maxAge: number): boolean => {
+  const age = ageMs(point)
+  return age !== null && age < maxAge
+}
+
 type Step =
   | { kind: 'hdv'; hdv: HdvInfo; count: number }
   | { kind: 'item'; item: Item; hdv: HdvInfo; position: number }
@@ -59,17 +123,17 @@ type Step =
 /**
  * Le parcours : un rendez-vous par HDV, puis ses items, et un écran de fin.
  *
- * Un prix relevé dans l'heure ne se redemande pas, sauf à forcer : il n'a pas
- * eu le temps de bouger, et c'est ce qui permet de relancer l'assistant sans
- * repasser sur ce qu'on vient de faire.
+ * Un prix plus jeune que `maxAge` ne se redemande pas : il n'a pas eu le
+ * temps de bouger, et c'est ce qui permet de relancer l'assistant sans
+ * repasser sur ce qu'on vient de faire. À zéro, on redemande tout.
  */
-function plan(items: Item[], current: ReadonlyMap<ItemId, PricePoint>, force: boolean): Step[] {
+function plan(items: Item[], current: ReadonlyMap<ItemId, PricePoint>, maxAge: number): Step[] {
   const seen = new Set<ItemId>()
   const groups = new Map<HdvInfo, Item[]>()
   for (const item of items) {
     if (seen.has(item.id)) continue
     seen.add(item.id)
-    if (!force && freshness(current.get(item.id)) === 'fresh') continue
+    if (settled(current.get(item.id), maxAge)) continue
 
     const hdv = hdvOf(item)
     const group = groups.get(hdv)
@@ -128,9 +192,10 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
   const current = useCurrentPrices()
   const [skipIntro, setSkipIntro] = useState(readSkipIntro)
   const [phase, setPhase] = useState<'intro' | 'steps'>(() => (readSkipIntro() ? 'steps' : 'intro'))
-  const [force, setForce] = useState(false)
-  /** Le parcours, figé au démarrage et à chaque changement de « forcer ». */
-  const [steps, setSteps] = useState<Step[]>(() => plan(items, current, false))
+  const [skip, setSkip] = useState(readSkip)
+  const maxAge = thresholdOf(skip)
+  /** Le parcours, figé au démarrage et à chaque changement de réglage. */
+  const [steps, setSteps] = useState<Step[]>(() => plan(items, current, maxAge))
   const [index, setIndex] = useState(0)
   const [saved, setSaved] = useState(0)
   const [skipped, setSkipped] = useState(0)
@@ -155,14 +220,15 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
     for (const item of items) {
       if (seen.has(item.id)) continue
       seen.add(item.id)
-      if (freshness(current.get(item.id)) === 'fresh') count += 1
+      if (settled(current.get(item.id), maxAge)) count += 1
     }
     return count
-  }, [items, current])
+  }, [items, current, maxAge])
 
-  const restart = (nextForce: boolean) => {
-    setForce(nextForce)
-    setSteps(plan(items, current, nextForce))
+  const restart = (nextSkip: Skip) => {
+    setSkip(nextSkip)
+    writeSkip(nextSkip)
+    setSteps(plan(items, current, thresholdOf(nextSkip)))
     setIndex(0)
     setSaved(0)
     setSkipped(0)
@@ -226,6 +292,7 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
             <Intro
               total={total}
               ignored={ignored}
+              maxAge={maxAge}
               skipIntro={skipIntro}
               onSkipIntro={(value) => {
                 setSkipIntro(value)
@@ -239,7 +306,9 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
               key={step.item.id}
               step={step}
               onSave={(price) => {
-                setPrice(step.item.id, price)
+                // Un prix tapé ici vient d'être lu à l'HDV : même inchangé,
+                // il vaut un relevé daté d'aujourd'hui.
+                setPrice(step.item.id, price, { confirm: true })
                 setSaved((n) => n + 1)
                 goNext()
               }}
@@ -249,20 +318,33 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
               }}
             />
           ) : (
-            <Done total={total} saved={saved} skipped={skipped} ignored={ignored} force={force} />
+            <Done total={total} saved={saved} skipped={skipped} ignored={ignored} maxAge={maxAge} />
           )}
         </div>
 
         <footer className="flex flex-wrap items-center gap-3 border-t border-slate-800 px-4 py-3">
+          {/* Toucher au réglage rebat le parcours depuis le début. */}
           <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-500 hover:text-slate-300">
             <input
               type="checkbox"
-              checked={force}
-              onChange={(event) => restart(event.target.checked)}
+              checked={skip.enabled}
+              onChange={(event) => restart({ ...skip, enabled: event.target.checked })}
               className="accent-amber-500"
             />
-            Forcer les prix de moins d'une heure
-            {ignored > 0 && !force && (
+            Ignorer les items rentrés il y a moins de
+            <select
+              value={skip.maxAge}
+              disabled={!skip.enabled}
+              onChange={(event) => restart({ ...skip, maxAge: Number(event.target.value) })}
+              className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:border-slate-600 focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {MAX_AGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {ignored > 0 && (
               <span className="tabular-nums text-slate-600">
                 ({ignored} ignoré{ignored > 1 ? 's' : ''})
               </span>
@@ -305,11 +387,13 @@ export default function PriceWizard({ items, onClose }: { items: Item[]; onClose
 function Intro({
   total,
   ignored,
+  maxAge,
   skipIntro,
   onSkipIntro,
 }: {
   total: number
   ignored: number
+  maxAge: number
   skipIntro: boolean
   onSkipIntro: (value: boolean) => void
 }) {
@@ -336,8 +420,9 @@ function Intro({
       </ol>
       {ignored > 0 && (
         <p className="text-xs text-slate-500">
-          {ignored} prix relevé{ignored > 1 ? 's' : ''} il y a moins d'une heure ne{' '}
-          {ignored > 1 ? 'sont' : 'est'} pas redemandé{ignored > 1 ? 's' : ''}.
+          {ignored} prix relevé{ignored > 1 ? 's' : ''} il y a moins de {describeMaxAge(maxAge)} ne{' '}
+          {ignored > 1 ? 'sont' : 'est'} pas redemandé{ignored > 1 ? 's' : ''} — réglable en bas de la
+          fenêtre.
         </p>
       )}
       <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-500 hover:text-slate-300">
@@ -514,13 +599,13 @@ function Done({
   saved,
   skipped,
   ignored,
-  force,
+  maxAge,
 }: {
   total: number
   saved: number
   skipped: number
   ignored: number
-  force: boolean
+  maxAge: number
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center">
@@ -530,8 +615,11 @@ function Done({
       </h3>
       <p className="text-sm text-slate-400">
         {total === 0 ? (
-          ignored > 0 && !force ? (
-            <>Tous les prix de cette vue ont moins d'une heure. Cochez « forcer » pour les revoir.</>
+          ignored > 0 ? (
+            <>
+              Tous les prix de cette vue ont moins de {describeMaxAge(maxAge)}. Décochez le réglage
+              en bas de la fenêtre, ou baissez le seuil, pour les revoir.
+            </>
           ) : (
             <>Cette vue n'a aucun prix à relever.</>
           )
