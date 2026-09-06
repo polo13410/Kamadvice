@@ -51,10 +51,12 @@ dofus_data/              Dumps bruts du jeu (source, non servie)
 netlify.toml             Configuration de déploiement
 supabase/
   schema.sql             Table des relevés, vue des prix courants, RLS
+  migrations/            Évolutions à rejouer sur un projet déjà créé
 frontend/
   scripts/
     build-data.mjs       ../dofus_data/*.json  ->  public/data/*.json
   public/data/           Artefacts servis au navigateur (versionnés)
+    servers/             Emblèmes des serveurs de jeu, <clé>.webp, 64 px
   src/
     domain/
       types.ts           Types du catalogue
@@ -68,8 +70,9 @@ frontend/
       hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
                          relève chaque item
       supabase.ts        Client du projet, ou null en local seul
+      servers.ts         Serveurs de jeu, et celui dont on affiche les prix
       prices.ts          Journal des relevés : lecture, écriture optimiste,
-                         temps réel, cache
+                         temps réel, cache — pour le serveur courant
       priceMigration.ts  Reprise des prix saisis avant le partage
     lib/
       icons.ts           Vocabulaire d'icônes (Lucide) : un concept = une icône
@@ -90,6 +93,8 @@ frontend/
       FilterBar.tsx      Barre de filtres : mot-clé, puces, fourchette, coche
                          (champs texte appliqués après 500 ms de silence)
       TableHead.tsx      En-tête de colonne triable, avec bulle
+      ServerPicker.tsx   Choix du serveur de jeu, emblèmes à l'appui
+      ServerIcon.tsx     Emblème d'un serveur, badge à l'initiale en repli
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
@@ -140,6 +145,11 @@ navigateur, sans partage. Les prix déjà saisis en local sont remontés
 automatiquement au premier démarrage connecté ; l'opération est rejouable sans
 créer de doublons, et les clés locales ne sont jamais effacées.
 
+Un projet créé avant une évolution du schéma rejoue les scripts de
+`supabase/migrations/`, dans l'ordre de leurs dates — chacun dit ce qu'il fait
+et quand le passer. Celui du 2026-09-06 range sous `imagiro` les relevés
+collectés avant le choix du serveur : à exécuter avant de déployer ce front.
+
 Un projet gratuit est mis en pause après 7 jours sans requête :
 `.github/workflows/supabase-keepalive.yml` le réveille chaque semaine. Il
 attend les secrets de dépôt `SUPABASE_URL` et `SUPABASE_PUBLISHABLE_KEY`.
@@ -176,10 +186,15 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
 - **La saisie est ouverte et sans modération.** N'importe qui peut relever un
   prix, et le plus récent fait foi. C'est le prix à payer pour se passer de
   comptes ; rien n'est détruit pour autant, la table étant en ajout seul.
-- **Un seul serveur de jeu.** Les prix HDV varient pourtant d'un serveur à
-  l'autre. La colonne `server` existe déjà en base et une seule constante la
-  porte côté client (`SERVER` dans `data/supabase.ts`) : ajouter la dimension
-  n'imposera pas de migrer les relevés déjà collectés.
+- **Le serveur de jeu est un réglage du navigateur.** Les prix affichés sont
+  ceux du serveur choisi (accueil ou header), sans synchronisation entre
+  machines. La liste des serveurs est une constante (`data/servers.ts`), à
+  tenir à jour à l'ouverture ou à la fusion de serveurs — la clé d'un serveur ne
+  se renomme jamais, les relevés la portent.
+- **Les emblèmes des serveurs sont hébergés ici**, à la différence des icônes
+  d'items : aucun CDN ne les sert. `public/data/servers/<clé>.webp`, 64 px,
+  réduits depuis les illustrations officielles d'Ankama telles que reprises
+  par serveur-liste.com. Un serveur sans fichier a un badge à son initiale.
 - **Le SDK pèse ~59 Ko gzippés.** Il n'entre dans le bundle que si les
   variables d'environnement sont renseignées : sans elles, Vite les remplace par
   `undefined` et le client Supabase est éliminé au tree-shaking.

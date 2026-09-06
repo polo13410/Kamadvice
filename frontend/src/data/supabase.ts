@@ -16,13 +16,6 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, '')
 const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-/**
- * Serveur de jeu auquel se rattachent les relevés. Les prix HDV diffèrent d'un
- * serveur à l'autre ; une seule valeur est exploitée aujourd'hui, isolée ici
- * pour n'avoir qu'un endroit à toucher le jour du multi-serveur.
- */
-export const SERVER = 'main'
-
 /** Table des relevés, et vue qui n'en garde que le plus récent par item. */
 export const POINTS = 'price_points'
 export const CURRENT = 'current_prices'

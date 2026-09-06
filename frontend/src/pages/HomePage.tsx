@@ -5,9 +5,14 @@
  * mémoire — une page qui change de forme selon l'état du visiteur ne s'apprend
  * pas. D'où le format court : deux phrases, les pages en cartes, de quoi
  * amorcer une recherche, et rien d'autre à faire défiler.
+ *
+ * Une seule chose s'y règle : le serveur de jeu. Il conditionne tous les prix
+ * de l'app, donc il se choisit avant d'aller les voir, et il est visible ici
+ * plutôt qu'enfoui dans un menu.
  */
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import ServerPicker from '../components/ServerPicker'
 import { recordQuery } from '../data/recent'
 import { Icon } from '../lib/icons'
 import { DASHBOARDS, FAVORITES, SEARCH, SEARCH_EXAMPLES } from '../lib/pages'
@@ -28,6 +33,12 @@ export default function HomePage() {
             Dofus. Les relevés viennent de ceux qui s'en servent et sont partagés en direct :
             saisissez-en un, tout le monde en profite.
           </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+            <ServerPicker />
+            <p className="text-xs text-slate-500">
+              Chaque serveur a ses prix : ceux affichés partout dans l'app sont ceux de celui-ci.
+            </p>
+          </div>
         </header>
 
         <div className="flex flex-wrap gap-4">

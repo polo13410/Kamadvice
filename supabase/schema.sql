@@ -10,10 +10,11 @@
 
 create table public.price_points (
   id      bigint generated always as identity primary key,
-  -- Les prix varient d'un serveur Dofus à l'autre. Une seule valeur est
-  -- utilisée pour l'instant, mais la colonne existe dès maintenant : l'ajouter
-  -- plus tard imposerait de migrer les relevés déjà collectés.
-  server  text        not null default 'main',
+  -- Les prix varient d'un serveur Dofus à l'autre : chaque relevé porte le
+  -- sien, par la clé de `frontend/src/data/servers.ts` ('imagiro', 'dakal'…).
+  -- Pas de valeur par défaut : le client l'envoie toujours, et un défaut ne
+  -- ferait que ranger un relevé mal formé sur le mauvais serveur.
+  server  text        not null,
   item_id integer     not null,
   price   integer     not null check (price >= 0),
   at      timestamptz not null default now()

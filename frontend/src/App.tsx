@@ -5,10 +5,12 @@ import CopyOnAltClick from './components/CopyOnAltClick'
 import Footer from './components/Footer'
 import NavMenu from './components/NavMenu'
 import SearchBox from './components/SearchBox'
+import ServerPicker from './components/ServerPicker'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
 import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/prices'
 import { migrateLocalPrices } from './data/priceMigration'
+import { useServer } from './data/servers'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
 import { DASHBOARDS, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
@@ -25,6 +27,7 @@ export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { pathname } = useLocation()
+  const server = useServer()
 
   /**
    * Le châssis ne bouge pas d'une page à l'autre : logo, recherche et liens
@@ -46,6 +49,14 @@ export default function App() {
         if (controller.signal.aborted) return
         setError(cause instanceof Error ? cause.message : String(cause))
       })
+    return () => controller.abort()
+  }, [])
+
+  // Tout ce qui touche aux prix dépend du serveur de jeu : en changer rejoue
+  // cet effet — chargement, canal, filets — pour le nouveau, après avoir
+  // refermé le canal de l'ancien.
+  useEffect(() => {
+    const controller = new AbortController()
 
     // Les prix, eux, ne retiennent pas l'affichage : le cache local les montre
     // déjà, et la version partagée les remplace dès qu'elle arrive. Une panne
@@ -79,7 +90,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onOnline)
     }
-  }, [])
+  }, [server])
 
   if (error) {
     return (
@@ -109,7 +120,7 @@ export default function App() {
             {/* Les deux flancs grandissent à parts égales : c'est ce qui pose
                 la recherche au milieu du header, et non au milieu de ce que la
                 navigation lui laisse. */}
-            <div className="flex flex-1 items-center">
+            <div className="flex flex-1 items-center gap-4">
               <Link
                 to="/"
                 className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight text-slate-100 hover:text-amber-400"
@@ -125,6 +136,10 @@ export default function App() {
                 />
                 Kamadvice
               </Link>
+              {/* Le serveur dont on lit et saisit les prix, toujours sous les
+                  yeux : un relevé posé sur le mauvais serveur ne se voit pas
+                  autrement. */}
+              <ServerPicker variant="header" />
             </div>
 
             <SearchBox className="w-full max-w-2xl" />

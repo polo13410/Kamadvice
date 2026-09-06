@@ -6,7 +6,8 @@
  * locales ne sont jamais effacées — elles restent le filet de sécurité si la
  * remontée s'est mal passée.
  */
-import { ON_CONFLICT, POINTS, SERVER, supabase } from './supabase'
+import { ON_CONFLICT, POINTS, supabase } from './supabase'
+import { DEFAULT_SERVER, scopedKey, type GameServer } from './servers'
 import type { PricePoint } from './prices'
 import type { ItemId } from '../domain/types'
 
@@ -61,11 +62,15 @@ function readV1(): Map<ItemId, PricePoint[]> {
   return log
 }
 
-/** Journaux conservés dans ce navigateur, du plus récent au plus ancien. */
-export function readLocalLogs(): Map<ItemId, PricePoint[]> {
+/**
+ * Journaux conservés dans ce navigateur pour un serveur, du plus récent au plus
+ * ancien. Les formats d'avant le multi-serveur n'appartiennent qu'au serveur
+ * par défaut : c'est là qu'ils ont été relevés.
+ */
+export function readLocalLogs(server: GameServer = DEFAULT_SERVER): Map<ItemId, PricePoint[]> {
   try {
-    const raw = localStorage.getItem(LOCAL_LOG_KEY)
-    if (!raw) return readV1()
+    const raw = localStorage.getItem(scopedKey(LOCAL_LOG_KEY, server))
+    if (!raw) return server === DEFAULT_SERVER ? readV1() : new Map()
 
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return new Map()
@@ -101,9 +106,11 @@ export function isMigrated(): boolean {
 export async function migrateLocalPrices(): Promise<void> {
   if (!supabase || isMigrated()) return
 
-  const rows = [...readLocalLogs()].flatMap(([itemId, points]) =>
+  // Ces relevés datent d'avant le choix du serveur : ils sont ceux du serveur
+  // par défaut, quel que soit celui réglé aujourd'hui.
+  const rows = [...readLocalLogs(DEFAULT_SERVER)].flatMap(([itemId, points]) =>
     points.map((point) => ({
-      server: SERVER,
+      server: DEFAULT_SERVER.id,
       item_id: itemId,
       price: point.price,
       at: point.at ?? UNDATED,

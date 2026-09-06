@@ -22,6 +22,10 @@
  *
  * Sans projet Supabase configuré, tout continue de fonctionner dans le
  * navigateur seul : `localStorage` redevient l'unique dépôt des journaux.
+ *
+ * Tout ce qui est ici parle d'un seul serveur de jeu, le courant (voir
+ * `servers.ts`). En changer vide la mémoire et repart du cache de l'autre ;
+ * `App` relance alors le chargement et le canal temps réel.
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -32,10 +36,10 @@ import {
   ON_CONFLICT,
   POINTS,
   REMOTE_ENABLED,
-  SERVER,
   supabase,
   type RemotePricePoint,
 } from './supabase'
+import { currentServer, scopedKey, subscribeServer, type GameServer } from './servers'
 import { LOCAL_LOG_KEY, UNDATED, isMigrated, readLocalLogs } from './priceMigration'
 
 export interface PricePoint {
@@ -46,7 +50,11 @@ export interface PricePoint {
   at: string | null
 }
 
-/** Prix courants gardés sous la main : la page s'affiche avant la réponse réseau. */
+/**
+ * Prix courants gardés sous la main : la page s'affiche avant la réponse réseau.
+ * Une clé par serveur (`scopedKey`), pour que le retour sur un serveur ne
+ * montre pas les prix de l'autre en attendant le réseau.
+ */
 const CACHE_KEY = 'kamadvice.prices.cache.v3'
 /** Relevés dont l'envoi a échoué, à rejouer. */
 const OUTBOX_KEY = 'kamadvice.outbox.v1'
@@ -135,7 +143,7 @@ function dedupe(points: readonly PricePoint[]): PricePoint[] {
 function readCache(): Map<ItemId, PricePoint> {
   const cached = new Map<ItemId, PricePoint>()
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem(scopedKey(CACHE_KEY))
     if (!raw) return cached
 
     const parsed: unknown = JSON.parse(raw)
@@ -175,15 +183,28 @@ const toPrices = (source: Map<ItemId, PricePoint>): Map<ItemId, number> => {
   return map
 }
 
-// Une fois les prix locaux remontés, le serveur fait foi : ressemer le journal
-// local ferait apparaître chaque relevé deux fois, la copie locale n'ayant pas
-// l'identifiant de sa jumelle distante.
-const seed = REMOTE_ENABLED && isMigrated() ? new Map<ItemId, PricePoint[]>() : readLocalLogs()
-const cache = readCache()
+/** Ce que le navigateur sait du serveur courant, avant toute réponse réseau. */
+function initialState() {
+  // Une fois les prix locaux remontés, le serveur fait foi : ressemer le journal
+  // local ferait apparaître chaque relevé deux fois, la copie locale n'ayant pas
+  // l'identifiant de sa jumelle distante.
+  const seed =
+    REMOTE_ENABLED && isMigrated() ? new Map<ItemId, PricePoint[]>() : readLocalLogs(currentServer())
+  const cache = readCache()
+  return { logs: seed, current: cache.size > 0 ? cache : heads(seed) }
+}
 
-let logs = seed
-let current = cache.size > 0 ? cache : heads(seed)
+const initial = initialState()
+let logs = initial.logs
+let current = initial.current
 let prices = toPrices(current)
+
+/**
+ * Vrai tant que le serveur n'a pas changé depuis qu'on a noté `server`. Chaque
+ * appel réseau le vérifie au retour : une réponse partie pour l'ancien serveur
+ * ne doit pas s'inscrire dans la mémoire du nouveau.
+ */
+const stillOn = (server: GameServer): boolean => currentServer() === server
 
 const listeners = new Set<() => void>()
 const notify = () => {
@@ -194,7 +215,7 @@ function setCurrent(next: Map<ItemId, PricePoint>) {
   current = next
   prices = toPrices(next)
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(next)))
+    localStorage.setItem(scopedKey(CACHE_KEY), JSON.stringify(Object.fromEntries(next)))
   } catch {
     // Quota atteint ou stockage bloqué : la session en cours reste utilisable,
     // seule la persistance est perdue.
@@ -208,7 +229,7 @@ function setLogs(next: Map<ItemId, PricePoint[]>) {
   // revanche, cette clé est leur seul dépôt.
   if (REMOTE_ENABLED) return
   try {
-    localStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(Object.fromEntries(next)))
+    localStorage.setItem(scopedKey(LOCAL_LOG_KEY), JSON.stringify(Object.fromEntries(next)))
   } catch {
     // Idem : on perd la persistance, pas la session.
   }
@@ -225,12 +246,13 @@ let lastLoad = 0
  */
 export async function loadPrices(signal?: AbortSignal): Promise<void> {
   if (!supabase) return
+  const server = currentServer()
   lastLoad = Date.now()
 
-  const query = supabase.from(CURRENT).select(COLUMNS).eq('server', SERVER)
+  const query = supabase.from(CURRENT).select(COLUMNS).eq('server', server.id)
   const { data, error } = await (signal ? query.abortSignal(signal) : query)
   if (error) throw new Error(error.message)
-  if (signal?.aborted) return
+  if (signal?.aborted || !stillOn(server)) return
 
   const next = new Map(current)
   for (const row of (data ?? []) as RemotePricePoint[]) {
@@ -254,6 +276,21 @@ const loading = new Set<ItemId>()
 // Distinct de `logs.has()` : un journal peut être présent sans venir du serveur
 // — celui repris du stockage local, avant que les prix aient été remontés.
 const loaded = new Set<ItemId>()
+
+// Changement de serveur : tout ce qui est en mémoire parlait de l'autre. On
+// repart de ce que le navigateur garde pour celui-ci ; `App` relance ensuite
+// le chargement et rouvre le canal. Les appels en vol se découvrent périmés
+// par `stillOn` à leur retour.
+subscribeServer(() => {
+  const next = initialState()
+  logs = next.logs
+  current = next.current
+  prices = toPrices(current)
+  loaded.clear()
+  loading.clear()
+  lastLoad = 0
+  notify()
+})
 
 /** Assemble le journal distant et les relevés locaux pas encore synchronisés. */
 function mergeLog(itemId: ItemId, rows: RemotePricePoint[]): PricePoint[] {
@@ -279,15 +316,16 @@ function ensureLog(itemId: ItemId) {
 
 async function fetchLog(itemId: ItemId) {
   if (!supabase) return
+  const server = currentServer()
 
   const { data, error } = await supabase
     .from(POINTS)
     .select(COLUMNS)
-    .eq('server', SERVER)
+    .eq('server', server.id)
     .eq('item_id', itemId)
     .order('at', { ascending: false })
     .limit(MAX_POINTS)
-  if (error) return
+  if (error || !stillOn(server)) return
 
   const merged = mergeLog(itemId, (data ?? []) as RemotePricePoint[])
   const next = new Map(logs)
@@ -318,14 +356,15 @@ function reloadCurrent(itemId: ItemId) {
 
 async function fetchCurrent(itemId: ItemId) {
   if (!supabase) return
+  const server = currentServer()
 
   const { data, error } = await supabase
     .from(CURRENT)
     .select(COLUMNS)
-    .eq('server', SERVER)
+    .eq('server', server.id)
     .eq('item_id', itemId)
     .maybeSingle()
-  if (error) return
+  if (error || !stillOn(server)) return
 
   const next = new Map(current)
   if (data) next.set(itemId, toPoint(data as RemotePricePoint))
@@ -400,26 +439,37 @@ function applyRemoteDelete(row: RemotePricePoint) {
 let channel: RealtimeChannel | null = null
 
 /**
- * Ouvre le canal des relevés. Un seul canal pour toute l'application ; la
- * fonction rendue le referme. Les événements sont filtrés côté serveur sur le
+ * Ouvre le canal des relevés du serveur courant. Un seul canal pour toute
+ * l'application ; la fonction rendue le referme, et `App` le rouvre au
+ * changement de serveur. Les événements sont filtrés côté serveur sur le
  * serveur de jeu, pour ne pas réveiller l'onglet à chaque saisie qui ne le
  * concerne pas.
+ *
+ * Le nom du canal porte le serveur : le SDK rend le canal existant quand on
+ * redemande le même nom, et la fermeture de l'ancien est asynchrone — un nom
+ * partagé ferait hériter le nouveau canal des filtres de l'ancien.
  */
 export function watchPrices(): () => void {
   if (!supabase || channel) return () => {}
   const db = supabase
+  const server = currentServer()
+  const filter = `server=eq.${server.id}`
 
   const live = db
-    .channel('prices')
+    .channel(`prices:${server.id}`)
     .on<RemotePricePoint>(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: POINTS, filter: `server=eq.${SERVER}` },
-      (payload) => applyRemoteInsert(payload.new),
+      { event: 'INSERT', schema: 'public', table: POINTS, filter },
+      (payload) => {
+        if (stillOn(server)) applyRemoteInsert(payload.new)
+      },
     )
     .on<RemotePricePoint>(
       'postgres_changes',
-      { event: 'DELETE', schema: 'public', table: POINTS, filter: `server=eq.${SERVER}` },
-      (payload) => applyRemoteDelete(payload.old as RemotePricePoint),
+      { event: 'DELETE', schema: 'public', table: POINTS, filter },
+      (payload) => {
+        if (stillOn(server)) applyRemoteDelete(payload.old as RemotePricePoint)
+      },
     )
     .subscribe((status) => {
       // Une coupure a pu laisser passer des relevés sans que personne le voie :
@@ -518,7 +568,15 @@ function adopt(itemId: ItemId, point: PricePoint, id: number) {
 
 async function push(itemId: ItemId, point: PricePoint) {
   if (!supabase || point.at === null) return
-  const row: OutboxRow = { server: SERVER, item_id: itemId, price: point.price, at: point.at }
+  // Le serveur est figé dans la ligne : un relevé saisi puis rejoué depuis
+  // l'outbox après un changement de serveur reste celui du serveur où il a
+  // été relevé.
+  const row: OutboxRow = {
+    server: currentServer().id,
+    item_id: itemId,
+    price: point.price,
+    at: point.at,
+  }
 
   const { data, error } = await supabase.from(POINTS).insert(row).select(COLUMNS).maybeSingle()
 
