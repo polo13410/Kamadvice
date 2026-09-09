@@ -7,7 +7,7 @@ import FavoriteButton from "../components/FavoriteButton";
 import ItemIcon from "../components/ItemIcon";
 import Kamas from "../components/Kamas";
 import PriceField from "../components/PriceField";
-import PriceHistory from "../components/PriceHistory";
+import PriceChart from "../components/PriceChart";
 import ShareButton from "../components/ShareButton";
 import { Tooltip } from "../components/Tooltip";
 import TrendIcon from "../components/TrendIcon";
@@ -282,7 +282,7 @@ export default function ItemPage() {
 
       <section className="space-y-3">
         <SectionTitle icon={Icon.history}>Historique des prix</SectionTitle>
-        <PriceHistory itemId={item.id} />
+        <PriceChart itemId={item.id} />
       </section>
 
       {usedIn.length !== 0 && (

@@ -623,6 +623,9 @@ export function setPrice(itemId: ItemId, price: number, { confirm = false } = {}
  * courant fait remonter le précédent ; retirer le dernier laisse l'item sans
  * prix. C'est la seule façon d'effacer un prix : un champ vidé par mégarde ne
  * doit pas détruire d'historique.
+ *
+ * Plus appelée depuis l'interface : le tableau qui la portait
+ * (`PriceHistoryTable`) est mis de côté jusqu'aux droits administrateur.
  */
 export function removePricePoint(itemId: ItemId, index: number) {
   const known = logs.get(itemId)

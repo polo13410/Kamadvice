@@ -8,9 +8,15 @@ import TrendIcon from './TrendIcon'
 
 /**
  * Journal des relevés de prix d'un item, du plus récent au plus ancien, avec la
- * variation par rapport au relevé précédent.
+ * variation par rapport au relevé précédent — et la corbeille pour en retirer un.
+ *
+ * MIS DE CÔTÉ. La fiche d'un item montre désormais `PriceChart`, une courbe
+ * sans suppression : n'importe qui pouvait effacer les relevés des autres.
+ * Ce tableau est gardé tel quel pour le jour où des comptes administrateurs
+ * existeront ; il n'est importé nulle part d'ici là. `removePricePoint`, dans
+ * `data/prices.ts`, attend avec lui.
  */
-export default function PriceHistory({ itemId }: { itemId: ItemId }) {
+export default function PriceHistoryTable({ itemId }: { itemId: ItemId }) {
   const log = usePriceLog(itemId)
 
   if (log.length === 0) {
