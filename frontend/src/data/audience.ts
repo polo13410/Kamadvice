@@ -10,9 +10,10 @@
  *   une fois pour la vie de la page : il porte un nom fixe, celui que tous
  *   les clients partagent, et le SDK rendrait le même objet si on le
  *   redemandait — le fermer pour le rouvrir se bat avec sa propre fermeture.
- * - « visiteurs » vient d'une table en ajout seul : un identifiant aléatoire
- *   par navigateur, inséré une fois. Le compte est rendu par une fonction SQL,
- *   pour ne pas ouvrir la table en lecture (voir `supabase/schema.sql`).
+ * - « visiteurs » vient d'une table fermée : un identifiant aléatoire par
+ *   navigateur, déposé par une fonction SQL qui l'insère s'il est nouveau et
+ *   rend le compte (voir `supabase/schema.sql`). Pas d'insertion directe :
+ *   ignorer un doublon sous RLS demanderait d'ouvrir la table en lecture.
  *
  * Ce sont des comptes de navigateurs, pas de personnes : navigation privée,
  * stockage effacé ou second appareil comptent chacun pour un. L'identifiant
@@ -26,8 +27,8 @@ import { currentServer, subscribeServer } from './servers'
 import { supabase } from './supabase'
 
 const VISITOR_KEY = 'kamadvice.visitor.v1'
-const VISITORS = 'visitors'
-const COUNT_FN = 'visitor_count'
+/** Fonction SQL : se déclarer, et recevoir le compte. */
+const VISIT_FN = 'visit'
 /** Un seul nom pour tous les clients : la Presence se partage par canal. */
 const CHANNEL = 'presence:app'
 
@@ -78,21 +79,16 @@ function subscribe(listener: () => void) {
 // --- Visiteurs ------------------------------------------------------------
 
 /**
- * Déclare ce navigateur, puis relève le compte. L'insertion ignore les
- * doublons : un navigateur déjà connu ne coûte qu'une requête sans effet.
- * Si l'un des deux appels échoue, la stat reste inconnue plutôt que fausse.
+ * Déclare ce navigateur et relève le compte, en un appel. Un navigateur déjà
+ * connu n'ajoute rien. Si l'appel échoue — fonction pas encore créée en base,
+ * réseau —, la stat reste inconnue plutôt que fausse.
  */
 export async function recordVisit(): Promise<void> {
   if (!supabase) return
 
-  const { error } = await supabase
-    .from(VISITORS)
-    .upsert({ id: visitorId }, { onConflict: 'id', ignoreDuplicates: true })
-  if (error) return
-
-  const { data, error: countError } = await supabase.rpc(COUNT_FN)
+  const { data, error } = await supabase.rpc(VISIT_FN, { visitor: visitorId })
   const count = Number(data)
-  if (countError || !Number.isFinite(count)) return
+  if (error || !Number.isFinite(count)) return
   visitors = count
   notify()
 }

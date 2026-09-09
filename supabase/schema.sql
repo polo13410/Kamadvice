@@ -81,23 +81,24 @@ create table public.visitors (
   first_seen timestamptz not null default now()
 );
 
+-- Aucune politique : la table n'est ni lisible ni modifiable directement.
+-- Une politique d'ajout seul ne suffirait pas — `on conflict do nothing`
+-- compare à la ligne existante, ce qui exige une politique de lecture, et
+-- les identifiants n'ont rien à faire dans un navigateur tiers.
 alter table public.visitors enable row level security;
 
--- Ajout seul, en doublon ignoré côté client (`resolution=ignore-duplicates`).
-create policy "ajout public" on public.visitors
-  for insert to anon with check (true);
-
--- Pas de lecture publique : les identifiants n'ont rien à faire dans un
--- navigateur tiers. Le compte passe par une fonction qui s'exécute avec les
--- droits de son propriétaire, et ne rend qu'un nombre.
-create function public.visitor_count()
+-- Se déclarer et compter, en un appel. La fonction s'exécute avec les droits
+-- de son propriétaire, et ne rend qu'un nombre.
+create function public.visit(visitor uuid)
   returns bigint
   language sql
-  stable
+  volatile
   security definer
   set search_path = public
 as $$
-  select count(*) from public.visitors
+  insert into public.visitors (id) values (visitor) on conflict (id) do nothing;
+  select count(*) from public.visitors;
 $$;
 
-grant execute on function public.visitor_count() to anon;
+revoke all on function public.visit(uuid) from public;
+grant execute on function public.visit(uuid) to anon;

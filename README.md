@@ -72,7 +72,7 @@ frontend/
       supabase.ts        Client du projet, ou null en local seul
       servers.ts         Serveurs de jeu, et celui dont on affiche les prix
       audience.ts        Fréquentation : présents (Realtime Presence) et
-                         navigateurs distincts (table en ajout seul)
+                         navigateurs distincts (fonction SQL, table fermée)
       prices.ts          Journal des relevés : lecture, écriture optimiste,
                          temps réel, cache — pour le serveur courant
       priceMigration.ts  Reprise des prix saisis avant le partage
@@ -202,8 +202,10 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
 - **La fréquentation compte des navigateurs, pas des personnes.** « En ligne »
   est l'état de présence du canal Realtime, « visiteurs » le nombre
   d'identifiants aléatoires posés une fois par navigateur. Navigation privée,
-  stockage effacé ou second appareil comptent chacun pour un, et l'ajout est
-  ouvert comme celui des prix. Aucune donnée personnelle : un UUID et une date.
+  stockage effacé ou second appareil comptent chacun pour un, et se déclarer
+  est ouvert comme la saisie des prix. La table, elle, n'est ni lisible ni
+  modifiable directement : seule une fonction SQL y écrit, et elle ne rend
+  qu'un nombre. Aucune donnée personnelle : un UUID et une date.
 - **Le SDK pèse ~59 Ko gzippés.** Il n'entre dans le bundle que si les
   variables d'environnement sont renseignées : sans elles, Vite les remplace par
   `undefined` et le client Supabase est éliminé au tree-shaking.
