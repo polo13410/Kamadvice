@@ -8,6 +8,7 @@
  */
 import type { LucideIcon } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
+import { useOnlineCount, useVisitorCount } from "../data/audience";
 import { useCatalog } from "../data/catalogContext";
 import { useFavorites } from "../data/favorites";
 import { useIgnored } from "../data/ignored";
@@ -23,6 +24,8 @@ export default function Footer({ shell }: { shell: string }) {
   const points = useCurrentPrices();
   const favorites = useFavorites();
   const ignored = useIgnored();
+  const online = useOnlineCount();
+  const visitors = useVisitorCount();
 
   /**
    * Un seul passage sur les relevés : ils sont aussi nombreux que les items
@@ -156,6 +159,27 @@ export default function Footer({ shell }: { shell: string }) {
               dernier relevé {formatRelativeDate(stats.latest)}
             </span>
           </Tooltip>
+        )}
+
+        {/* Fréquentation : absente tant qu'on ne sait pas, plutôt qu'un zéro
+            qui dirait « personne » quand c'est « pas encore répondu ». */}
+        {(online !== null || visitors !== null) && <Divider />}
+        {online !== null && (
+          <Stat
+            icon={Icon.online}
+            value={online}
+            label="en ligne"
+            tip="Navigateurs connectés en ce moment, vous compris"
+            className="text-emerald-500/80"
+          />
+        )}
+        {visitors !== null && (
+          <Stat
+            icon={Icon.visitors}
+            value={visitors}
+            label="visiteurs"
+            tip="Navigateurs distincts passés sur l'app depuis son lancement"
+          />
         )}
 
         <Divider />

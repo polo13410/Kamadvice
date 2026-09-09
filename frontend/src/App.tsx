@@ -6,6 +6,7 @@ import Footer from './components/Footer'
 import NavMenu from './components/NavMenu'
 import SearchBox from './components/SearchBox'
 import ServerPicker from './components/ServerPicker'
+import { recordVisit, watchPresence } from './data/audience'
 import { CatalogContext } from './data/catalogContext'
 import { loadCatalog } from './data/catalog'
 import { flushOutbox, loadPrices, refreshPrices, watchPrices } from './data/prices'
@@ -50,6 +51,13 @@ export default function App() {
         setError(cause instanceof Error ? cause.message : String(cause))
       })
     return () => controller.abort()
+  }, [])
+
+  // Fréquentation : se compter, et compter les autres. Sans effet sur ce que
+  // la page montre, donc sans rien retenir ni attendre.
+  useEffect(() => {
+    void recordVisit()
+    return watchPresence()
   }, [])
 
   // Tout ce qui touche aux prix dépend du serveur de jeu : en changer rejoue

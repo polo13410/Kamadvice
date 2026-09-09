@@ -40,6 +40,7 @@ import {
   Package,
   PackageCheck,
   PackageX,
+  Radio,
   RotateCcw,
   Ruler,
   ScrollText,
@@ -54,6 +55,7 @@ import {
   TrendingUp,
   TriangleAlert,
   Trophy,
+  Users,
   WandSparkles,
   Weight,
   X,
@@ -109,6 +111,12 @@ export const Icon = {
   target: Target,
   /** Meilleure option de son groupe. */
   best: Trophy,
+
+  // Fréquentation
+  /** Navigateurs connectés en ce moment. */
+  online: Radio,
+  /** Navigateurs distincts passés sur l'app. */
+  visitors: Users,
 
   // Variations de valeur
   gain: TrendingUp,

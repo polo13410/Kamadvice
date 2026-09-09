@@ -71,6 +71,8 @@ frontend/
                          relève chaque item
       supabase.ts        Client du projet, ou null en local seul
       servers.ts         Serveurs de jeu, et celui dont on affiche les prix
+      audience.ts        Fréquentation : présents (Realtime Presence) et
+                         navigateurs distincts (table en ajout seul)
       prices.ts          Journal des relevés : lecture, écriture optimiste,
                          temps réel, cache — pour le serveur courant
       priceMigration.ts  Reprise des prix saisis avant le partage
@@ -149,6 +151,8 @@ Un projet créé avant une évolution du schéma rejoue les scripts de
 `supabase/migrations/`, dans l'ordre de leurs dates — chacun dit ce qu'il fait
 et quand le passer. Celui du 2026-09-06 range sous `imagiro` les relevés
 collectés avant le choix du serveur : à exécuter avant de déployer ce front.
+Celui du 2026-09-09 crée la table des visiteurs ; sans lui, la stat manque
+simplement au pied de page.
 
 Un projet gratuit est mis en pause après 7 jours sans requête :
 `.github/workflows/supabase-keepalive.yml` le réveille chaque semaine. Il
@@ -195,6 +199,11 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
   d'items : aucun CDN ne les sert. `public/data/servers/<clé>.webp`, 64 px,
   réduits depuis les illustrations officielles d'Ankama telles que reprises
   par serveur-liste.com. Un serveur sans fichier a un badge à son initiale.
+- **La fréquentation compte des navigateurs, pas des personnes.** « En ligne »
+  est l'état de présence du canal Realtime, « visiteurs » le nombre
+  d'identifiants aléatoires posés une fois par navigateur. Navigation privée,
+  stockage effacé ou second appareil comptent chacun pour un, et l'ajout est
+  ouvert comme celui des prix. Aucune donnée personnelle : un UUID et une date.
 - **Le SDK pèse ~59 Ko gzippés.** Il n'entre dans le bundle que si les
   variables d'environnement sont renseignées : sans elles, Vite les remplace par
   `undefined` et le client Supabase est éliminé au tree-shaking.
