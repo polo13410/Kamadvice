@@ -168,11 +168,106 @@ function buildCarburants(rawItems) {
   return { rows, skipped }
 }
 
+/**
+ * Les montures d'élevage : une variété par item des types « Dragodinde »,
+ * « Muldo » et « Volkorne » — la forme qu'ont prise les montures depuis la
+ * refonte 3.5, et la seule liste à jour : le dump `mounts.json` s'arrête à
+ * 71 muldos là où le jeu en compte 120.
+ *
+ * Trois sources se rejoignent sur le nom, sans accent ni majuscule :
+ * - l'item de monture (`i`), qui porte nom, icône et prix HDV ;
+ * - `breeding.json`, relevé communautaire de la génération (`g`) et des
+ *   croisements possibles (`r`, un ou plusieurs couples de parents) ;
+ * - le certificat (`c`) et l'identifiant de monture du jeu (`m`), via
+ *   `mounts.json`, pour que la fiche d'un certificat mène à la même variété.
+ *
+ * Une variété sans croisement n'est pas une erreur — les générations 1 et
+ * les montures hors élevage (Dragodinde à Plumes) n'en ont pas — mais une
+ * variété sans génération, ou un parent qui ne résout vers aucun item, est
+ * signalé au build plutôt que deviné.
+ */
+const MOUNT_TYPES = { 331: 'dragodinde', 332: 'muldo', 333: 'volkorne' }
+const CERTIFICATE_TYPES = { 97: 'dragodinde', 196: 'muldo', 207: 'volkorne' }
+const SPECIES_PREFIX = { dragodinde: /^dragodinde\s+/i, muldo: /^muldo\s+/i, volkorne: /^volkorne\s+/i }
+
+/** Clé de rapprochement : « Ébène et Indigo », « Ebène et Indigo » et « ebene et indigo » ne font qu'un. */
+const key = (name) =>
+  name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+function buildMounts(rawItems, rawMounts, breeding) {
+  const problems = []
+
+  // Certificats par (espèce, nom court) : le nom du certificat est celui de
+  // la monture, « Dragodinde Amande » pour les deux.
+  const certificates = new Map()
+  for (const item of rawItems) {
+    const species = CERTIFICATE_TYPES[item.type?.id]
+    if (!species) continue
+    certificates.set(`${species}:${key(fr(item.name).replace(SPECIES_PREFIX[species], ''))}`, item.ankama_id)
+  }
+  const mountIdByCertificate = new Map(rawMounts.map((mount) => [mount.certificateId, mount.id]))
+
+  const rows = []
+  const idByKey = new Map()
+  for (const item of rawItems) {
+    const species = MOUNT_TYPES[item.type?.id]
+    if (!species) continue
+    const short = fr(item.name).replace(SPECIES_PREFIX[species], '')
+    const k = `${species}:${key(short)}`
+    idByKey.set(k, item.ankama_id)
+    const certificate = certificates.get(k) ?? null
+    rows.push({
+      i: item.ankama_id,
+      s: species,
+      n: short,
+      k,
+      g: null,
+      r: [],
+      c: certificate,
+      m: certificate === null ? null : (mountIdByCertificate.get(certificate) ?? null),
+    })
+  }
+  const byKey = new Map(rows.map((row) => [row.k, row]))
+
+  for (const [species] of Object.entries(SPECIES_PREFIX)) {
+    for (const variety of breeding[species] ?? []) {
+      const row = byKey.get(`${species}:${key(variety.name.replace(SPECIES_PREFIX[species], ''))}`)
+      if (!row) {
+        problems.push(`${species} « ${variety.name} » (breeding.json) sans item au catalogue`)
+        continue
+      }
+      row.g = variety.generation
+      for (const pair of variety.recipes) {
+        const ids = pair.map((name) => idByKey.get(`${species}:${key(name)}`))
+        if (ids.some((id) => id === undefined)) {
+          problems.push(`${species} « ${variety.name} » : parent inconnu dans ${pair.join(' + ')}`)
+          continue
+        }
+        row.r.push(ids)
+      }
+    }
+  }
+
+  for (const row of rows) {
+    if (row.g === null) problems.push(`${row.s} « ${row.n} » (item ${row.i}) absent de breeding.json`)
+  }
+
+  rows.sort((a, b) => a.i - b.i)
+  return { rows: rows.map(({ k, ...row }) => row), problems }
+}
+
 async function main() {
-  const [rawItems, rawRecipes, rawJobs] = await Promise.all([
+  const [rawItems, rawRecipes, rawJobs, rawMounts, breeding] = await Promise.all([
     readFile(join(SRC, 'items.json'), 'utf8').then(JSON.parse),
     readFile(join(SRC, 'recipes.json'), 'utf8').then(JSON.parse).then(unityRows),
     readFile(join(SRC, 'jobs.json'), 'utf8').then(JSON.parse).then(unityRows),
+    readFile(join(SRC, 'mounts.json'), 'utf8').then(JSON.parse).then(unityRows),
+    readFile(join(SRC, 'breeding.json'), 'utf8').then(JSON.parse),
   ])
 
   // --- Dictionnaire de types ------------------------------------------------
@@ -239,6 +334,9 @@ async function main() {
   // --- Carburants d'enclos ---------------------------------------------------
   const carburants = buildCarburants(rawItems)
 
+  // --- Montures d'élevage ------------------------------------------------------
+  const mounts = buildMounts(rawItems, rawMounts, breeding)
+
   const meta = {
     iconBaseUrls: ICON_BASE_URLS,
     jobIconBaseUrls: JOB_ICON_BASE_URLS,
@@ -254,6 +352,7 @@ async function main() {
     ['recipes', recipes],
     ['jobs', jobs],
     ['carburants', carburants.rows],
+    ['mounts', mounts.rows],
   ]) {
     const json = JSON.stringify(payload)
     await writeFile(join(OUT, `${name}.json`), json)
@@ -264,12 +363,16 @@ async function main() {
     console.log(`  public/data/${name}.json`.padEnd(30), `${(bytes / 1024).toFixed(0)} Ko`)
   }
   console.log(`
-${items.length} items, ${recipes.length} recettes, ${jobs.length} métiers, ${carburants.rows.length} carburants.`)
+${items.length} items, ${recipes.length} recettes, ${jobs.length} métiers, ${carburants.rows.length} carburants, ${mounts.rows.length} montures.`)
   if (dropped.length) {
     console.log(`${dropped.length} recettes ignorées (résultat hors catalogue) : ${dropped.join(', ')}`)
   }
   if (unnamed.length) {
     console.log(`${unnamed.length} métier(s) sans libellé dans JOB_NAMES, ignoré(s) : ${unnamed.join(', ')}`)
+  }
+  if (mounts.problems.length) {
+    console.log(`${mounts.problems.length} monture(s) à vérifier :`)
+    for (const problem of mounts.problems) console.log(`  - ${problem}`)
   }
   if (carburants.skipped.length) {
     console.log(`${carburants.skipped.length} carburant(s) sans effet lisible : ${carburants.skipped.join(', ')}`)

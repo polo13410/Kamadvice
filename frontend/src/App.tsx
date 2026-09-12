@@ -14,7 +14,8 @@ import { migrateLocalPrices } from './data/priceMigration'
 import { useServer } from './data/servers'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
-import { DASHBOARDS, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
+import { BREEDING_PATH, DASHBOARDS, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
+import BreedingPage from './pages/BreedingPage'
 import CarburantPage from './pages/CarburantPage'
 import FavoritesPage from './pages/FavoritesPage'
 import HomePage from './pages/HomePage'
@@ -23,6 +24,7 @@ import ItemPage from './pages/ItemPage'
 import JobPage from './pages/JobPage'
 import JobsPage from './pages/JobsPage'
 import NotFoundPage from './pages/NotFoundPage'
+import PlanPage from './pages/PlanPage'
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -169,6 +171,8 @@ export default function App() {
             <Route path="/dashboard" element={<Navigate to={DASHBOARDS[0]!.to} replace />} />
             <Route path={JOBS_PATH} element={<JobsPage />} />
             <Route path={`${JOBS_PATH}/:slug`} element={<JobPage />} />
+            <Route path={BREEDING_PATH} element={<BreedingPage />} />
+            <Route path={`${BREEDING_PATH}/:planId`} element={<PlanPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

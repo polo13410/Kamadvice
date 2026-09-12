@@ -1,0 +1,3376 @@
+{
+  "fetchedAt": "2026-09-12",
+  "sources": {
+    "dragodinde": "https://www.dofuspourlesnoobs.com/les-dragodindes.html",
+    "muldo": "https://www.dofuspourlesnoobs.com/les-muldos.html",
+    "volkorne": "https://www.dofuspourlesnoobs.com/les-volkornes.html"
+  },
+  "dragodinde": [
+    {
+      "name": "Amande",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Dorée",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Rousse",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Amande et Rousse",
+      "generation": 2,
+      "recipes": [
+        [
+          "Amande",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Rousse",
+      "generation": 2,
+      "recipes": [
+        [
+          "Dorée",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Dorée",
+      "generation": 2,
+      "recipes": [
+        [
+          "Amande",
+          "Dorée"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène",
+      "generation": 3,
+      "recipes": [
+        [
+          "Amande et Dorée",
+          "Dorée et Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo",
+      "generation": 3,
+      "recipes": [
+        [
+          "Amande et Dorée",
+          "Amande et Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Rousse",
+      "generation": 4,
+      "recipes": [
+        [
+          "Indigo",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Rousse",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ebène",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Dorée",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Dorée",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ebène",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre",
+      "generation": 5,
+      "recipes": [
+        [
+          "Ebène et Indigo",
+          "Amande et Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée",
+      "generation": 5,
+      "recipes": [
+        [
+          "Ebène et Indigo",
+          "Dorée et Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Rousse",
+      "generation": 6,
+      "recipes": [
+        [
+          "Pourpre",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Rousse",
+      "generation": 6,
+      "recipes": [
+        [
+          "Orchidée",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Amande",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Amande",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Dorée",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Dorée",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Indigo",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Indigo",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Ebène",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Ebène",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Orchidée",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire",
+      "generation": 7,
+      "recipes": [
+        [
+          "Orchidée et Pourpre",
+          "Indigo et Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise",
+      "generation": 7,
+      "recipes": [
+        [
+          "Orchidée et Pourpre",
+          "Ebène et Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Rousse",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ivoire",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Rousse",
+      "generation": 8,
+      "recipes": [
+        [
+          "Turquoise",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Amande",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Amande",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Dorée",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Dorée",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Indigo",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Indigo",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ebène",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ebène",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Pourpre",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ivoire",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Pourpre",
+      "generation": 8,
+      "recipes": [
+        [
+          "Turquoise",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Orchidée",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ivoire",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Orchidée",
+      "generation": 8,
+      "recipes": [
+        [
+          "Turquoise",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ivoire",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude",
+      "generation": 9,
+      "recipes": [
+        [
+          "Ivoire et Turquoise",
+          "Ivoire et Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Prune",
+      "generation": 9,
+      "recipes": [
+        [
+          "Ivoire et Turquoise",
+          "Turquoise et Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Rousse",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Rousse",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Rousse"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Amande",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Dorée et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Dorée",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Dorée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Dorée"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ebène",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Emeraude",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Prune",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Dragodinde en armure",
+      "generation": 11,
+      "recipes": []
+    },
+    {
+      "name": "Dragodinde à Plumes",
+      "generation": 11,
+      "recipes": []
+    }
+  ],
+  "muldo": [
+    {
+      "name": "Ebène",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Indigo",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Pourpre",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Orchidée",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Doré",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Doré et Pourpre",
+      "generation": 2,
+      "recipes": [
+        [
+          "Doré",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Pourpre",
+      "generation": 2,
+      "recipes": [
+        [
+          "Indigo",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Pourpre",
+      "generation": 2,
+      "recipes": [
+        [
+          "Ebène",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Pourpre",
+      "generation": 2,
+      "recipes": [
+        [
+          "Orchidée",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Orchidée",
+      "generation": 2,
+      "recipes": [
+        [
+          "Doré",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Orchidée",
+      "generation": 2,
+      "recipes": [
+        [
+          "Indigo",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Orchidée",
+      "generation": 2,
+      "recipes": [
+        [
+          "Ebène",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Ebène",
+      "generation": 2,
+      "recipes": [
+        [
+          "Doré",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Indigo",
+      "generation": 2,
+      "recipes": [
+        [
+          "Doré",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Indigo",
+      "generation": 2,
+      "recipes": [
+        [
+          "Ebène",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Roux",
+      "generation": 3,
+      "recipes": [
+        [
+          "Doré et Pourpre",
+          "Doré et Indigo"
+        ],
+        [
+          "Doré et Pourpre",
+          "Doré et Ebène"
+        ],
+        [
+          "Doré et Pourpre",
+          "Doré et Orchidée"
+        ],
+        [
+          "Doré et Orchidée",
+          "Doré et Indigo"
+        ],
+        [
+          "Doré et Orchidée",
+          "Doré et Ebène"
+        ],
+        [
+          "Doré et Ebène",
+          "Doré et Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Amande",
+      "generation": 3,
+      "recipes": [
+        [
+          "Indigo et Pourpre",
+          "Ebène et Orchidée"
+        ],
+        [
+          "Ebène et Pourpre",
+          "Indigo et Orchidée"
+        ],
+        [
+          "Orchidée et Pourpre",
+          "Ebène et Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Doré",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ebène",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Indigo",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Orchidée",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Pourpre",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Amande",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Doré",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Orchidée",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Pourpre",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire",
+      "generation": 5,
+      "recipes": [
+        [
+          "Roux et Doré",
+          "Ebène et Amande"
+        ],
+        [
+          "Roux et Doré",
+          "Indigo et Amande"
+        ],
+        [
+          "Roux et Doré",
+          "Orchidée et Amande"
+        ],
+        [
+          "Roux et Doré",
+          "Pourpre et Amande"
+        ],
+        [
+          "Roux et Amande",
+          "Ebène et Amande"
+        ],
+        [
+          "Roux et Amande",
+          "Pourpre et Amande"
+        ],
+        [
+          "Roux et Amande",
+          "Indigo et Amande"
+        ],
+        [
+          "Roux et Amande",
+          "Orchidée et Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise",
+      "generation": 5,
+      "recipes": [
+        [
+          "Doré et Amande",
+          "Roux et Ebène"
+        ],
+        [
+          "Doré et Amande",
+          "Roux et Orchidée"
+        ],
+        [
+          "Doré et Amande",
+          "Roux et Pourpre"
+        ],
+        [
+          "Doré et Amande",
+          "Roux et Indigo"
+        ],
+        [
+          "Roux et Amande",
+          "Roux et Ebène"
+        ],
+        [
+          "Roux et Amande",
+          "Roux et Indigo"
+        ],
+        [
+          "Roux et Amande",
+          "Roux et Orchidée"
+        ],
+        [
+          "Roux et Amande",
+          "Roux et Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Pourpre",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Orchidée",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Indigo",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Ebène",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Doré",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Roux",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Amande",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Indigo",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Ebène",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Roux",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Amande",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Doré",
+      "generation": 6,
+      "recipes": [
+        [
+          "Turquoise",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Prune",
+      "generation": 7,
+      "recipes": [
+        [
+          "Ebène et Ivoire",
+          "Turquoise et Pourpre"
+        ],
+        [
+          "Indigo et Ivoire",
+          "Turquoise et Orchidée"
+        ],
+        [
+          "Orchidée et Ivoire",
+          "Turquoise et Indigo"
+        ],
+        [
+          "Pourpre et Ivoire",
+          "Turquoise et Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude",
+      "generation": 7,
+      "recipes": [
+        [
+          "Turquoise et Ivoire",
+          "Turquoise et Doré"
+        ],
+        [
+          "Turquoise et Ivoire",
+          "Turquoise et Roux"
+        ],
+        [
+          "Turquoise et Ivoire",
+          "Amande et Ivoire"
+        ],
+        [
+          "Turquoise et Ivoire",
+          "Doré et Ivoire"
+        ],
+        [
+          "Turquoise et Ivoire",
+          "Turquoise et Amande"
+        ],
+        [
+          "Turquoise et Amande",
+          "Roux et Ivoire"
+        ],
+        [
+          "Turquoise et Amande",
+          "Doré et Ivoire"
+        ],
+        [
+          "Doré et Ivoire",
+          "Turquoise et Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Pourpre",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Orchidée",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Indigo",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ebène",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Doré",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Roux",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Amande",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Prune",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Pourpre",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Orchidée",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Indigo",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Ebène et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ebène",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Roux",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Amande",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Ivoire",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Turquoise",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre",
+      "generation": 9,
+      "recipes": [
+        [
+          "Pourpre et Emeraude",
+          "Roux et Emeraude"
+        ],
+        [
+          "Orchidée et Emeraude",
+          "Amande et Emeraude"
+        ],
+        [
+          "Indigo et Emeraude",
+          "Ivoire et Emeraude"
+        ],
+        [
+          "Ebène et Emeraude",
+          "Turquoise et Emeraude"
+        ],
+        [
+          "Doré et Emeraude",
+          "Prune et Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Corail",
+      "generation": 9,
+      "recipes": [
+        [
+          "Prune et Pourpre",
+          "Prune et Roux"
+        ],
+        [
+          "Prune et Orchidée",
+          "Prune et Amande"
+        ],
+        [
+          "Prune et Indigo",
+          "Prune et Ivoire"
+        ],
+        [
+          "Prune et Ebène",
+          "Prune et Turquoise"
+        ],
+        [
+          "Prune et Doré",
+          "Prune et Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Azur",
+      "generation": 9,
+      "recipes": [
+        [
+          "Pourpre et Emeraude",
+          "Prune et Roux"
+        ],
+        [
+          "Orchidée et Emeraude",
+          "Prune et Amande"
+        ],
+        [
+          "Indigo et Emeraude",
+          "Prune et Ivoire"
+        ],
+        [
+          "Ebène et Emeraude",
+          "Prune et Turquoise"
+        ],
+        [
+          "Doré et Emeraude",
+          "Prune et Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine",
+      "generation": 9,
+      "recipes": [
+        [
+          "Prune et Pourpre",
+          "Roux et Emeraude"
+        ],
+        [
+          "Prune et Orchidée",
+          "Amande et Emeraude"
+        ],
+        [
+          "Prune et Indigo",
+          "Ivoire et Emeraude"
+        ],
+        [
+          "Prune et Ebène",
+          "Turquoise et Emeraude"
+        ],
+        [
+          "Prune et Doré",
+          "Turquoise et Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Émeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Corail",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Corail"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Azur",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Azur"
+        ]
+      ]
+    },
+    {
+      "name": "Ambre et Aigue-marine",
+      "generation": 10,
+      "recipes": [
+        [
+          "Ambre",
+          "Aigue-marine"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Émeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Azur",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Azur"
+        ]
+      ]
+    },
+    {
+      "name": "Corail et Aigue-marine",
+      "generation": 10,
+      "recipes": [
+        [
+          "Corail",
+          "Aigue-marine"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Émeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Azur et Aigue-marine",
+      "generation": 10,
+      "recipes": [
+        [
+          "Azur",
+          "Aigue-marine"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Émeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Aigue-marine et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Aigue-marine",
+          "Prune"
+        ]
+      ]
+    }
+  ],
+  "volkorne": [
+    {
+      "name": "Ebène",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Indigo",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Pourpre",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Orchidée",
+      "generation": 1,
+      "recipes": []
+    },
+    {
+      "name": "Pourpre et Orchidée",
+      "generation": 2,
+      "recipes": [
+        [
+          "Pourpre",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Indigo",
+      "generation": 2,
+      "recipes": [
+        [
+          "Pourpre",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Pourpre et Ebène",
+      "generation": 2,
+      "recipes": [
+        [
+          "Pourpre",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Indigo",
+      "generation": 2,
+      "recipes": [
+        [
+          "Orchidée",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Orchidée et Ebène",
+      "generation": 2,
+      "recipes": [
+        [
+          "Orchidée",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Indigo et Ebène",
+      "generation": 2,
+      "recipes": [
+        [
+          "Indigo",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Roux",
+      "generation": 3,
+      "recipes": [
+        [
+          "Pourpre et Orchidée",
+          "Pourpre et Indigo"
+        ],
+        [
+          "Pourpre et Orchidée",
+          "Pourpre et Ebène"
+        ],
+        [
+          "Pourpre et Ebène",
+          "Pourpre et Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Amande",
+      "generation": 3,
+      "recipes": [
+        [
+          "Pourpre et Ebène",
+          "Orchidée et Ebène"
+        ],
+        [
+          "Pourpre et Ebène",
+          "Indigo et Ebène"
+        ],
+        [
+          "Indigo et Ebène",
+          "Orchidée et Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire",
+      "generation": 5,
+      "recipes": [
+        [
+          "Pourpre et Indigo",
+          "Indigo et Ebène"
+        ],
+        [
+          "Pourpre et Indigo",
+          "Orchidée et Indigo"
+        ],
+        [
+          "Orchidée et Indigo",
+          "Indigo et Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise",
+      "generation": 5,
+      "recipes": [
+        [
+          "Pourpre et Orchidée",
+          "Orchidée et Ebène"
+        ],
+        [
+          "Pourpre et Orchidée",
+          "Orchidée et Indigo"
+        ],
+        [
+          "Orchidée et Indigo",
+          "Orchidée et Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Pourpre",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Orchidée",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Roux",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Ivoire",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Amande et Turquoise",
+      "generation": 4,
+      "recipes": [
+        [
+          "Amande",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Pourpre",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Orchidée",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Ivoire",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Roux et Turquoise",
+      "generation": 4,
+      "recipes": [
+        [
+          "Roux",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Pourpre",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ivoire",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Orchidée",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ivoire",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ivoire",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ivoire",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Ivoire et Turquoise",
+      "generation": 4,
+      "recipes": [
+        [
+          "Ivoire",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Pourpre",
+      "generation": 4,
+      "recipes": [
+        [
+          "Turquoise",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Orchidée",
+      "generation": 4,
+      "recipes": [
+        [
+          "Turquoise",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Indigo",
+      "generation": 4,
+      "recipes": [
+        [
+          "Turquoise",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Turquoise et Ebène",
+      "generation": 4,
+      "recipes": [
+        [
+          "Turquoise",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Prune",
+      "generation": 7,
+      "recipes": [
+        [
+          "Amande et Roux",
+          "Amande et Pourpre"
+        ],
+        [
+          "Amande et Roux",
+          "Amande et Orchidée"
+        ],
+        [
+          "Amande et Roux",
+          "Amande et Indigo"
+        ],
+        [
+          "Amande et Roux",
+          "Amande et Ebène"
+        ],
+        [
+          "Amande et Roux",
+          "Amande et Turquoise"
+        ],
+        [
+          "Amande et Roux",
+          "Amande et Ivoire"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Pourpre"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Orchidée"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Indigo"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Ebène"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Ivoire"
+        ],
+        [
+          "Amande et Roux",
+          "Roux et Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude",
+      "generation": 7,
+      "recipes": [
+        [
+          "Ivoire et Turquoise",
+          "Ivoire et Orchidée"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Ivoire et Indigo"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Ivoire et Ebène"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Ivoire et Pourpre"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Amande et Ivoire"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Roux et Ivoire"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Roux et Turquoise"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Turquoise et Orchidée"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Turquoise et Pourpre"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Turquoise et Indigo"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Turquoise et Ebène"
+        ],
+        [
+          "Ivoire et Turquoise",
+          "Amande et Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Indigo",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ebène",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Amande",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Roux",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Turquoise",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Prune et Emeraude",
+      "generation": 6,
+      "recipes": [
+        [
+          "Prune",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Pourpre",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Orchidée",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Indigo",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Ebène",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Amande",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Roux",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Ivoire",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Emeraude et Turquoise",
+      "generation": 6,
+      "recipes": [
+        [
+          "Emeraude",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Doré",
+      "generation": 7,
+      "recipes": [
+        [
+          "Prune et Pourpre",
+          "Emeraude et Roux"
+        ],
+        [
+          "Prune et Orchidée",
+          "Emeraude et Turquoise"
+        ],
+        [
+          "Prune et Indigo",
+          "Emeraude et Ivoire"
+        ],
+        [
+          "Prune et Ebène",
+          "Emeraude et Amande"
+        ],
+        [
+          "Prune et Amande",
+          "Emeraude et Ebène"
+        ],
+        [
+          "Prune et Turquoise",
+          "Emeraude et Orchidée"
+        ],
+        [
+          "Prune et Roux",
+          "Emeraude et Pourpre"
+        ],
+        [
+          "Prune et Ivoire",
+          "Emeraude et Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Pourpre",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Orchidée",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Indigo",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Ebène",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Roux",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Amande",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Ivoire",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Turquoise",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Prune",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Doré et Emeraude",
+      "generation": 8,
+      "recipes": [
+        [
+          "Doré",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Jade",
+      "generation": 9,
+      "recipes": [
+        [
+          "Doré et Pourpre",
+          "Prune et Emeraude"
+        ],
+        [
+          "Doré et Prune",
+          "Doré et Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis",
+      "generation": 9,
+      "recipes": [
+        [
+          "Doré et Orchidée",
+          "Prune et Emeraude"
+        ],
+        [
+          "Doré et Prune",
+          "Doré et Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir",
+      "generation": 9,
+      "recipes": [
+        [
+          "Doré et Indigo",
+          "Prune et Emeraude"
+        ],
+        [
+          "Doré et Emeraude",
+          "Doré et Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste",
+      "generation": 9,
+      "recipes": [
+        [
+          "Doré et Ebène",
+          "Prune et Emeraude"
+        ],
+        [
+          "Doré et Emeraude",
+          "Doré et Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Rubis",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Rubis"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Saphir",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Saphir"
+        ]
+      ]
+    },
+    {
+      "name": "Jade et Améthyste",
+      "generation": 10,
+      "recipes": [
+        [
+          "Jade",
+          "Améthyste"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Saphir",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Saphir"
+        ]
+      ]
+    },
+    {
+      "name": "Rubis et Améthyste",
+      "generation": 10,
+      "recipes": [
+        [
+          "Rubis",
+          "Améthyste"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Doré"
+        ]
+      ]
+    },
+    {
+      "name": "Saphir et Améthyste",
+      "generation": 10,
+      "recipes": [
+        [
+          "Saphir",
+          "Améthyste"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Pourpre",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Pourpre"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Orchidée",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Orchidée"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Indigo",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Indigo"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Ebène",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Ebène"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Amande",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Amande"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Roux",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Roux"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Ivoire",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Ivoire"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Turquoise",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Turquoise"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Prune",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Prune"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Emeraude",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Emeraude"
+        ]
+      ]
+    },
+    {
+      "name": "Améthyste et Doré",
+      "generation": 10,
+      "recipes": [
+        [
+          "Améthyste",
+          "Doré"
+        ]
+      ]
+    }
+  ]
+}

@@ -48,6 +48,9 @@ gratuite de Supabase.
 dofus_data/              Dumps bruts du jeu (source, non servie)
   items.json             MAPPED_ITEMS de dofusdude/dofus3-main
   recipes.json, jobs.json  Assets bruts (dumps Unity) : seuls à porter le jobId
+  mounts.json            Dump brut des montures : lie une monture à son certificat
+  breeding.json          Relevé communautaire (dofuspourlesnoobs.com) : génération
+                         et croisements de chaque variété — absent de tout dump
 netlify.toml             Configuration de déploiement
 supabase/
   schema.sql             Table des relevés, vue des prix courants, RLS
@@ -55,6 +58,7 @@ supabase/
 frontend/
   scripts/
     build-data.mjs       ../dofus_data/*.json  ->  public/data/*.json
+    fetch-mounts.mjs     Télécharge mounts.json et relève breeding.json
   public/data/           Artefacts servis au navigateur (versionnés)
     servers/             Emblèmes des serveurs de jeu, <clé>.webp, 64 px
   src/
@@ -63,10 +67,15 @@ frontend/
       craft.ts           Coût de craft et marge — métier pur, sans React
       carburant.ts       Lignes du tableau de bord des carburants, meilleur
                          rendement par jauge
+      breeding.ts        Plan d'élevage : arbre des croisements, avancement,
+                         probabilités, tentatives et coût — métier pur
     data/
       catalog.ts         Chargement + indexation du catalogue
       carburants.ts      Connaissance de jeu : jauges, familles, calibres,
                          paliers — et lecture d'un carburant depuis ses effets
+      mounts.ts          Connaissance de jeu : espèces, jauges de fécondité,
+                         réglages par défaut d'un plan, lecture des Makina
+      plans.ts           Plans d'élevage sauvegardés (localStorage)
       hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
                          relève chaque item
       supabase.ts        Client du projet, ou null en local seul
@@ -97,6 +106,12 @@ frontend/
       TableHead.tsx      En-tête de colonne triable, avec bulle
       ServerPicker.tsx   Choix du serveur de jeu, emblèmes à l'appui
       ServerIcon.tsx     Emblème d'un serveur, badge à l'initiale en repli
+      MountVariety.tsx   Une variété de monture : icône, nom, pastille de génération
+      MountGenealogy.tsx Section généalogie de la fiche d'une monture : parents,
+                         décomposition jusqu'aux gén. 1, ce qu'elle permet d'obtenir
+      BreedingTree.tsx   Arbre repliable d'un plan, pastilles d'état et d'étape
+      MountSlotEditor.tsx  La monture d'un emplacement : sexe, niveau, état,
+                         arbre réel (parents, grands-parents)
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
@@ -104,7 +119,43 @@ frontend/
       JobsPage.tsx       Les métiers producteurs, en cartes
       JobPage.tsx        Tableau de bord d'un métier : ses recettes face à l'HDV,
                          filtrées par niveau, type, coûts, ingrédients
+      BreedingPage.tsx   Élevage : créer un plan, retrouver ceux en cours
+      PlanPage.tsx       Un plan : réglages, probabilités, coût, montures de
+                         départ, croisements dans l'ordre, arbre complet
 ```
+
+## Élevage des montures
+
+Le planificateur (`/dashboard/elevage`) part d'une variété visée — dragodinde,
+muldo ou volkorne — et déroule sa recette jusqu'aux générations 1. Ce qu'il
+sait, et d'où :
+
+- **Les variétés** sont les items des types « Dragodinde », « Muldo » et
+  « Volkorne » (68, 120 et 120), la forme qu'ont prise les montures depuis la
+  refonte 3.5 ; c'est eux qui portent l'icône et le prix HDV. Le dump
+  `mounts.json` de dofusdude ne sert qu'à rattacher les certificats d'étable,
+  il s'arrête à 71 muldos.
+- **Générations et croisements** viennent de dofuspourlesnoobs.com
+  (`npm run mounts` les relève dans `dofus_data/breeding.json`), recoupés
+  sans écart avec dofuselevage.fr. Bien des muldos et volkornes ont **plusieurs
+  recettes** (Muldo Roux : six couples) ; le plan en retient une par
+  emplacement, au choix. La numérotation des volkornes n'est pas monotone —
+  « Ivoire et Pourpre » est génération 4, « Ivoire » génération 5 — et le code
+  ne suppose jamais qu'un parent est d'une génération inférieure.
+- **La probabilité** est celle de la génération cible : 30 % + 0,15 % ×
+  (niveau A + niveau B), +10 % avec une Optimakina, plafonnée à 100 %. La
+  répartition entre variétés de cette génération n'est pas publique : quand
+  les ancêtres réels renseignés rendent plusieurs variétés possibles, la page
+  les liste et dit « probabilité exacte inconnue », sans inventer de poids.
+- **Le coût** est chiffré de zéro, tentatives comprises : chaque tentative
+  rend ses deux parents stériles, donc en demande deux neufs, et ainsi de suite
+  en descendant l'arbre. Montures de départ au prix HDV, mangeoire et jauges de
+  fécondité au carburant le moins cher de chaque jauge (tableau de bord des
+  carburants), Optimakina la moins chère qui agisse sur la génération. Un prix
+  qui manque rend le total « incomplet », jamais approximatif.
+- **Les plans** vivent dans `localStorage`, comme les favoris : un élevage
+  dure des jours, la page retrouve où on en était, mais pas d'un navigateur à
+  l'autre.
 
 `src/domain/craft.ts` est le cœur métier : pour un item, il donne le prix
 d'achat, le coût de fabrication en achetant les ingrédients, les ingrédients dont
@@ -166,6 +217,7 @@ Tout se lance depuis `frontend/` :
 cd frontend
 npm install
 npm run data      # régénère public/data/ depuis ../dofus_data/ (après une MAJ Dofus)
+npm run mounts    # re-télécharge mounts.json et relève les croisements (puis npm run data)
 npm run dev       # serveur de dev
 npm run build     # typecheck + bundle de production dans dist/
 npm run preview   # sert dist/ en local
@@ -212,3 +264,10 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
 - **Pas d'information de métier** sur les recettes : elle est absente du dump.
 - 11 recettes sont ignorées au build, leur résultat n'existant plus dans le
   catalogue (`npm run data` les liste).
+- **Les croisements sont un relevé communautaire**, pas une donnée du jeu :
+  `npm run data` signale toute variété sans génération ou parent inconnu, à
+  corriger dans `dofus_data/breeding.json`. Deux dragodindes (à Plumes, en
+  armure) n'ont pas de recette et ne se planifient pas.
+- **Le sexe d'un bébé est aléatoire** et n'entre pas dans les probabilités du
+  plan : un croisement peut donner la bonne variété du mauvais sexe. Le
+  clonage n'est pas chiffré non plus ; le plan compte des couples neufs.
