@@ -341,7 +341,11 @@ async function main() {
     iconBaseUrls: ICON_BASE_URLS,
     jobIconBaseUrls: JOB_ICON_BASE_URLS,
     categories: CATEGORIES,
+    // L'XP cumulée d'une monture par niveau (indice = niveau), relevée avec
+    // les croisements : le planificateur lie niveau visé et points de mangeoire.
+    mountXp: Array.isArray(breeding.xp) && breeding.xp.length === 201 ? breeding.xp : null,
   }
+  if (!meta.mountXp) console.log("Table d'XP des montures absente de breeding.json : relancer npm run mounts")
 
   await mkdir(OUT, { recursive: true })
   const written = []

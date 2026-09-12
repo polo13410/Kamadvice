@@ -26,6 +26,8 @@ interface RawMeta {
   iconBaseUrls: string[]
   jobIconBaseUrls: string[]
   categories: Record<string, string>
+  /** XP cumulée d'une monture, indexée par niveau (0 à 200). `null` si non relevée. */
+  mountXp: number[] | null
 }
 
 type RawTypes = Record<string, { n: string; c: number }>
@@ -70,7 +72,7 @@ const SPECIES_RANK: Record<Species, number> = { dragodinde: 0, muldo: 1, volkorn
  * certificat) pour la fiche, et par parent pour « permet d'obtenir ». Quelques
  * centaines de lignes : rien à faire côté build.
  */
-function buildMounts(raw: RawMount[]): MountCatalog {
+function buildMounts(raw: RawMount[], xp: number[] | null): MountCatalog {
   const varieties: MountVariety[] = raw.map((row) => ({
     id: row.i,
     species: row.s,
@@ -106,7 +108,7 @@ function buildMounts(raw: RawMount[]): MountCatalog {
       }
     }
   }
-  return { varieties, byId, byItemId, childrenOf }
+  return { varieties, byId, byItemId, childrenOf, xp: xp ?? [] }
 }
 
 async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
@@ -209,7 +211,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     types: [...typeById.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     categories,
     carburants,
-    mounts: buildMounts(rawMounts),
+    mounts: buildMounts(rawMounts, meta.mountXp),
     iconBaseUrls: meta.iconBaseUrls,
     jobIconBaseUrls: meta.jobIconBaseUrls,
   }

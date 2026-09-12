@@ -43,20 +43,20 @@ tous les tableaux — les dashboards en profiteraient sans changer.
 
 ## Élevage : suites possibles
 
-La première version est là (données des trois espèces, arbre théorique sur la
-fiche, plans sauvegardés, suivi des montures, probabilités et coût). Ce qui
-reste ouvert :
+L'assistant est là : étable partagée, plan recalculé sur l'étable, prochaine
+étape suggérée, accouplements et clonages enregistrés avec leur résultat
+réel, coût du plan actuel. Ce qui reste ouvert :
 
+- **Une probabilité globale** sur l'arbre décisionnel — chances de tenir la
+  cible en n accouplements, bébés ratés réemployés compris. Aujourd'hui, seules
+  les chances par accouplement sont données, à dessein.
 - **Le sexe des bébés** dans les chances : un croisement réussi peut donner la
-  bonne variété du mauvais sexe. Compter deux bébés utiles sur trois ? À
-  chiffrer, et à dire clairement.
-- **Le clonage** comme alternative aux couples neufs : deux montures de même
-  génération fusionnent en une féconde. Son coût dépend de ce qu'on a sous la
-  main, il faudrait le proposer par étape.
-- **Un reste à payer** en plus du coût de zéro : déduire les montures en place
-  et les tentatives faites.
-- **Partager un plan** entre navigateurs : comme les vues, ça attend les
-  comptes utilisateur côté Supabase.
+  bonne variété du mauvais sexe. Le plan le constate, il ne l'anticipe pas.
+- **Plusieurs plans sur la même étable** : chacun se calcule seul et peut
+  réclamer la même monture. Réserver par plan, ou fusionner les plans d'une
+  espèce.
+- **Partager étable et plans** entre navigateurs : comme les vues, ça attend
+  les comptes utilisateur côté Supabase.
 - **La répartition entre variétés** d'une même génération, si la formule du
   jeu finit par être documentée : `possibleTargetVarieties` est l'endroit.
 

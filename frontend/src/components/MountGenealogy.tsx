@@ -13,7 +13,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useCatalog } from '../data/catalogContext'
 import { DEFAULT_SETTINGS, SPECIES_INFO, varietyName } from '../data/mounts'
 import { createPlan, usePlans } from '../data/plans'
-import { evaluatePlan, generationChance, theoreticalPlan } from '../domain/breeding'
+import { captures, evaluatePlan, generationChance, theoreticalPlan } from '../domain/breeding'
 import type { Item, MountVariety } from '../domain/types'
 import { formatChance } from '../lib/format'
 import { Icon } from '../lib/icons'
@@ -31,7 +31,7 @@ export default function MountGenealogy({ item }: { item: Item }) {
   const evaluation = useMemo(
     () =>
       variety && variety.recipes.length > 0
-        ? evaluatePlan(catalog.mounts, theoreticalPlan(variety.id, DEFAULT_SETTINGS))
+        ? evaluatePlan(catalog.mounts, theoreticalPlan(variety.id, DEFAULT_SETTINGS), [])
         : null,
     [catalog.mounts, variety],
   )
@@ -168,11 +168,11 @@ export default function MountGenealogy({ item }: { item: Item }) {
           }
         >
           <p className="mb-2 text-xs text-slate-500">
-            Au minimum, tout réussissant du premier coup :{' '}
-            {evaluation.starting.map((entry, index) => (
+            Depuis une étable vide, tout réussissant du premier coup :{' '}
+            {captures(evaluation).map((entry, index) => (
               <Fragment key={entry.variety.id}>
                 {index > 0 && ', '}
-                <span className="tabular-nums text-slate-300">{entry.minimum}</span> {entry.variety.name}
+                <span className="tabular-nums text-slate-300">{entry.count}</span> {entry.variety.name}
               </Fragment>
             ))}{' '}
             — soit {evaluation.crosses.length} croisement{evaluation.crosses.length > 1 ? 's' : ''}{' '}

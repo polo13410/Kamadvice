@@ -76,6 +76,26 @@ function parseBreeding(html) {
   return varieties
 }
 
+/**
+ * L'expérience cumulée d'une monture à chaque niveau, de 1 à 200 : la page
+ * des dragodindes l'embarque telle quelle pour son graphique (`xpTotal`), et
+ * c'est la seule source qui la donne en clair. Rendue en tableau indexé par
+ * le niveau (`xp[39] === 19266`), l'indice 0 inutilisé.
+ */
+function parseXp(html) {
+  const raw = /const xpTotal = \{([^}]*)\}/.exec(html)?.[1]
+  if (!raw) throw new Error('table xpTotal introuvable, la page a changé ?')
+  const xp = [0]
+  for (const pair of raw.split(',')) {
+    const [level, value] = pair.split(':').map((part) => Number(part.trim()))
+    if (Number.isInteger(level) && Number.isFinite(value)) xp[level] = value
+  }
+  for (let level = 1; level <= 200; level++) {
+    if (typeof xp[level] !== 'number') throw new Error(`niveau ${level} absent de la table d'XP`)
+  }
+  return xp
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true })
 
@@ -84,9 +104,14 @@ async function main() {
   await writeFile(join(OUT, 'mounts.json'), mounts)
   console.log(`  dofus_data/mounts.json`.padEnd(30), `${(mounts.length / 1024).toFixed(0)} Ko`)
 
-  const breeding = { fetchedAt: new Date().toISOString().slice(0, 10), sources: BREEDING_PAGES }
+  const breeding = { fetchedAt: new Date().toISOString().slice(0, 10), sources: BREEDING_PAGES, xp: [] }
   for (const [species, url] of Object.entries(BREEDING_PAGES)) {
-    const varieties = parseBreeding(await fetchText(url))
+    const html = await fetchText(url)
+    if (species === 'dragodinde') {
+      breeding.xp = parseXp(html)
+      console.log(`  xp`.padEnd(30), `niveaux 1 à ${breeding.xp.length - 1}, niveau 200 = ${breeding.xp[200]}`)
+    }
+    const varieties = parseBreeding(html)
     if (varieties.length === 0) throw new Error(`${url} : aucune monture reconnue, la page a changé ?`)
     breeding[species] = varieties
     const multi = varieties.filter((v) => v.recipes.length > 1).length

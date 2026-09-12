@@ -101,6 +101,12 @@ export interface MountCatalog {
   byItemId: ReadonlyMap<ItemId, MountVariety>
   /** Index inverse des recettes : ce qu'une variété permet d'obtenir. */
   childrenOf: ReadonlyMap<VarietyId, MountChild[]>
+  /**
+   * XP cumulée d'une monture à chaque niveau, indexée par le niveau :
+   * `xp[39] === 19266`, `xp[200] === 867582`. Vide si la table n'a pas été
+   * relevée — le planificateur retombe alors sur un niveau saisi à la main.
+   */
+  xp: readonly number[]
 }
 
 export interface Catalog {

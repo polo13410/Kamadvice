@@ -1,22 +1,23 @@
 /**
- * Le planificateur d'élevage : choisir une monture à obtenir, et retrouver
- * les plans en cours.
+ * Le planificateur d'élevage : choisir une monture à obtenir, retrouver les
+ * plans en cours, et tenir l'étable qu'ils partagent.
  *
  * Un plan se crée d'ici ou depuis la fiche d'une monture ; il vit ensuite sur
- * sa propre page. Cette page ne fait que les lister, avec leur avancement,
- * parce qu'un élevage dure des jours et qu'on en mène souvent plusieurs.
+ * sa propre page. L'étable est ici au complet, toutes espèces confondues :
+ * c'est l'endroit où l'on déclare ce qu'on a avant même de savoir pour quoi.
  */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Adorned, { CONTROL } from '../components/Adorned'
 import DashboardHeader from '../components/DashboardHeader'
 import ItemIcon from '../components/ItemIcon'
-import { GenerationBadge } from '../components/MountVariety'
-import { VarietySelect } from '../components/MountSlotEditor'
+import { GenerationBadge, VarietySelect } from '../components/MountVariety'
+import StablePanel from '../components/StablePanel'
 import { useCatalog } from '../data/catalogContext'
+import { useStable } from '../data/inventory'
 import { SPECIES, SPECIES_INFO, varietyName } from '../data/mounts'
 import { createPlan, removePlan, usePlans } from '../data/plans'
-import { evaluatePlan, type Plan } from '../domain/breeding'
+import { evaluatePlan, type Plan, type StableMount } from '../domain/breeding'
 import type { Species, VarietyId } from '../domain/types'
 import { formatRelativeDate } from '../lib/format'
 import { Icon } from '../lib/icons'
@@ -25,6 +26,7 @@ import { planPath } from '../lib/pages'
 export default function BreedingPage() {
   const catalog = useCatalog()
   const plans = usePlans()
+  const stable = useStable()
   const navigate = useNavigate()
   const [species, setSpecies] = useState<Species>('dragodinde')
   const [target, setTarget] = useState<VarietyId | null>(null)
@@ -45,13 +47,10 @@ export default function BreedingPage() {
       <DashboardHeader
         icon={Icon.breeding}
         title="Élevage"
-        description="Choisissez la monture à obtenir : le plan déroule les croisements jusqu’aux générations 1, suit vos montures, et chiffre les chances et le coût. Les plans restent dans ce navigateur."
+        description="Choisissez la monture à obtenir : le plan se déroule sur votre étable, suggère la prochaine action et se recalcule à chaque accouplement ou clonage. Plans et étable restent dans ce navigateur."
         stats={[
-          {
-            icon: Icon.mount,
-            label: `${catalog.mounts.varieties.length} variétés`,
-          },
           { icon: Icon.plan, label: `${plans.length} plan${plans.length > 1 ? 's' : ''}` },
+          { icon: Icon.mount, label: `${stable.length} monture${stable.length > 1 ? 's' : ''} à l’étable` },
         ]}
       />
 
@@ -119,15 +118,27 @@ export default function BreedingPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
+            <PlanCard key={plan.id} plan={plan} stable={stable} />
           ))}
         </div>
       )}
+
+      <section className="space-y-2">
+        <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+          <Icon.mount className="size-4 shrink-0" aria-hidden />
+          Étable
+        </h2>
+        <p className="text-xs text-slate-500">
+          Toutes vos montures, partagées par tous les plans. Un accouplement ou un clonage enregistré
+          depuis un plan la met à jour.
+        </p>
+        <StablePanel mounts={stable} />
+      </section>
     </div>
   )
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({ plan, stable }: { plan: Plan; stable: readonly StableMount[] }) {
   const catalog = useCatalog()
   const [confirming, setConfirming] = useState(false)
   const variety = catalog.mounts.byId.get(plan.target)
@@ -136,22 +147,18 @@ function PlanCard({ plan }: { plan: Plan }) {
   const summary = useMemo(() => {
     if (!variety) return null
     try {
-      const evaluation = evaluatePlan(catalog.mounts, plan)
-      return { total: evaluation.crosses.length, done: evaluation.done, blocked: evaluation.blocked }
+      const evaluation = evaluatePlan(catalog.mounts, plan, stable)
+      return { crosses: evaluation.crosses.length, done: evaluation.done, suggestion: evaluation.suggestion.kind }
     } catch {
       return null
     }
-  }, [catalog.mounts, plan, variety])
+  }, [catalog.mounts, plan, stable, variety])
 
   if (!variety) {
     return (
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-500">
         Plan vers une variété inconnue (#{plan.target}).
-        <button
-          type="button"
-          onClick={() => removePlan(plan.id)}
-          className="ml-2 text-rose-400 hover:text-rose-300"
-        >
+        <button type="button" onClick={() => removePlan(plan.id)} className="ml-2 text-rose-400 hover:text-rose-300">
           Supprimer
         </button>
       </div>
@@ -161,11 +168,7 @@ function PlanCard({ plan }: { plan: Plan }) {
   return (
     <div className="group relative flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4 hover:border-slate-700 hover:bg-slate-900">
       <Link to={planPath(plan.id)} className="flex min-w-0 flex-1 items-start gap-3">
-        {item ? (
-          <ItemIcon item={item} size={40} />
-        ) : (
-          <Icon.mount className="size-10 shrink-0 text-slate-600" aria-hidden />
-        )}
+        {item ? <ItemIcon item={item} size={40} /> : <Icon.mount className="size-10 shrink-0 text-slate-600" aria-hidden />}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2 text-sm font-medium text-slate-200 group-hover:text-amber-400">
             <span className="truncate">{varietyName(variety)}</span>
@@ -175,13 +178,7 @@ function PlanCard({ plan }: { plan: Plan }) {
             {summary && (
               <span className="flex items-center gap-1">
                 <Icon.cross className="size-3" aria-hidden />
-                {summary.done} / {summary.total} croisements
-              </span>
-            )}
-            {summary && summary.blocked > 0 && (
-              <span className="flex items-center gap-1 text-rose-400">
-                <Icon.stepBlocked className="size-3" aria-hidden />
-                {summary.blocked} bloqué{summary.blocked > 1 ? 's' : ''}
+                {summary.done ? 'cible obtenue' : `${summary.crosses} croisement${summary.crosses > 1 ? 's' : ''} restant${summary.crosses > 1 ? 's' : ''}`}
               </span>
             )}
             <span className="flex items-center gap-1">
@@ -194,28 +191,15 @@ function PlanCard({ plan }: { plan: Plan }) {
       </Link>
       {confirming ? (
         <span className="flex shrink-0 flex-col gap-1 text-xs">
-          <button
-            type="button"
-            onClick={() => removePlan(plan.id)}
-            className="text-rose-400 hover:text-rose-300"
-          >
+          <button type="button" onClick={() => removePlan(plan.id)} className="text-rose-400 hover:text-rose-300">
             Confirmer
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="text-slate-500 hover:text-slate-300"
-          >
+          <button type="button" onClick={() => setConfirming(false)} className="text-slate-500 hover:text-slate-300">
             Annuler
           </button>
         </span>
       ) : (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          aria-label="Supprimer ce plan"
-          className="shrink-0 text-slate-600 hover:text-rose-400"
-        >
+        <button type="button" onClick={() => setConfirming(true)} aria-label="Supprimer ce plan" className="shrink-0 text-slate-600 hover:text-rose-400">
           <Icon.delete className="size-4" aria-hidden />
         </button>
       )}

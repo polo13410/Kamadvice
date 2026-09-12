@@ -34,15 +34,15 @@ export const varietyName = (variety: MountVariety): string =>
 /**
  * Réglages par défaut d'un plan d'élevage.
  *
- * 20 000 points de mangeoire mènent une monture aux alentours du niveau 39 :
- * c'est le compromis usuel entre le temps d'élevage et la probabilité, qui
- * gagne 0,15 % par niveau de chaque parent. Les deux se règlent plan par plan.
+ * Le niveau 39 — 19 266 points de mangeoire d'après la table d'XP — est le
+ * compromis usuel entre le temps d'élevage et la probabilité, qui gagne
+ * 0,15 % par niveau de chaque parent. Niveau et points restent liés par la
+ * table : changer l'un déplace l'autre.
  */
 export const DEFAULT_SETTINGS: PlanSettings = {
   targetLevel: 39,
-  feedPoints: 20_000,
+  feedPoints: 19_266,
   optimakina: false,
-  reproducteur: false,
 }
 
 /** La jauge d'expérience : c'est elle qui fait le niveau. */

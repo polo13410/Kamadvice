@@ -1,31 +1,30 @@
 /**
- * Planification d'un élevage : de la variété visée aux montures de départ,
- * avec les croisements dans l'ordre, l'avancement de chacun, la probabilité
- * d'aboutir et ce que tout cela coûte.
+ * L'assistant d'élevage : depuis la variété visée et l'étable réelle, ce qu'il
+ * reste à faire, dans quel ordre, avec quelles montures, et ce que ça coûte.
  *
  * Volontairement pur — ni React, ni stockage, ni formatage — comme `craft.ts`.
- * La page ne fait qu'afficher ce qui sort d'ici et renvoyer les saisies au
- * store des plans.
+ * Un plan ne retient que la cible et ses réglages ; tout le reste se déduit
+ * de l'inventaire à chaque rendu, ce qui fait qu'un accouplement ou un
+ * clonage enregistré reconstruit le plan sans rien à synchroniser.
  *
  * Deux arbres à ne pas confondre :
  *
  * - la **recette théorique** d'une variété : ses deux parents, puis les leurs,
- *   jusqu'aux générations 1. C'est ce que le jeu publie, et ce que la fiche
- *   d'une monture montre. Une variété peut avoir plusieurs recettes (les muldos
- *   et volkornes surtout) : le plan en retient une par emplacement.
- * - l'**arbre réel** d'une monture possédée : ses parents et grands-parents
- *   tels qu'ils sont, que l'utilisateur renseigne s'il les connaît. C'est lui
- *   qui décide quelles variétés de la génération cible peuvent naître.
+ *   jusqu'aux générations 1. Une variété peut avoir plusieurs recettes (les
+ *   muldos et volkornes surtout) : l'assistant retient celle que l'étable rend
+ *   la moins chère, sauf choix explicite.
+ * - l'**arbre réel** d'une monture : ses parents et grands-parents tels qu'ils
+ *   sont, déduits à la naissance ou renseignés. C'est lui qui décide quelles
+ *   variétés de la génération cible peuvent naître d'un couple.
  *
- * Ce qu'on sait de la probabilité, depuis la refonte 3.5 : la chance d'obtenir
- * *la génération cible* vaut 30 % + 0,15 % × (niveau A + niveau B), +10 % avec
- * une Optimakina, plafonnée à 100 %. La répartition entre les variétés de cette
- * génération, elle, dépend des ancêtres selon une formule que le jeu ne
- * publie pas : on ne l'invente pas. Quand une seule variété est possible, la
- * probabilité de la génération est celle de la variété ; sinon on affiche les
- * candidates, et « probabilité exacte inconnue ».
+ * La probabilité connue, depuis la refonte 3.5, est celle d'obtenir *la
+ * génération cible* : 30 % + 0,15 % × (niveau A + niveau B), +10 % avec une
+ * Optimakina, plafonnée à 100 %. La répartition entre variétés de cette
+ * génération dépend des ancêtres selon une formule que le jeu ne publie pas :
+ * on ne l'invente pas. Les chances sont données accouplement par
+ * accouplement ; un échec n'est pas « refaire la branche » — le bébé rejoint
+ * l'étable et peut servir ailleurs, ou au clonage.
  */
-import { buildCarburantRows } from './carburant'
 import type { Gauge } from '../data/carburants'
 import {
   cheapestOptimakina,
@@ -34,13 +33,12 @@ import {
   fertilityPoints,
   readMakinas,
   varietyName,
-  type Makina,
 } from '../data/mounts'
+import { buildCarburantRows } from './carburant'
 import type {
   Catalog,
   IgnoredSet,
   Item,
-  ItemId,
   MountCatalog,
   MountVariety,
   PriceMap,
@@ -74,10 +72,7 @@ export const successAfter = (chance: number, attempts: number): number =>
 /** Nombre moyen de tentatives avant le premier succès : 1 / p. */
 export const meanAttempts = (chance: number): number => (chance <= 0 ? Infinity : 1 / chance)
 
-/**
- * Tentatives nécessaires pour que la chance cumulée atteigne `confidence`.
- * Toujours au moins une, et une seule quand le succès est certain.
- */
+/** Tentatives nécessaires pour que la chance cumulée atteigne `confidence`. */
 export function attemptsFor(chance: number, confidence: number): number {
   if (chance >= 1) return 1
   if (chance <= 0) return Infinity
@@ -87,64 +82,62 @@ export function attemptsFor(chance: number, confidence: number): number {
 /** Les seuils de confiance affichés, dans l'ordre. */
 export const CONFIDENCE_LEVELS: readonly number[] = [0.5, 0.8, 0.9, 0.95]
 
-// --- Le plan, tel qu'il est sauvegardé ----------------------------------------
+// --- Niveau et expérience -----------------------------------------------------
+
+export const MAX_LEVEL = 200
+
+/** XP cumulée au niveau donné, `0` sans table. */
+export const xpAtLevel = (xp: readonly number[], level: number): number =>
+  xp[Math.min(MAX_LEVEL, Math.max(1, Math.round(level)))] ?? 0
+
+/** Le plus haut niveau que ces points de mangeoire permettent d'atteindre depuis le niveau 1. */
+export function levelForXp(xp: readonly number[], points: number): number {
+  let level = 1
+  for (let candidate = 1; candidate <= MAX_LEVEL; candidate++) {
+    const needed = xp[candidate]
+    if (needed === undefined || needed > points) break
+    level = candidate
+  }
+  return level
+}
+
+// --- L'étable et le plan, tels qu'ils sont sauvegardés ---------------------------
 
 export type Sex = 'male' | 'female'
 
 /**
- * Où en est une monture d'un plan. `missing` est l'absence de monture ; les
- * autres se déclarent, dans l'ordre où un élevage les traverse : possédée,
- * en préparation (jauges), féconde, reproduction faite — stérile désormais.
- * `obtained` est l'état de naissance d'un bébé issu du plan.
+ * Une monture réelle, à l'étable. Deux états comptent pour l'élevage : elle
+ * est féconde (jauges pleines) ou pas, et elle est stérile ou pas — une
+ * monture qui a reproduit ne sert plus qu'au clonage.
  */
-export type MountStatus = 'missing' | 'owned' | 'preparing' | 'fertile' | 'bred' | 'obtained'
-
-export type OwnedStatus = Exclude<MountStatus, 'missing'>
-
-export const STATUS_ORDER: readonly MountStatus[] = [
-  'missing',
-  'owned',
-  'obtained',
-  'preparing',
-  'fertile',
-  'bred',
-]
-
-/**
- * D'où vient une monture : achetée ou capturée (`external`), ou née d'un
- * croisement de ce plan (`bred`). C'est l'origine, pas l'état, qui dit si le
- * croisement en dessous a eu lieu — l'état continue d'évoluer ensuite, quand
- * le bébé devient à son tour un parent.
- */
-export type MountOrigin = 'external' | 'bred'
-
-export interface OwnedMount {
-  origin: MountOrigin
+export interface StableMount {
+  id: string
+  variety: VarietyId
   sex: Sex | null
   level: number
-  status: OwnedStatus
+  /** Jauges d'amour, de maturité et d'endurance au maximum. */
+  ready: boolean
+  sterile: boolean
   /** Arbre réel : les deux parents, `null` quand on ne les connaît pas. */
   parents: [VarietyId | null, VarietyId | null]
-  /** Puis les quatre grands-parents, dans l'ordre : ceux du premier parent, ceux du second. */
+  /** Puis les quatre grands-parents : ceux du premier parent, ceux du second. */
   grandparents: [VarietyId | null, VarietyId | null, VarietyId | null, VarietyId | null]
+  createdAt: string
 }
 
 export interface PlanSettings {
-  /** Niveau auquel on monte chaque parent avant de le faire reproduire. */
+  /** Niveau visé des parents avant de reproduire : `feedPoints` en découle, et réciproquement. */
   targetLevel: number
-  /** Points de mangeoire à verser pour l'y amener. */
+  /** Points de mangeoire à verser à une monture née au niveau 1 pour l'y amener. */
   feedPoints: number
   /** Une Optimakina à chaque croisement. */
   optimakina: boolean
-  /** Un parent à la capacité Reproducteur : deux bébés par portée. */
-  reproducteur: boolean
 }
 
 /**
  * Un emplacement du plan est désigné par son chemin dans l'arbre : `''` la
  * cible, `'0'` et `'1'` ses deux parents, `'00'` le premier parent du
- * premier parent, etc. Un chemin ne dépend que de la variété visée et des
- * recettes retenues : un plan reste lisible quand les données changent.
+ * premier parent, etc.
  */
 export type SlotPath = string
 
@@ -154,36 +147,58 @@ export interface Plan {
   createdAt: string
   updatedAt: string
   settings: PlanSettings
-  /** Recette retenue par emplacement, quand la variété en a plusieurs. */
+  /** Recette imposée à un emplacement, quand on ne veut pas de celle que l'étable suggère. */
   recipes: Record<SlotPath, number>
-  mounts: Record<SlotPath, OwnedMount>
 }
 
-// --- L'évaluation d'un plan ---------------------------------------------------
+/** Un plan vierge : la recette théorique d'une variété, sans étable. */
+export const theoreticalPlan = (target: VarietyId, settings: PlanSettings): Plan => ({
+  id: '',
+  target,
+  createdAt: '',
+  updatedAt: '',
+  settings,
+  recipes: {},
+})
 
-export type CrossState = 'done' | 'ready' | 'in-progress' | 'waiting' | 'blocked'
+// --- L'évaluation ---------------------------------------------------------------
 
-export type IssueKind = 'same-sex' | 'sterile'
-
-export interface Issue {
-  kind: IssueKind
-  message: string
-}
+/**
+ * D'où viendra la monture d'un emplacement : elle est à l'étable, elle sortira
+ * d'un clonage, d'un croisement, ou d'une capture (génération 1, ou variété
+ * hors élevage).
+ */
+export type SlotSource = 'mount' | 'clone' | 'cross' | 'capture'
 
 export interface Slot {
   path: SlotPath
   variety: MountVariety
   depth: number
-  mount: OwnedMount | null
-  status: MountStatus
-  /**
-   * Le croisement qui doit produire cette monture. `null` pour un point de
-   * départ : génération 1, variété hors élevage, ou monture déjà possédée.
-   */
+  source: SlotSource
+  mount: StableMount | null
   cross: Cross | null
-  /** Une recette existe, mais la monture étant là, son arbre n'est pas déroulé. */
-  collapsed: boolean
+  clone: ClonePlan | null
+  /** Le sexe qu'il faudrait ici, quand l'autre parent est déjà connu. */
+  wantedSex: Sex | null
+  /** Ce qui manque pour que l'emplacement serve : un sexe à renseigner, une femelle à trouver… */
+  issue: string | null
 }
+
+/**
+ * Deux montures de même espèce et génération se détruisent pour en rendre
+ * une, féconde, tirée au sort entre les deux — même sexe, même arbre. On
+ * propose le clonage quand une variété manque et qu'une copie stérile
+ * existe ; la partenaire est choisie pour coûter le moins à perdre.
+ */
+export interface ClonePlan {
+  /** La monture dont on veut une copie féconde. */
+  keep: StableMount
+  partner: StableMount
+  /** La partenaire ne sert à rien d'autre : la perdre ne coûte rien. */
+  sacrifice: boolean
+}
+
+export type CrossState = 'ready' | 'preparing' | 'waiting' | 'blocked'
 
 export interface Cross {
   path: SlotPath
@@ -193,9 +208,7 @@ export interface Cross {
   parents: [Slot, Slot]
   /** Chance qu'un bébé soit de la génération cible. */
   chance: number
-  /** Chance qu'une portée en donne au moins un : deux bébés avec Reproducteur. */
-  attemptChance: number
-  /** Calculée sur les niveaux des montures en place, ou sur le niveau visé du plan. */
+  /** Calculée sur les niveaux des deux montures en place, ou sur le niveau visé du plan. */
   chanceFromMounts: boolean
   /**
    * Variétés de la génération cible que les arbres réels des deux parents
@@ -205,168 +218,341 @@ export interface Cross {
   possibleTargets: MountVariety[]
   exact: boolean
   state: CrossState
-  issues: Issue[]
-  /** Rang dans l'ordre d'exécution : les croisements du bas de l'arbre d'abord. */
+  issues: string[]
+  /** Rang dans l'ordre d'exécution : le bas de l'arbre d'abord. */
   step: number
 }
 
-export interface StartingMount {
-  variety: MountVariety
-  /** Emplacements de départ de cette variété : ce qu'il faut au minimum, tout réussissant du premier coup. */
-  minimum: number
-  /** Ce qu'il faut en moyenne, une fois comptées les tentatives et les parents devenus stériles. */
-  expected: number
-  /** Emplacements déjà pourvus. */
-  owned: number
-}
+export type Suggestion =
+  | { kind: 'done' }
+  | { kind: 'info'; mount: StableMount; slot: Slot; message: string }
+  | { kind: 'breed'; cross: Cross }
+  | { kind: 'clone'; slot: Slot; clone: ClonePlan }
+  | { kind: 'prepare'; mount: StableMount; slot: Slot; feed: number; gauges: boolean }
+  | { kind: 'capture'; slot: Slot }
 
-export interface PlanEvaluation {
+export interface Evaluation {
   root: Slot
   slots: Slot[]
-  /** Dans l'ordre d'exécution. */
+  /** Les croisements restants, dans l'ordre d'exécution. */
   crosses: Cross[]
-  starting: StartingMount[]
-  done: number
-  blocked: number
+  /** Monture réservée → emplacement qu'elle occupe (clonage compris). */
+  reserved: ReadonlyMap<string, Slot>
+  /** Montures de l'espèce que le plan n'emploie pas : matière à clonage. */
+  surplus: StableMount[]
+  suggestion: Suggestion
+  /** Emplacements encore à pourvoir, cible comprise. */
+  remaining: number
+  done: boolean
 }
 
-const RECIPE_LESS: readonly (readonly [VarietyId, VarietyId])[] = []
+/**
+ * Unités du chiffrage interne : des points de jauge. C'est ce qu'un choix de
+ * recette compare — ce que coûte d'amener des parents à l'état fécond —
+ * sans dépendre d'un prix HDV. Les constantes ci-dessous pèsent ce qui
+ * n'est pas un point de jauge : le trajet d'une capture, l'aléa d'un
+ * accouplement.
+ */
+const CAPTURE_PENALTY = 20_000
+const MATING_PENALTY = 40_000
+
+const opposite = (sex: Sex): Sex => (sex === 'male' ? 'female' : 'male')
+
+/** Points de fécondité restants : rien si les jauges sont pleines. */
+export function fertilityLeft(mount: StableMount): number {
+  return mount.ready ? 0 : FERTILITY_GAUGES.reduce((sum, gauge) => sum + fertilityPoints(gauge), 0)
+}
+
+/** Points de mangeoire restants pour amener la monture aux points visés du plan. */
+export function feedLeft(xp: readonly number[], mount: StableMount, settings: PlanSettings): number {
+  return Math.max(0, settings.feedPoints - xpAtLevel(xp, mount.level))
+}
+
+/** Tout ce qu'il reste à verser à une monture avant de la faire reproduire. */
+export const prepLeft = (xp: readonly number[], mount: StableMount, settings: PlanSettings): number =>
+  feedLeft(xp, mount, settings) + fertilityLeft(mount)
+
+/** Ce que coûte de préparer une monture née au niveau 1. */
+export const fullPrep = (xp: readonly number[], settings: PlanSettings): number =>
+  Math.max(0, settings.feedPoints - xpAtLevel(xp, 1)) +
+  FERTILITY_GAUGES.reduce((sum, gauge) => sum + fertilityPoints(gauge), 0)
 
 /**
- * Déroule le plan en arbre d'emplacements et de croisements.
+ * Déroule le plan sur l'étable : à chaque emplacement, la monture qui convient
+ * si elle existe, sinon la façon la moins chère de l'obtenir.
  *
- * Un emplacement pourvu d'une monture venue d'ailleurs arrête la descente :
- * son arbre théorique existe, mais il n'y a plus rien à élever en dessous. Un
- * bébé né du plan, lui, garde son croisement — il est fait, et ses parents
- * restent visibles, stériles.
+ * Deux passes. La première ignore le clonage et dit quelles variétés manquent ;
+ * la seconde sait alors quelles montures stériles valent une copie et
+ * lesquelles peuvent être sacrifiées comme partenaires.
  */
-export function evaluatePlan(mounts: MountCatalog, plan: Plan): PlanEvaluation {
-  const slots: Slot[] = []
-  const crosses: Cross[] = []
+export function evaluatePlan(
+  mounts: MountCatalog,
+  plan: Plan,
+  stable: readonly StableMount[],
+): Evaluation {
+  const found = mounts.byId.get(plan.target)
+  if (!found) throw new Error(`Variété inconnue : ${plan.target}`)
+  // Une constante déjà vérifiée : les fonctions déclarées plus bas la voient
+  // sans que le compilateur ait à refaire le test.
+  const target: MountVariety = found
+  const xp = mounts.xp
+  const settings = plan.settings
 
-  function build(path: SlotPath, variety: MountVariety, depth: number, trail: ReadonlySet<VarietyId>): Slot {
-    const mount = plan.mounts[path] ?? null
-    const slot: Slot = {
-      path,
-      variety,
-      depth,
-      mount,
-      status: mount?.status ?? 'missing',
-      cross: null,
-      collapsed: false,
+  const herd = stable.filter((mount) => mounts.byId.get(mount.variety)?.species === target.species)
+  const byVariety = new Map<VarietyId, StableMount[]>()
+  for (const mount of herd) {
+    const list = byVariety.get(mount.variety)
+    if (list) list.push(mount)
+    else byVariety.set(mount.variety, [mount])
+  }
+
+  // --- Estimation, sans réserver : ce que coûte une monture féconde de la variété. ---
+  const estimates = new Map<VarietyId, number>()
+  function estimate(varietyId: VarietyId, trail: ReadonlySet<VarietyId>): number {
+    const known = estimates.get(varietyId)
+    if (known !== undefined) return known
+    const variety = mounts.byId.get(varietyId)
+    const available = (byVariety.get(varietyId) ?? []).filter((mount) => !mount.sterile)
+    let cost: number
+    if (available.length > 0) {
+      cost = Math.min(...available.map((mount) => prepLeft(xp, mount, settings)))
+    } else if (!variety || variety.recipes.length === 0 || trail.has(varietyId)) {
+      cost = CAPTURE_PENALTY + fullPrep(xp, settings)
+    } else {
+      const next = new Set(trail)
+      next.add(varietyId)
+      cost =
+        Math.min(...variety.recipes.map(([a, b]) => estimate(a, next) + estimate(b, next))) +
+        MATING_PENALTY +
+        fullPrep(xp, settings)
     }
-    slots.push(slot)
+    estimates.set(varietyId, cost)
+    return cost
+  }
 
-    // Une recette qui remonterait à elle-même ne se déroule pas deux fois.
-    const recipes = trail.has(variety.id) ? RECIPE_LESS : variety.recipes
-    if (recipes.length === 0) return slot
-    if (mount !== null && mount.origin === 'external') {
-      slot.collapsed = true
+  function run(cloning: ReadonlySet<VarietyId> | null) {
+    const slots: Slot[] = []
+    const crosses: Cross[] = []
+    const reserved = new Map<string, Slot>()
+
+    const available = (varietyId: VarietyId, sex: Sex | null): StableMount[] =>
+      (byVariety.get(varietyId) ?? [])
+        .filter((mount) => !mount.sterile && !reserved.has(mount.id))
+        .filter((mount) => sex === null || mount.sex === null || mount.sex === sex)
+        // La plus avancée d'abord : moins à verser, et un sexe connu vaut mieux qu'un inconnu.
+        .sort(
+          (a, b) =>
+            prepLeft(xp, a, settings) - prepLeft(xp, b, settings) ||
+            Number(a.sex === null) - Number(b.sex === null),
+        )
+
+    /**
+     * Un clonage possible pour cette variété, si une copie stérile attend une
+     * partenaire — et seulement s'il revient moins cher que de refaire la
+     * monture. La partenaire idéale ne sert à rien d'autre ; une partenaire
+     * utile ailleurs compte pour la moitié de ce qu'elle coûterait à refaire,
+     * puisqu'on la perd une fois sur deux.
+     */
+    function clonePlan(variety: MountVariety, sex: Sex | null, trail: ReadonlySet<VarietyId>): ClonePlan | null {
+      if (!cloning) return null
+      const keeps = (byVariety.get(variety.id) ?? []).filter(
+        (mount) => mount.sterile && !reserved.has(mount.id) && (sex === null || mount.sex === null || mount.sex === sex),
+      )
+      if (keeps.length === 0) return null
+      const alternative = estimate(variety.id, trail)
+      let best: { plan: ClonePlan; cost: number } | null = null
+      for (const keep of keeps) {
+        const reset = Math.max(0, settings.feedPoints - xpAtLevel(xp, keep.level)) + fullPrep(xp, { ...settings, feedPoints: 0 })
+        for (const partner of herd) {
+          if (partner.id === keep.id || reserved.has(partner.id)) continue
+          const partnerVariety = mounts.byId.get(partner.variety)
+          if (!partnerVariety || partnerVariety.generation !== variety.generation) continue
+          const needed = cloning.has(partner.variety)
+          // Les deux parents d'un même croisement, tous deux stériles et tous
+          // deux encore utiles : les cloner l'un contre l'autre n'en rend
+          // qu'un, et le couple reste incomplet. Jamais.
+          const coParents =
+            needed &&
+            partner.sterile &&
+            mounts.varieties.some((candidate) =>
+              candidate.recipes.some(
+                ([a, b]) =>
+                  (a === keep.variety && b === partner.variety) ||
+                  (a === partner.variety && b === keep.variety),
+              ),
+            )
+          if (coParents) continue
+          const loss = needed ? 0.5 * estimate(partner.variety, new Set()) : partner.sterile ? 0 : 1_000
+          const cost = reset + loss
+          if (cost < alternative && (!best || cost < best.cost)) {
+            best = { plan: { keep, partner, sacrifice: !needed }, cost }
+          }
+        }
+      }
+      return best?.plan ?? null
+    }
+
+    function build(
+      path: SlotPath,
+      variety: MountVariety,
+      depth: number,
+      trail: ReadonlySet<VarietyId>,
+      wantedSex: Sex | null,
+      preset: StableMount | null,
+    ): Slot {
+      const slot: Slot = {
+        path,
+        variety,
+        depth,
+        source: 'capture',
+        mount: null,
+        cross: null,
+        clone: null,
+        wantedSex,
+        issue: null,
+      }
+      slots.push(slot)
+
+      // La cible : n'importe quelle monture de la variété fait l'affaire,
+      // stérile comprise — on ne lui demande plus rien.
+      const mount =
+        preset ??
+        (path === ''
+          ? ((byVariety.get(variety.id) ?? [])[0] ?? null)
+          : (available(variety.id, wantedSex)[0] ?? null))
+      if (mount) {
+        reserved.set(mount.id, slot)
+        slot.source = 'mount'
+        slot.mount = mount
+        if (mount.sex === null && path !== '') slot.issue = 'Sexe à renseigner'
+        return slot
+      }
+
+      const clone = clonePlan(variety, wantedSex, trail)
+      if (clone) {
+        reserved.set(clone.keep.id, slot)
+        reserved.set(clone.partner.id, slot)
+        slot.source = 'clone'
+        slot.clone = clone
+        return slot
+      }
+
+      const recipes = trail.has(variety.id) ? [] : variety.recipes
+      if (recipes.length === 0) {
+        slot.source = 'capture'
+        if (wantedSex) slot.issue = `Il faut ${wantedSex === 'male' ? 'un mâle' : 'une femelle'}`
+        return slot
+      }
+
+      // La recette : imposée, sinon celle que l'étable rend la moins chère.
+      const next = new Set(trail)
+      next.add(variety.id)
+      const forced = plan.recipes[path]
+      const recipeIndex =
+        forced !== undefined && forced >= 0 && forced < recipes.length
+          ? forced
+          : recipes
+              .map(([a, b], index) => ({ index, cost: estimate(a, next) + estimate(b, next) }))
+              .sort((x, y) => x.cost - y.cost)[0]!.index
+      const [varA, varB] = recipes[recipeIndex]!
+      const first = mounts.byId.get(varA)
+      const second = mounts.byId.get(varB)
+      if (!first || !second) {
+        slot.source = 'capture'
+        return slot
+      }
+
+      // Le couple : un mâle et une femelle parmi ce que l'étable a. Quand les
+      // deux côtés n'ont que le même sexe, on garde la monture la plus chère
+      // à refaire, et l'autre côté cherchera le sexe qui manque.
+      const candidatesA = available(varA, null)
+      const candidatesB = available(varB, null)
+      let pick: [StableMount | null, StableMount | null] = [null, null]
+      let bestScore = Infinity
+      for (const a of candidatesA) {
+        for (const b of candidatesB) {
+          if (a.id === b.id) continue
+          if (a.sex && b.sex && a.sex === b.sex) continue
+          const unknown = Number(a.sex === null) + Number(b.sex === null)
+          const score = prepLeft(xp, a, settings) + prepLeft(xp, b, settings) + unknown * 1_000_000
+          if (score < bestScore) {
+            bestScore = score
+            pick = [a, b]
+          }
+        }
+      }
+      if (!pick[0] && !pick[1]) {
+        const a = candidatesA[0] ?? null
+        const b = candidatesB[0] ?? null
+        if (a && b) {
+          pick = estimate(varA, next) >= estimate(varB, next) ? [a, null] : [null, b]
+        } else {
+          pick = [a, b]
+        }
+      }
+      const sexForB = pick[0]?.sex ? opposite(pick[0].sex) : null
+      const sexForA = pick[1]?.sex ? opposite(pick[1].sex) : null
+      const parents: [Slot, Slot] = [
+        build(`${path}0`, first, depth + 1, next, pick[0] ? null : sexForA, pick[0]),
+        build(`${path}1`, second, depth + 1, next, pick[1] ? null : sexForB, pick[1]),
+      ]
+
+      const chanceFromMounts = parents.every((parent) => parent.mount !== null)
+      const chance = chanceFromMounts
+        ? generationChance(parents[0].mount!.level, parents[1].mount!.level, settings.optimakina)
+        : generationChance(settings.targetLevel, settings.targetLevel, settings.optimakina)
+
+      const issues = parents.flatMap((parent) => (parent.issue ? [parent.issue] : []))
+      const state: CrossState = !chanceFromMounts
+        ? 'waiting'
+        : issues.length > 0
+          ? 'blocked'
+          : parents.every((parent) => parent.mount?.ready)
+            ? 'ready'
+            : 'preparing'
+
+      const possibleTargets = possibleTargetVarieties(mounts, variety, parents)
+      const cross: Cross = {
+        path,
+        child: slot,
+        recipeIndex,
+        recipeCount: recipes.length,
+        parents,
+        chance,
+        chanceFromMounts,
+        possibleTargets,
+        exact: possibleTargets.length === 1,
+        state,
+        issues,
+        step: crosses.length + 1,
+      }
+      crosses.push(cross)
+      slot.source = 'cross'
+      slot.cross = cross
       return slot
     }
 
-    const recipeIndex = Math.min(Math.max(0, plan.recipes[path] ?? 0), recipes.length - 1)
-    const recipe = recipes[recipeIndex]
-    const first = recipe && mounts.byId.get(recipe[0])
-    const second = recipe && mounts.byId.get(recipe[1])
-    if (!first || !second) return slot
-
-    const next = new Set(trail)
-    next.add(variety.id)
-    const parents: [Slot, Slot] = [
-      build(`${path}0`, first, depth + 1, next),
-      build(`${path}1`, second, depth + 1, next),
-    ]
-
-    const chanceFromMounts = parents.every((parent) => parent.mount !== null)
-    const [levelA, levelB] = chanceFromMounts
-      ? parents.map((parent) => parent.mount?.level ?? 0)
-      : [plan.settings.targetLevel, plan.settings.targetLevel]
-    const chance = generationChance(levelA ?? 0, levelB ?? 0, plan.settings.optimakina)
-    const attemptChance = plan.settings.reproducteur ? successAfter(chance, 2) : chance
-
-    const possibleTargets = possibleTargetVarieties(mounts, variety, parents)
-    const done = mount !== null && mount.origin === 'bred'
-    const issues = done ? [] : crossIssues(parents)
-
-    const cross: Cross = {
-      path,
-      child: slot,
-      recipeIndex,
-      recipeCount: recipes.length,
-      parents,
-      chance,
-      attemptChance,
-      chanceFromMounts,
-      possibleTargets,
-      exact: possibleTargets.length === 1,
-      state: done
-        ? 'done'
-        : issues.length > 0
-          ? 'blocked'
-          : parents.some((parent) => parent.mount === null)
-            ? 'waiting'
-            : parents.every((parent) => parent.status === 'fertile')
-              ? 'ready'
-              : 'in-progress',
-      issues,
-      // Les parents ont été construits avant : leurs croisements sont déjà
-      // numérotés, celui-ci vient après.
-      step: crosses.length + 1,
-    }
-    crosses.push(cross)
-    slot.cross = cross
-    return slot
+    const root = build('', target, 0, new Set(), null, null)
+    return { root, slots, crosses, reserved }
   }
 
-  const target = mounts.byId.get(plan.target)
-  if (!target) throw new Error(`Variété inconnue : ${plan.target}`)
-  const root = build('', target, 0, new Set())
+  const first = run(null)
+  const missing = new Set(first.slots.filter((slot) => slot.mount === null).map((slot) => slot.variety.id))
+  const { root, slots, crosses, reserved } = missing.size > 0 ? run(missing) : first
+
+  const surplus = herd.filter((mount) => !reserved.has(mount.id))
+  const remaining = slots.filter((slot) => slot.mount === null).length
 
   return {
     root,
     slots,
     crosses,
-    starting: startingMounts(root),
-    done: crosses.filter((cross) => cross.state === 'done').length,
-    blocked: crosses.filter((cross) => cross.state === 'blocked').length,
+    reserved,
+    surplus,
+    suggestion: suggest(xp, root, slots, crosses, settings),
+    remaining,
+    done: root.mount !== null,
   }
-}
-
-/** Un plan vierge : la recette théorique d'une variété, sans aucune monture. */
-export const theoreticalPlan = (target: VarietyId, settings: PlanSettings): Plan => ({
-  id: '',
-  target,
-  createdAt: '',
-  updatedAt: '',
-  settings,
-  recipes: {},
-  mounts: {},
-})
-
-/**
- * Ce qui empêche un croisement : deux parents du même sexe, ou un parent
- * déjà stérile alors que le bébé n'est pas né. Un parent manquant n'est pas
- * un blocage, c'est l'étape d'avant qui n'est pas faite.
- */
-function crossIssues(parents: [Slot, Slot]): Issue[] {
-  const issues: Issue[] = []
-  const [a, b] = parents
-  if (a.mount?.sex && b.mount?.sex && a.mount.sex === b.mount.sex) {
-    issues.push({
-      kind: 'same-sex',
-      message: 'Les deux parents sont du même sexe : il faut un mâle et une femelle.',
-    })
-  }
-  for (const parent of parents) {
-    if (parent.mount?.status === 'bred') {
-      issues.push({
-        kind: 'sterile',
-        message: `${varietyName(parent.variety)} a déjà reproduit : stérile, il faut une nouvelle monture féconde ou un clone.`,
-      })
-    }
-  }
-  return issues
 }
 
 /** La variété d'une monture, ses parents et grands-parents réels quand on les connaît. */
@@ -381,11 +567,9 @@ function lineage(slot: Slot): Set<VarietyId> {
 /**
  * Les variétés de la génération cible qu'un croisement peut donner, d'après
  * les arbres réels : chaque variété de cette génération dont une recette se
- * compose d'un ancêtre de chaque parent. Sans ancêtre renseigné, il ne reste
- * que la variété visée.
- *
- * C'est une lecture des recettes, pas la formule du jeu : elle dit ce qui
- * *peut* naître, jamais avec quelle chance.
+ * compose d'un ancêtre de chaque parent. Sans ancêtre connu, il ne reste que
+ * la variété visée. Une lecture des recettes, pas la formule du jeu : elle
+ * dit ce qui *peut* naître, jamais avec quelle chance.
  */
 function possibleTargetVarieties(
   mounts: MountCatalog,
@@ -407,107 +591,94 @@ function possibleTargetVarieties(
 }
 
 /**
- * Nombre moyen de fois où chaque emplacement devra être pourvu.
- *
- * La cible une fois ; chacun de ses parents autant de fois qu'il y aura de
- * tentatives en moyenne — les parents d'un croisement raté sont stériles, la
- * tentative suivante en demande deux neufs — et ainsi de suite en descendant.
+ * La prochaine chose à faire, une seule. Dans l'ordre : dire ce qu'on ne sait
+ * pas (un sexe), accoupler ce qui est prêt, cloner ce qui s'y prête — une
+ * remise à zéro de jauges coûte moins qu'une branche —, préparer ce qui
+ * attend, et enfin capturer ce qui manque en bas de l'arbre.
  */
-export function multiplicities(root: Slot): Map<SlotPath, number> {
-  const result = new Map<SlotPath, number>()
-  function walk(slot: Slot, count: number) {
-    result.set(slot.path, count)
-    if (!slot.cross) return
-    const attempts = count * meanAttempts(slot.cross.attemptChance)
-    for (const parent of slot.cross.parents) walk(parent, attempts)
+function suggest(
+  xp: readonly number[],
+  root: Slot,
+  slots: Slot[],
+  crosses: Cross[],
+  settings: PlanSettings,
+): Suggestion {
+  if (root.mount) return { kind: 'done' }
+
+  for (const slot of slots) {
+    if (slot.mount && slot.mount.sex === null && slot.path !== '') {
+      return { kind: 'info', mount: slot.mount, slot, message: `Renseigner le sexe de ${varietyName(slot.variety)}` }
+    }
   }
-  walk(root, 1)
-  return result
+
+  const ready = crosses.find((cross) => cross.state === 'ready')
+  if (ready) return { kind: 'breed', cross: ready }
+
+  const clone = slots.find((slot) => slot.source === 'clone')
+  if (clone?.clone) return { kind: 'clone', slot: clone, clone: clone.clone }
+
+  let prepare: Suggestion | null = null
+  let least = Infinity
+  for (const cross of crosses) {
+    if (cross.state !== 'preparing') continue
+    for (const parent of cross.parents) {
+      const mount = parent.mount
+      if (!mount || mount.ready) continue
+      const left = prepLeft(xp, mount, settings)
+      if (left < least) {
+        least = left
+        prepare = { kind: 'prepare', mount, slot: parent, feed: feedLeft(xp, mount, settings), gauges: !mount.ready }
+      }
+    }
+  }
+  if (prepare) return prepare
+
+  // Le bas de l'arbre d'abord : c'est par là que tout commence.
+  const capture = [...slots]
+    .filter((slot) => slot.source === 'capture' && slot.mount === null)
+    .sort((a, b) => b.depth - a.depth)[0]
+  if (capture) return { kind: 'capture', slot: capture }
+
+  return { kind: 'done' }
 }
 
-/** Les emplacements de départ — ceux qu'aucun croisement du plan ne produit — regroupés par variété. */
-function startingMounts(root: Slot): StartingMount[] {
-  const expected = multiplicities(root)
-  const byVariety = new Map<VarietyId, StartingMount>()
-  function walk(slot: Slot) {
-    if (slot.cross) {
-      for (const parent of slot.cross.parents) walk(parent)
-      return
-    }
-    const entry = byVariety.get(slot.variety.id) ?? {
-      variety: slot.variety,
-      minimum: 0,
-      expected: 0,
-      owned: 0,
-    }
-    entry.minimum += 1
-    entry.expected += expected.get(slot.path) ?? 1
-    if (slot.mount) entry.owned += 1
-    byVariety.set(slot.variety.id, entry)
+/** Ce qu'il faut capturer : les emplacements sans monture ni recette, par variété. */
+export function captures(evaluation: Evaluation): { variety: MountVariety; count: number }[] {
+  const counts = new Map<VarietyId, { variety: MountVariety; count: number }>()
+  for (const slot of evaluation.slots) {
+    if (slot.source !== 'capture' || slot.mount) continue
+    const entry = counts.get(slot.variety.id) ?? { variety: slot.variety, count: 0 }
+    entry.count += 1
+    counts.set(slot.variety.id, entry)
   }
-  walk(root)
-  return [...byVariety.values()].sort(
-    (a, b) =>
-      a.variety.generation - b.variety.generation ||
-      a.variety.name.localeCompare(b.variety.name, 'fr'),
-  )
+  return [...counts.values()].sort((a, b) => a.variety.name.localeCompare(b.variety.name, 'fr'))
 }
 
-// --- Coûts ---------------------------------------------------------------------
+// --- Coût du plan actuel -----------------------------------------------------------
 
 export interface CostLine {
   label: string
-  /** `null` tant qu'un prix manque à cette ligne. */
+  /** Points de jauge à verser, ou nombre d'objets. */
+  points: number
+  /** Kamas, `null` tant qu'un prix manque à cette ligne. */
   amount: number | null
   detail: string
 }
 
-export interface Threshold {
-  confidence: number
-  attempts: number
-  cost: number | null
-}
-
 export interface CostEstimate {
-  /** Préparation d'une monture : mangeoire jusqu'au niveau visé, puis les trois jauges de fécondité. */
-  feedPerMount: number | null
-  fertilityPerMount: number | null
-  /** Optimakina retenue pour le croisement final, et son prix. */
-  optimakina: Item | null
-  /** Ce que coûte une tentative du croisement final, parents compris. */
-  perAttempt: number | null
-  meanAttempts: number
-  /** Coût moyen de tout le plan : `meanAttempts × perAttempt`. */
-  mean: number | null
-  thresholds: Threshold[]
-  /** Le même total, ventilé. */
   lines: CostLine[]
-  /** Ce qui manque pour chiffrer : prix d'items, carburants sans prix… */
-  missing: string[]
+  /** Points de jauge à verser, toutes lignes confondues. */
+  points: number
+  total: number | null
   complete: boolean
+  missing: string[]
   /** Les items dont un prix rendrait le chiffrage complet, pour les saisir sur place. */
   unpriced: Item[]
 }
 
-/** Le prix d'une variété : celui de l'item de monture, ou à défaut de son certificat. */
-export function varietyPrice(
-  catalog: Catalog,
-  prices: PriceMap,
-  variety: MountVariety,
-): { item: Item | null; price: number | null } {
-  const mount = catalog.byId.get(variety.id) ?? null
-  const certificate = variety.certificateId === null ? null : (catalog.byId.get(variety.certificateId) ?? null)
-  const mountPrice = prices.get(variety.id)
-  if (mountPrice !== undefined) return { item: mount, price: mountPrice }
-  const certificatePrice = variety.certificateId === null ? undefined : prices.get(variety.certificateId)
-  if (certificatePrice !== undefined) return { item: certificate, price: certificatePrice }
-  return { item: mount ?? certificate, price: null }
-}
-
 /**
  * Le moins cher des carburants de chaque jauge, en kamas par point : achat ou
- * craft, comme sur le tableau de bord des carburants. `null` pour une jauge
- * dont aucun carburant n'a de prix.
+ * craft, comme sur le tableau de bord des carburants.
  */
 export function fuelCostPerPoint(
   catalog: Catalog,
@@ -525,162 +696,123 @@ export function fuelCostPerPoint(
 }
 
 /**
- * Chiffre un plan, de zéro : ce que coûterait de tout acheter et tout élever,
- * tentatives comprises. Les montures déjà en place ne sont pas déduites — un
- * élevage qui rate demande de toute façon d'en racheter, et un chiffrage
- * partiel se lirait comme un reste à payer alors qu'il ne l'est pas.
- *
- * Tout ce qui manque est nommé plutôt que compté pour zéro : un total n'est
- * annoncé que complet.
+ * Ce que coûte le plan tel qu'il est : préparer les montures en place,
+ * préparer celles qui restent à obtenir, remettre à zéro celles qu'on clone,
+ * et les Optimakinas des croisements restants. Ni tentatives moyennes ni
+ * branches à refaire : le chiffre bouge à chaque résultat réel.
  */
 export function estimateCost(
   catalog: Catalog,
-  evaluation: PlanEvaluation,
+  evaluation: Evaluation,
   settings: PlanSettings,
   prices: PriceMap,
   ignored?: IgnoredSet,
 ): CostEstimate {
+  const xp = catalog.mounts.xp
   const missing = new Set<string>()
-  const unpriced = new Map<ItemId, Item>()
-  const perPoint = fuelCostPerPoint(catalog, prices, ignored)
-  const makinas = readMakinas(catalog)
+  const unpriced = new Map<number, Item>()
+  const rate = fuelCostPerPoint(catalog, prices, ignored)
 
-  // --- Préparation d'une monture : les mêmes points pour chaque parent. ---
-  const feedRate = perPoint.get(FEED_GAUGE)
-  if (feedRate === undefined) missing.add('Aucun carburant de mangeoire n’a de prix')
-  const feedPerMount = feedRate === undefined ? null : settings.feedPoints * feedRate
-
-  let fertilityPerMount: number | null = 0
+  const feedRate = rate.get(FEED_GAUGE) ?? null
+  if (feedRate === null) missing.add('Aucun carburant de mangeoire n’a de prix')
+  // Les trois jauges de fécondité se remplissent ensemble : leur coût se
+  // compte pour un jeu complet, au prorata des points restants.
+  const fertility = FERTILITY_GAUGES.reduce((sum, gauge) => sum + fertilityPoints(gauge), 0)
+  let fertilityCost: number | null = 0
   for (const gauge of FERTILITY_GAUGES) {
-    const rate = perPoint.get(gauge)
-    if (rate === undefined) {
+    const value = rate.get(gauge)
+    if (value === undefined) {
       missing.add(`Aucun carburant de ${gauge} n’a de prix`)
-      fertilityPerMount = null
-    } else if (fertilityPerMount !== null) {
-      fertilityPerMount += fertilityPoints(gauge) * rate
+      fertilityCost = null
+    } else if (fertilityCost !== null) {
+      fertilityCost += fertilityPoints(gauge) * value
     }
   }
-  const prepPerMount =
-    feedPerMount === null || fertilityPerMount === null ? null : feedPerMount + fertilityPerMount
+  const priceOf = (feed: number, gauges: number): number | null =>
+    feedRate === null || fertilityCost === null
+      ? null
+      : feed * feedRate + (gauges / fertility) * fertilityCost
 
-  // --- Optimakina, par croisement : la génération de chaque enfant décide. ---
-  const optimakinaFor = (cross: Cross): number | null => {
-    if (!settings.optimakina) return 0
-    const found = cheapestOptimakina(
-      makinas,
-      cross.child.variety.species,
-      cross.child.variety.generation,
-      (itemId) => prices.get(itemId) ?? null,
-    )
-    if (found.item) return found.price
-    if (found.candidates.length === 0) {
-      missing.add(`Aucune Optimakina n’agit sur ${varietyName(cross.child.variety)}`)
-    } else {
-      missing.add(`Optimakina de génération ${cross.child.variety.generation} sans prix`)
-      for (const item of found.candidates) unpriced.set(item.id, item)
-    }
-    return null
-  }
-
-  // --- Coût attendu d'un emplacement, en descendant l'arbre. ---
-  const add = (a: number | null, b: number | null) => (a === null || b === null ? null : a + b)
-  const times = (a: number | null, k: number) => (a === null ? null : a * k)
-
-  function unitCost(slot: Slot): number | null {
-    if (!slot.cross) {
-      const { item, price } = varietyPrice(catalog, prices, slot.variety)
-      if (price === null) {
-        missing.add(`${varietyName(slot.variety)} sans prix`)
-        if (item) unpriced.set(item.id, item)
-      }
-      return price
-    }
-    return times(attemptCost(slot.cross), meanAttempts(slot.cross.attemptChance))
-  }
-
-  /** Une tentative : les deux parents, leur préparation, l'Optimakina. */
-  function attemptCost(cross: Cross): number | null {
-    const parents = add(unitCost(cross.parents[0]), unitCost(cross.parents[1]))
-    return add(add(parents, times(prepPerMount, 2)), optimakinaFor(cross))
-  }
-
-  const final = evaluation.root.cross
-  const perAttempt = final ? attemptCost(final) : unitCost(evaluation.root)
-  const attempts = final ? meanAttempts(final.attemptChance) : 1
-  const mean = final ? times(perAttempt, attempts) : perAttempt
-
-  // --- La même somme, ventilée : ce qu'on achète, ce qu'on verse, ce qu'on casse. ---
-  const counts = multiplicities(evaluation.root)
-  let startingCost: number | null = 0
-  let parentsTotal = 0
-  let optimakinaCost: number | null = 0
-  let optimakinaItem: Item | null = null
+  let inPlaceFeed = 0
+  let inPlaceGauges = 0
+  let inPlace = 0
+  let toObtain = 0
+  let clones = 0
+  let cloneFeed = 0
   for (const slot of evaluation.slots) {
-    const count = counts.get(slot.path) ?? 1
-    if (slot.cross) {
-      const tries = count * meanAttempts(slot.cross.attemptChance)
-      parentsTotal += 2 * tries
-      optimakinaCost = add(optimakinaCost, times(optimakinaFor(slot.cross), tries))
+    if (slot.path === '') continue
+    if (slot.mount) {
+      const feed = feedLeft(xp, slot.mount, settings)
+      const gauges = fertilityLeft(slot.mount)
+      if (feed + gauges > 0) inPlace += 1
+      inPlaceFeed += feed
+      inPlaceGauges += gauges
+    } else if (slot.clone) {
+      clones += 1
+      cloneFeed += Math.max(0, settings.feedPoints - xpAtLevel(xp, slot.clone.keep.level))
     } else {
-      startingCost = add(startingCost, times(varietyPrice(catalog, prices, slot.variety).price, count))
+      toObtain += 1
     }
   }
-  if (final && settings.optimakina) {
-    const found = cheapestOptimakina(
-      makinas,
-      final.child.variety.species,
-      final.child.variety.generation,
-      (itemId) => prices.get(itemId) ?? null,
-    )
-    optimakinaItem = found.item
-  }
+  const newFeed = Math.max(0, settings.feedPoints - xpAtLevel(xp, 1))
 
   const lines: CostLine[] = [
     {
-      label: 'Montures de départ',
-      amount: startingCost,
-      detail: 'Prix HDV des générations 1, autant de fois qu’il en faudra en moyenne',
+      label: 'Préparer les montures en place',
+      points: inPlaceFeed + inPlaceGauges,
+      amount: priceOf(inPlaceFeed, inPlaceGauges),
+      detail: `${inPlace} monture${inPlace > 1 ? 's' : ''} à monter jusqu’aux points visés ou à rendre féconde${inPlace > 1 ? 's' : ''}`,
     },
     {
-      label: 'Mangeoire',
-      amount: times(feedPerMount, parentsTotal),
-      detail: `${settings.feedPoints.toLocaleString('fr-FR')} points par parent, au carburant le moins cher`,
-    },
-    {
-      label: 'Fécondité',
-      amount: times(fertilityPerMount, parentsTotal),
-      detail: 'Amour, maturité et endurance à 20 000 pour chaque parent',
+      label: 'Préparer les montures à obtenir',
+      points: toObtain * (newFeed + fertility),
+      amount: priceOf(toObtain * newFeed, toObtain * fertility),
+      detail: `${toObtain} monture${toObtain > 1 ? 's' : ''} encore à faire naître ou à capturer, chacune du niveau 1 aux jauges pleines`,
     },
   ]
+  if (clones > 0) {
+    lines.push({
+      label: 'Clonages',
+      points: cloneFeed + clones * fertility,
+      amount: priceOf(cloneFeed, clones * fertility),
+      detail: `${clones} clonage${clones > 1 ? 's' : ''} suggéré${clones > 1 ? 's' : ''} : les jauges de la survivante repartent de zéro`,
+    })
+  }
   if (settings.optimakina) {
+    const makinas = readMakinas(catalog)
+    let amount: number | null = 0
+    for (const cross of evaluation.crosses) {
+      const found = cheapestOptimakina(makinas, cross.child.variety.species, cross.child.variety.generation, (id) => prices.get(id) ?? null)
+      if (found.item) {
+        if (amount !== null) amount += found.price
+      } else {
+        amount = null
+        if (found.candidates.length === 0) missing.add(`Aucune Optimakina n’agit sur ${varietyName(cross.child.variety)}`)
+        else {
+          missing.add(`Optimakina de génération ${cross.child.variety.generation} sans prix`)
+          for (const item of found.candidates) unpriced.set(item.id, item)
+        }
+      }
+    }
     lines.push({
       label: 'Optimakinas',
-      amount: optimakinaCost,
-      detail: 'Une par tentative, la moins chère qui agisse sur la génération visée',
+      points: evaluation.crosses.length,
+      amount,
+      detail: `Une par croisement restant, la moins chère qui agisse sur la génération visée`,
     })
   }
 
-  const thresholds: Threshold[] = final
-    ? CONFIDENCE_LEVELS.map((confidence) => {
-        const needed = attemptsFor(final.attemptChance, confidence)
-        return { confidence, attempts: needed, cost: times(perAttempt, needed) }
-      })
-    : []
+  const points = lines.filter((line) => line.label !== 'Optimakinas').reduce((sum, line) => sum + line.points, 0)
+  const total = lines.every((line) => line.amount !== null)
+    ? lines.reduce((sum, line) => sum + (line.amount ?? 0), 0)
+    : null
 
   return {
-    feedPerMount,
-    fertilityPerMount,
-    optimakina: optimakinaItem,
-    perAttempt,
-    meanAttempts: attempts,
-    mean,
-    thresholds,
     lines,
+    points,
+    total,
+    complete: total !== null && missing.size === 0,
     missing: [...missing],
-    complete: missing.size === 0 && mean !== null,
     unpriced: [...unpriced.values()],
   }
 }
-
-/** Les Makina, exposées pour la page : elle en propose la saisie des prix. */
-export type { Makina }

@@ -75,7 +75,9 @@ frontend/
                          paliers — et lecture d'un carburant depuis ses effets
       mounts.ts          Connaissance de jeu : espèces, jauges de fécondité,
                          réglages par défaut d'un plan, lecture des Makina
-      plans.ts           Plans d'élevage sauvegardés (localStorage)
+      inventory.ts       L'étable : montures possédées, partagées par les plans ;
+                         accouplements et clonages s'y enregistrent
+      plans.ts           Plans d'élevage sauvegardés : cible, réglages, recettes imposées
       hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
                          relève chaque item
       supabase.ts        Client du projet, ou null en local seul
@@ -109,9 +111,9 @@ frontend/
       MountVariety.tsx   Une variété de monture : icône, nom, pastille de génération
       MountGenealogy.tsx Section généalogie de la fiche d'une monture : parents,
                          décomposition jusqu'aux gén. 1, ce qu'elle permet d'obtenir
-      BreedingTree.tsx   Arbre repliable d'un plan, pastilles d'état et d'étape
-      MountSlotEditor.tsx  La monture d'un emplacement : sexe, niveau, état,
-                         arbre réel (parents, grands-parents)
+      BreedingTree.tsx   Arbre repliable d'un plan, provenance de chaque monture
+      StablePanel.tsx    L'étable à modifier sur place : sexe, niveau, féconde,
+                         stérile, arbre réel replié, ce que le plan en fait
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
@@ -119,16 +121,45 @@ frontend/
       JobsPage.tsx       Les métiers producteurs, en cartes
       JobPage.tsx        Tableau de bord d'un métier : ses recettes face à l'HDV,
                          filtrées par niveau, type, coûts, ingrédients
-      BreedingPage.tsx   Élevage : créer un plan, retrouver ceux en cours
-      PlanPage.tsx       Un plan : réglages, probabilités, coût, montures de
-                         départ, croisements dans l'ordre, arbre complet
+      BreedingPage.tsx   Élevage : créer un plan, retrouver ceux en cours, l'étable
+      PlanPage.tsx       Un plan : prochaine étape suggérée, réglages, coût du
+                         plan actuel, croisements restants, étable, arbre complet
 ```
 
 ## Élevage des montures
 
-Le planificateur (`/dashboard/elevage`) part d'une variété visée — dragodinde,
-muldo ou volkorne — et déroule sa recette jusqu'aux générations 1. Ce qu'il
-sait, et d'où :
+L'assistant (`/dashboard/elevage`) part d'une variété visée — dragodinde,
+muldo ou volkorne — et la déroule sur **l'étable**, la liste des montures
+possédées (variété, sexe, niveau, féconde, stérile, arbre réel), partagée par
+tous les plans. Un plan ne retient que sa cible et ses réglages : tout le
+reste se recalcule sur l'étable à chaque rendu.
+
+- **À chaque emplacement de l'arbre**, la monture de l'étable qui convient si
+  elle existe (sexe compatible avec l'autre parent, la plus avancée d'abord),
+  sinon la façon la moins chère de l'obtenir : clonage d'une copie stérile,
+  croisement, ou capture. Quand une variété a plusieurs recettes, celle que
+  l'étable rend la moins chère est retenue — comptée en points de jauge à
+  verser, pour ne pas dépendre d'un prix.
+- **« Prochaine étape suggérée »**, une seule action : renseigner un sexe,
+  accoupler un couple prêt, cloner deux montures précises, préparer une
+  monture, capturer une génération 1.
+- **Accoupler** enregistre le résultat réel (variété et sexe du bébé) : les
+  parents deviennent stériles, le bébé rejoint l'étable avec ses parents et
+  grands-parents déduits, et le plan se recalcule. Un bébé raté n'est pas une
+  branche à refaire : il sert ailleurs, ou au clonage.
+- **Cloner** : deux montures de même espèce et génération se détruisent pour
+  en rendre une, féconde, tirée au sort. Proposé seulement si moins cher que
+  refaire la monture ; jamais entre deux parents stériles encore utiles tous
+  les deux ; la partenaire idéale ne sert à rien d'autre.
+- **Niveau visé et points de mangeoire** sont les deux faces de la table d'XP
+  (`meta.json`, `mountXp`, relevée sur la page des dragodindes) : niveau 39 =
+  19 266 points, 200 = 867 582.
+- **Le coût est celui du plan actuel**, pas une espérance : préparation
+  restante des montures en place, préparation des montures encore à obtenir,
+  jauges à remettre après clonage, Optimakinas des croisements restants — au
+  carburant le moins cher de chaque jauge. Il bouge à chaque résultat réel.
+
+Ce qu'il sait des montures, et d'où :
 
 - **Les variétés** sont les items des types « Dragodinde », « Muldo » et
   « Volkorne » (68, 120 et 120), la forme qu'ont prise les montures depuis la
@@ -143,19 +174,14 @@ sait, et d'où :
   « Ivoire et Pourpre » est génération 4, « Ivoire » génération 5 — et le code
   ne suppose jamais qu'un parent est d'une génération inférieure.
 - **La probabilité** est celle de la génération cible : 30 % + 0,15 % ×
-  (niveau A + niveau B), +10 % avec une Optimakina, plafonnée à 100 %. La
+  (niveau A + niveau B), +10 % avec une Optimakina, plafonnée à 100 %,
+  donnée accouplement par accouplement sur les niveaux réels des parents. La
   répartition entre variétés de cette génération n'est pas publique : quand
-  les ancêtres réels renseignés rendent plusieurs variétés possibles, la page
-  les liste et dit « probabilité exacte inconnue », sans inventer de poids.
-- **Le coût** est chiffré de zéro, tentatives comprises : chaque tentative
-  rend ses deux parents stériles, donc en demande deux neufs, et ainsi de suite
-  en descendant l'arbre. Montures de départ au prix HDV, mangeoire et jauges de
-  fécondité au carburant le moins cher de chaque jauge (tableau de bord des
-  carburants), Optimakina la moins chère qui agisse sur la génération. Un prix
-  qui manque rend le total « incomplet », jamais approximatif.
-- **Les plans** vivent dans `localStorage`, comme les favoris : un élevage
-  dure des jours, la page retrouve où on en était, mais pas d'un navigateur à
-  l'autre.
+  les arbres réels rendent plusieurs variétés possibles, la page les liste et
+  dit « probabilité exacte inconnue », sans inventer de poids.
+- **Plans et étable** vivent dans `localStorage`, comme les favoris : un
+  élevage dure des jours, la page retrouve où on en était, mais pas d'un
+  navigateur à l'autre.
 
 `src/domain/craft.ts` est le cœur métier : pour un item, il donne le prix
 d'achat, le coût de fabrication en achetant les ingrédients, les ingrédients dont
@@ -269,5 +295,10 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
   corriger dans `dofus_data/breeding.json`. Deux dragodindes (à Plumes, en
   armure) n'ont pas de recette et ne se planifient pas.
 - **Le sexe d'un bébé est aléatoire** et n'entre pas dans les probabilités du
-  plan : un croisement peut donner la bonne variété du mauvais sexe. Le
-  clonage n'est pas chiffré non plus ; le plan compte des couples neufs.
+  plan : un croisement peut donner la bonne variété du mauvais sexe — le plan
+  le constate au résultat et cherche alors le sexe qui manque.
+- **Pas de probabilité globale** sur tout l'arbre décisionnel : seules les
+  chances par accouplement sont données. Le coût est celui du plan tel qu'il
+  est, sans espérance de tentatives.
+- **Deux plans peuvent réclamer la même monture** : chacun se calcule seul sur
+  l'étable. À mener un plan à la fois par espèce.

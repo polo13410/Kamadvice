@@ -2,50 +2,41 @@
  * Les plans d'élevage de l'utilisateur.
  *
  * Même mécanique que les favoris — `localStorage` exposé à React via
- * `useSyncExternalStore`, snapshot recréé à chaque écriture — parce qu'un
- * élevage dure des jours et que la page doit retrouver où on en était. Faute
- * de comptes, un plan ne quitte pas le navigateur.
- *
- * Le contenu d'un plan est décrit dans `domain/breeding.ts` ; ici on ne fait
- * que le garder et le modifier par petites touches, un emplacement à la fois.
+ * `useSyncExternalStore`, snapshot recréé à chaque écriture. Un plan ne
+ * retient que la cible, ses réglages et d'éventuelles recettes imposées :
+ * tout le reste se déduit de l'étable (`inventory.ts`) au rendu.
  */
 import { useSyncExternalStore } from 'react'
-import type {
-  OwnedMount,
-  Plan,
-  PlanSettings,
-  SlotPath,
-} from '../domain/breeding'
+import type { Plan, PlanSettings, SlotPath } from '../domain/breeding'
+import { levelForXp, MAX_LEVEL, xpAtLevel } from '../domain/breeding'
 import type { VarietyId } from '../domain/types'
 import { DEFAULT_SETTINGS } from './mounts'
 
-const STORAGE_KEY = 'kamadvice.breeding.v1'
+/** `v2` : les montures ont quitté le plan pour l'étable, un plan `v1` ne se relit pas. */
+const STORAGE_KEY = 'kamadvice.breeding.v2'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
-const isId = (value: unknown): value is number => Number.isInteger(value)
+const readLevel = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_LEVEL
+    ? value
+    : fallback
 
-/** Un plan relu du stockage : chaque champ est vérifié, un plan illisible est écarté. */
 function readPlan(raw: unknown): Plan | null {
-  if (!isRecord(raw) || typeof raw.id !== 'string' || !isId(raw.target)) return null
+  if (!isRecord(raw) || typeof raw.id !== 'string' || !Number.isInteger(raw.target)) return null
   const settings = isRecord(raw.settings) ? raw.settings : {}
-  const mounts: Record<SlotPath, OwnedMount> = {}
-  if (isRecord(raw.mounts)) {
-    for (const [path, value] of Object.entries(raw.mounts)) {
-      const mount = readMount(value)
-      if (mount && /^[01]*$/.test(path)) mounts[path] = mount
-    }
-  }
   const recipes: Record<SlotPath, number> = {}
   if (isRecord(raw.recipes)) {
     for (const [path, value] of Object.entries(raw.recipes)) {
-      if (isId(value) && value >= 0 && /^[01]*$/.test(path)) recipes[path] = value
+      if (Number.isInteger(value) && (value as number) >= 0 && /^[01]*$/.test(path)) {
+        recipes[path] = value as number
+      }
     }
   }
   return {
     id: raw.id,
-    target: raw.target,
+    target: raw.target as VarietyId,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(0).toISOString(),
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(0).toISOString(),
     settings: {
@@ -55,44 +46,8 @@ function readPlan(raw: unknown): Plan | null {
           ? settings.feedPoints
           : DEFAULT_SETTINGS.feedPoints,
       optimakina: settings.optimakina === true,
-      reproducteur: settings.reproducteur === true,
     },
     recipes,
-    mounts,
-  }
-}
-
-const readLevel = (value: unknown, fallback: number): number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 200 ? value : fallback
-
-const idOrNull = (value: unknown): VarietyId | null => (isId(value) ? value : null)
-
-function readMount(raw: unknown): OwnedMount | null {
-  if (!isRecord(raw)) return null
-  const status = raw.status
-  if (
-    status !== 'owned' &&
-    status !== 'preparing' &&
-    status !== 'fertile' &&
-    status !== 'bred' &&
-    status !== 'obtained'
-  ) {
-    return null
-  }
-  const parents = Array.isArray(raw.parents) ? raw.parents : []
-  const grandparents = Array.isArray(raw.grandparents) ? raw.grandparents : []
-  return {
-    origin: raw.origin === 'bred' ? 'bred' : 'external',
-    sex: raw.sex === 'male' || raw.sex === 'female' ? raw.sex : null,
-    level: readLevel(raw.level, 1),
-    status,
-    parents: [idOrNull(parents[0]), idOrNull(parents[1])],
-    grandparents: [
-      idOrNull(grandparents[0]),
-      idOrNull(grandparents[1]),
-      idOrNull(grandparents[2]),
-      idOrNull(grandparents[3]),
-    ],
   }
 }
 
@@ -104,8 +59,6 @@ function read(): Plan[] {
     if (!Array.isArray(parsed)) return []
     return parsed.map(readPlan).filter((plan): plan is Plan => plan !== null)
   } catch {
-    // localStorage indisponible ou contenu corrompu : on repart sans plan
-    // plutôt que d'empêcher l'app de démarrer.
     return []
   }
 }
@@ -118,28 +71,17 @@ function save(next: readonly Plan[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch {
-    // Quota atteint ou stockage bloqué : la session en cours reste utilisable,
-    // seule la persistance est perdue.
+    // Quota atteint ou stockage bloqué : la session en cours reste utilisable.
   }
   for (const listener of listeners) listener()
 }
 
-/** Identifiant court et lisible dans une URL, sans dépendre de `crypto.randomUUID`. */
-const newId = (): string =>
-  `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+const newId = (): string => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 
 /** Crée un plan pour cette variété et rend son identifiant, pour y naviguer. */
 export function createPlan(target: VarietyId, settings: PlanSettings = DEFAULT_SETTINGS): string {
   const now = new Date().toISOString()
-  const plan: Plan = {
-    id: newId(),
-    target,
-    createdAt: now,
-    updatedAt: now,
-    settings: { ...settings },
-    recipes: {},
-    mounts: {},
-  }
+  const plan: Plan = { id: newId(), target, createdAt: now, updatedAt: now, settings: { ...settings }, recipes: {} }
   save([plan, ...plans])
   return plan.id
 }
@@ -160,29 +102,39 @@ export function updateSettings(id: string, settings: Partial<PlanSettings>) {
   patch(id, (plan) => ({ ...plan, settings: { ...plan.settings, ...settings } }))
 }
 
-/** Retient une recette pour un emplacement. Ce qui était saisi en dessous n'est plus valable : on l'oublie. */
-export function chooseRecipe(id: string, path: SlotPath, recipeIndex: number) {
+/** Le niveau visé change : les points de mangeoire suivent la table d'XP. */
+export function setTargetLevel(id: string, xp: readonly number[], level: number) {
+  const clamped = Math.min(MAX_LEVEL, Math.max(1, level))
+  updateSettings(
+    id,
+    xp.length > 0
+      ? { targetLevel: clamped, feedPoints: xpAtLevel(xp, clamped) }
+      : { targetLevel: clamped },
+  )
+}
+
+/** Les points changent : le niveau visé devient le plus haut qu'ils permettent. */
+export function setFeedPoints(id: string, xp: readonly number[], points: number) {
+  const safe = Math.max(0, points)
+  updateSettings(
+    id,
+    xp.length > 0 ? { feedPoints: safe, targetLevel: levelForXp(xp, safe) } : { feedPoints: safe },
+  )
+}
+
+/** Impose une recette à un emplacement ; `null` rend la main à l'assistant. */
+export function chooseRecipe(id: string, path: SlotPath, recipeIndex: number | null) {
   patch(id, (plan) => {
-    const mounts = { ...plan.mounts }
-    const recipes = { ...plan.recipes, [path]: recipeIndex }
-    for (const key of Object.keys(plan.mounts)) {
-      if (key !== path && key.startsWith(path)) delete mounts[key]
-    }
-    for (const key of Object.keys(plan.recipes)) {
-      if (key !== path && key.startsWith(path)) delete recipes[key]
-    }
-    return { ...plan, recipes, mounts }
+    const recipes = { ...plan.recipes }
+    if (recipeIndex === null) delete recipes[path]
+    else recipes[path] = recipeIndex
+    return { ...plan, recipes }
   })
 }
 
-/** Pose, modifie ou retire (`null`) la monture d'un emplacement. */
-export function setMount(id: string, path: SlotPath, mount: OwnedMount | null) {
-  patch(id, (plan) => {
-    const mounts = { ...plan.mounts }
-    if (mount) mounts[path] = mount
-    else delete mounts[path]
-    return { ...plan, mounts }
-  })
+/** « Recalculer depuis l'inventaire » : oublie les recettes imposées, l'étable décide de tout. */
+export function resetChoices(id: string) {
+  patch(id, (plan) => ({ ...plan, recipes: {} }))
 }
 
 function subscribe(listener: () => void) {
