@@ -172,7 +172,7 @@ export default function MountGenealogy({ item }: { item: Item }) {
             {captures(evaluation).map((entry, index) => (
               <Fragment key={entry.variety.id}>
                 {index > 0 && ', '}
-                <span className="tabular-nums text-slate-300">{entry.count}</span> {entry.variety.name}
+                <span className="tabular-nums text-slate-300">{entry.missing}</span> {entry.variety.name}
               </Fragment>
             ))}{' '}
             — soit {evaluation.crosses.length} croisement{evaluation.crosses.length > 1 ? 's' : ''}{' '}

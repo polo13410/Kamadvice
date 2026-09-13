@@ -24,6 +24,7 @@ import {
   CircleCheck,
   CircleDashed,
   CircleDot,
+  Copy,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -167,6 +168,8 @@ export const Icon = {
   sterile: HeartOff,
   /** Ajouter : un plan, une monture. */
   add: Plus,
+  /** Dupliquer une monture de l'étable. */
+  duplicate: Copy,
 
   // Fréquentation
   /** Navigateurs connectés en ce moment. */

@@ -5,19 +5,22 @@
  * le plan fait de chaque monture — réservée pour telle étape, matière à
  * clonage, ou en trop. Sur le tableau de bord, toutes espèces confondues.
  *
- * Seuls comptent pour l'élevage le sexe, le niveau, la fécondité et la
- * stérilité ; l'arbre réel se déduit à la naissance et ne se renseigne à la
- * main que pour une monture venue d'ailleurs, replié.
+ * Une monture possédée est tenue pour préparée : seuls comptent le sexe, le
+ * niveau et la stérilité — plus, pour une survivante de clonage, la
+ * confirmation que ses jauges sont refaites. L'arbre réel se déduit à la
+ * naissance et ne se renseigne à la main que pour une monture venue
+ * d'ailleurs, replié.
  */
 import { useState } from 'react'
 import { useCatalog } from '../data/catalogContext'
-import { addMount, removeMount, updateMount } from '../data/inventory'
+import { addMount, duplicateMount, removeMount, updateMount } from '../data/inventory'
 import { SPECIES, SPECIES_INFO, varietyName } from '../data/mounts'
 import type { Evaluation, Sex, StableMount } from '../domain/breeding'
-import type { MountVariety, Species, VarietyId } from '../domain/types'
+import type { Species, VarietyId } from '../domain/types'
 import { Icon } from '../lib/icons'
 import { FIELD_TABLE } from './Adorned'
-import VarietyLink, { SexGlyph, VarietySelect } from './MountVariety'
+import ItemIcon from './ItemIcon'
+import VarietyLink, { SexToggle, VarietySelect } from './MountVariety'
 import Th from './TableHead'
 import { Tooltip } from './Tooltip'
 
@@ -57,19 +60,19 @@ export default function StablePanel({
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
                 <Th icon={Icon.mount}>Monture</Th>
-                <Th width="w-28">Sexe</Th>
+                <Th width="w-24">Sexe</Th>
                 <Th width="w-20" align="right">
                   Niveau
                 </Th>
-                <Th width="w-24" align="center" tip="Jauges d'amour, de maturité et d'endurance pleines">
-                  Féconde
+                <Th width="w-80" icon={Icon.genealogy} tip="Ses deux parents directs : seuls eux comptent dans la reproduction">
+                  Parents
                 </Th>
                 <Th width="w-20" align="center" tip="A déjà reproduit : ne sert plus qu'au clonage">
                   Stérile
                 </Th>
                 {evaluation && <Th width="w-44">Dans le plan</Th>}
-                <Th width="w-10" align="center">
-                  <span className="sr-only">Retirer</span>
+                <Th width="w-16" align="center">
+                  <span className="sr-only">Dupliquer, retirer</span>
                 </Th>
               </tr>
             </thead>
@@ -91,29 +94,16 @@ function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Eval
   const usage = evaluation ? describeUsage(mount, evaluation) : null
 
   return (
-    <tr id={mountAnchor(mount)} className="border-t border-slate-800/60 align-top target:bg-amber-500/[0.06]">
+    <tr id={mountAnchor(mount)} className="border-t border-slate-800/60 align-top target:bg-amber-500/6">
       <td className="px-2 py-1.5">
         {variety ? (
           <VarietyLink variety={variety} full />
         ) : (
           <span className="text-slate-500">Variété inconnue (#{mount.variety})</span>
         )}
-        {variety && <Genealogy mount={mount} species={variety.species} />}
       </td>
       <td className="px-2 py-1.5">
-        <span className="flex items-center gap-1.5">
-          <SexGlyph sex={mount.sex} />
-          <select
-            value={mount.sex ?? ''}
-            onChange={(event) => updateMount(mount.id, { sex: (event.target.value || null) as Sex | null })}
-            aria-label="Sexe"
-            className={SELECT}
-          >
-            <option value="">?</option>
-            <option value="male">Mâle</option>
-            <option value="female">Femelle</option>
-          </select>
-        </span>
+        <SexToggle value={mount.sex} onChange={(sex) => updateMount(mount.id, { sex })} />
       </td>
       <td className="px-2 py-1.5">
         <input
@@ -129,14 +119,8 @@ function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Eval
           className={`${FIELD_TABLE} w-16`}
         />
       </td>
-      <td className="px-2 py-1.5 text-center">
-        <input
-          type="checkbox"
-          checked={mount.ready}
-          onChange={(event) => updateMount(mount.id, { ready: event.target.checked })}
-          aria-label="Féconde"
-          className="size-4 cursor-pointer accent-emerald-500"
-        />
+      <td className="px-2 py-1.5">
+        {variety && <ParentsEditor mount={mount} species={variety.species} />}
       </td>
       <td className="px-2 py-1.5 text-center">
         <input
@@ -149,16 +133,28 @@ function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Eval
       </td>
       {evaluation && <td className="px-2 py-1.5 text-xs text-slate-500">{usage}</td>}
       <td className="px-2 py-1.5 text-center">
-        <Tooltip content="Retirer de l’étable">
-          <button
-            type="button"
-            onClick={() => removeMount(mount.id)}
-            aria-label="Retirer de l’étable"
-            className="text-slate-600 hover:text-rose-400"
-          >
-            <Icon.delete className="size-4" aria-hidden />
-          </button>
-        </Tooltip>
+        <span className="inline-flex items-center gap-2">
+          <Tooltip content="Dupliquer : une monture pareille de plus">
+            <button
+              type="button"
+              onClick={() => duplicateMount(mount.id)}
+              aria-label="Dupliquer"
+              className="text-slate-600 hover:text-amber-400"
+            >
+              <Icon.duplicate className="size-4" aria-hidden />
+            </button>
+          </Tooltip>
+          <Tooltip content="Retirer de l’étable">
+            <button
+              type="button"
+              onClick={() => removeMount(mount.id)}
+              aria-label="Retirer de l’étable"
+              className="text-slate-600 hover:text-rose-400"
+            >
+              <Icon.delete className="size-4" aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
       </td>
     </tr>
   )
@@ -179,84 +175,44 @@ function describeUsage(mount: StableMount, evaluation: Evaluation): string {
   return cross ? `Étape ${cross.step}` : 'Réservée'
 }
 
-/** L'arbre réel, replié : rarement utile à voir, précieux quand il l'est. */
-function Genealogy({ mount, species }: { mount: StableMount; species: Species }) {
+/**
+ * Les deux parents directs, à même la ligne : l'icône de chacun devant son
+ * choix — les mêmes icônes que partout où la monture se montre. Seuls les
+ * parents directs comptent dans la reproduction ; un bébé raté porte leurs
+ * gènes et peut retenter le croisement.
+ */
+function ParentsEditor({ mount, species }: { mount: StableMount; species: Species }) {
   const catalog = useCatalog()
   const options = catalog.mounts.varieties.filter((variety) => variety.species === species)
-  const known = mount.parents.some((id) => id !== null) || mount.grandparents.some((id) => id !== null)
 
   return (
-    <details className="mt-1 text-[11px] text-slate-500">
-      <summary className="cursor-pointer select-none hover:text-slate-300">
-        Arbre réel {known ? '· ' + describeLineage(mount, catalog.mounts.byId) : '(inconnu)'}
-      </summary>
-      <div className="mt-1 grid gap-1 sm:grid-cols-2">
-        {([0, 1] as const).map((index) => (
-          <div key={index} className="space-y-1 rounded border border-slate-800 p-1.5">
-            <AncestorSelect
-              label={`Parent ${index + 1}`}
-              value={mount.parents[index]}
+    <span className="flex items-center gap-2">
+      {([0, 1] as const).map((index) => {
+        const id = mount.parents[index]
+        const item = id === null ? undefined : catalog.byId.get(id)
+        return (
+          <span key={index} className="flex min-w-0 items-center gap-1">
+            {item ? (
+              <ItemIcon item={item} size={20} />
+            ) : (
+              <span className="inline-block w-5 text-center text-slate-600">?</span>
+            )}
+            <VarietySelect
+              value={id}
               options={options}
-              onChange={(id) => {
+              onChange={(parent) => {
                 const parents: StableMount['parents'] = [...mount.parents]
-                parents[index] = id
+                parents[index] = parent
                 updateMount(mount.id, { parents })
               }}
+              placeholder="Inconnu"
+              ariaLabel={`Parent ${index + 1}`}
+              className={`${SELECT} w-32`}
             />
-            {([0, 1] as const).map((sub) => {
-              const position = (index * 2 + sub) as 0 | 1 | 2 | 3
-              return (
-                <AncestorSelect
-                  key={sub}
-                  label={`Grand-parent ${sub + 1}`}
-                  value={mount.grandparents[position]}
-                  options={options}
-                  indent
-                  onChange={(id) => {
-                    const grandparents: StableMount['grandparents'] = [...mount.grandparents]
-                    grandparents[position] = id
-                    updateMount(mount.id, { grandparents })
-                  }}
-                />
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    </details>
-  )
-}
-
-function describeLineage(mount: StableMount, byId: ReadonlyMap<VarietyId, MountVariety>): string {
-  const name = (id: VarietyId | null) => (id === null ? '?' : (byId.get(id)?.name ?? '?'))
-  return `${name(mount.parents[0])} + ${name(mount.parents[1])}`
-}
-
-function AncestorSelect({
-  label,
-  value,
-  options,
-  indent = false,
-  onChange,
-}: {
-  label: string
-  value: VarietyId | null
-  options: readonly MountVariety[]
-  indent?: boolean
-  onChange: (id: VarietyId | null) => void
-}) {
-  return (
-    <label className={`flex items-center gap-2 ${indent ? 'pl-3' : ''}`}>
-      <span className="w-24 shrink-0">{label}</span>
-      <VarietySelect
-        value={value}
-        options={options}
-        onChange={onChange}
-        placeholder="Inconnu"
-        ariaLabel={label}
-        className={`${SELECT} min-w-0 flex-1`}
-      />
-    </label>
+          </span>
+        )
+      })}
+    </span>
   )
 }
 
@@ -308,16 +264,7 @@ function AddMountForm({ species: fixed }: { species?: Species }) {
         ariaLabel="Variété"
         className={`${SELECT} min-w-48`}
       />
-      <select
-        value={sex ?? ''}
-        onChange={(event) => setSex((event.target.value || null) as Sex | null)}
-        aria-label="Sexe"
-        className={SELECT}
-      >
-        <option value="">Sexe ?</option>
-        <option value="male">Mâle</option>
-        <option value="female">Femelle</option>
-      </select>
+      <SexToggle value={sex} onChange={setSex} />
       <label className="flex items-center gap-1">
         niv.
         <input

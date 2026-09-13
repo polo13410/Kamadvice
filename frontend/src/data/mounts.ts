@@ -43,6 +43,7 @@ export const DEFAULT_SETTINGS: PlanSettings = {
   targetLevel: 39,
   feedPoints: 19_266,
   optimakina: false,
+  probable: false,
 }
 
 /** La jauge d'expérience : c'est elle qui fait le niveau. */

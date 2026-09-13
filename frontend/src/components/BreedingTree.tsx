@@ -41,15 +41,13 @@ export function SourceBadge({ source }: { source: SlotSource }) {
 }
 
 export const STATE_LABEL: Record<Cross['state'], string> = {
-  ready: 'Prêt à accoupler',
-  preparing: 'Parents à préparer',
+  ready: 'Parents en place',
   waiting: 'En attente d’un parent',
   blocked: 'Bloqué',
 }
 
 const STATE_STYLE: Record<Cross['state'], { icon: typeof Icon.stepDone; className: string }> = {
   ready: { icon: Icon.stepReady, className: 'text-emerald-400' },
-  preparing: { icon: Icon.stepProgress, className: 'text-sky-300' },
   waiting: { icon: Icon.stepWaiting, className: 'text-slate-500' },
   blocked: { icon: Icon.stepBlocked, className: 'text-rose-400' },
 }
@@ -62,6 +60,63 @@ export function StateBadge({ state }: { state: Cross['state'] }) {
       <Glyph className="size-3.5" aria-hidden />
       {STATE_LABEL[state]}
     </span>
+  )
+}
+
+/**
+ * L'état d'un croisement en un cercle, le mot en infobulle : pointillé gris
+ * sans aucun parent, moitié jaune moitié pointillée avec un parent sur deux,
+ * plein bleu quand les deux sont là, plein vert une fois la monture obtenue,
+ * rouge barré quand quelque chose bloque.
+ */
+export function StepCircle({
+  cross,
+  done = false,
+  className = 'size-4',
+}: {
+  cross: Cross | null
+  /** La monture est à l'étable : l'étape est derrière nous. */
+  done?: boolean
+  className?: string
+}) {
+  const owned = cross ? cross.parents.filter((parent) => parent.mount !== null).length : 2
+  const label = done
+    ? 'Obtenue : la monture est à l’étable'
+    : cross?.state === 'blocked'
+      ? `Bloqué : ${cross.issues.join(' ; ')}`
+      : owned === 2
+        ? 'Les deux parents sont à l’étable : prêt à accoupler'
+        : owned === 1
+          ? 'Un parent sur deux à l’étable'
+          : 'En attente des deux parents'
+
+  let glyph: React.ReactNode
+  if (done) {
+    glyph = <Icon.stepDone className={`${className} text-emerald-400`} aria-hidden />
+  } else if (cross?.state === 'blocked') {
+    glyph = <Icon.stepBlocked className={`${className} text-rose-400`} aria-hidden />
+  } else if (owned === 2) {
+    glyph = (
+      <svg viewBox="0 0 16 16" className={`${className} text-sky-400`} aria-hidden>
+        <circle cx="8" cy="8" r="6.5" fill="currentColor" />
+      </svg>
+    )
+  } else if (owned === 1) {
+    glyph = (
+      <svg viewBox="0 0 16 16" className={className} aria-hidden>
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.5 2" className="text-slate-600" />
+        <path d="M8 1.5 A6.5 6.5 0 0 0 8 14.5 Z" fill="currentColor" className="text-amber-400" />
+      </svg>
+    )
+  } else {
+    glyph = <Icon.stepWaiting className={`${className} text-slate-600`} aria-hidden />
+  }
+
+  return (
+    <Tooltip content={label} className="flex shrink-0 cursor-help items-center">
+      {glyph}
+      <span className="sr-only">{label}</span>
+    </Tooltip>
   )
 }
 

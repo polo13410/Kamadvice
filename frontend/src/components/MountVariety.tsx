@@ -9,7 +9,7 @@
 import { Link } from 'react-router-dom'
 import { useCatalog } from '../data/catalogContext'
 import { varietyName } from '../data/mounts'
-import type { Sex, StableMount } from '../domain/breeding'
+import type { Sex, SexNeed, StableMount } from '../domain/breeding'
 import type { MountVariety, VarietyId } from '../domain/types'
 import { Icon } from '../lib/icons'
 import ItemIcon from './ItemIcon'
@@ -82,8 +82,193 @@ export function SexGlyph({ sex, className = 'size-3.5' }: { sex: Sex | null; cla
 }
 
 /**
- * Une monture réelle, en une puce : sexe, niveau, et ce qui compte pour
- * l'élevage — féconde ou pas, stérile.
+ * Le choix d'un sexe : deux boutons, celui qui est retenu en surbrillance.
+ * Recliquer le retenu revient à « inconnu ».
+ */
+export function SexToggle({
+  value,
+  onChange,
+  className = '',
+}: {
+  value: Sex | null
+  onChange: (sex: Sex | null) => void
+  className?: string
+}) {
+  const button = (sex: Sex, Glyph: typeof Icon.male, label: string, tone: string) => {
+    const active = value === sex
+    return (
+      <button
+        type="button"
+        aria-pressed={active}
+        aria-label={label}
+        title={label}
+        onClick={() => onChange(active ? null : sex)}
+        className={`flex h-7 w-8 items-center justify-center border first:rounded-l last:rounded-r focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+          active ? tone : 'border-slate-700 bg-slate-900 text-slate-600 hover:text-slate-300'
+        }`}
+      >
+        <Glyph className="size-4" aria-hidden />
+      </button>
+    )
+  }
+  return (
+    <span className={`inline-flex -space-x-px ${className}`} role="group" aria-label="Sexe">
+      {button('male', Icon.male, 'Mâle', 'border-sky-500/60 bg-sky-500/15 text-sky-300')}
+      {button('female', Icon.female, 'Femelle', 'border-rose-500/60 bg-rose-500/15 text-rose-300')}
+    </span>
+  )
+}
+
+/**
+ * Deux boutons ♂ ♀ qui ajoutent d'un clic une monture de la variété à
+ * l'étable, du sexe cliqué : le geste le plus court pour dire « j'en ai une ».
+ *
+ * Avec `need`, les boutons disent aussi quel sexe il faut : celui dont on n'a
+ * aucun besoin est grisé — cliquable quand même, on ne refuse pas une monture.
+ * Sans préférence, les deux restent pleins.
+ */
+export function SexAddButtons({
+  onAdd,
+  need,
+  label = 'Ajouter à l’étable',
+  className = '',
+}: {
+  onAdd: (sex: Sex) => void
+  need?: SexNeed
+  label?: string
+  className?: string
+}) {
+  const wanted = (sex: Sex): number | null => {
+    if (!need) return null
+    if (need.any > 0) return null
+    return sex === 'male' ? need.male : need.female
+  }
+  const button = (sex: Sex, Glyph: typeof Icon.male, name: string, tone: string) => {
+    const count = wanted(sex)
+    const dimmed = count === 0
+    const title =
+      count === null
+        ? `${label} : ${name}`
+        : count === 0
+          ? `Aucun besoin de ${name} ici — ${label.toLowerCase()} quand même`
+          : `Il faut ${count} ${name}${count > 1 ? 's' : ''} — ${label.toLowerCase()}`
+    return (
+      <button
+        type="button"
+        aria-label={title}
+        title={title}
+        onClick={() => onAdd(sex)}
+        className={`flex h-7 w-8 items-center justify-center border border-slate-700 bg-slate-900 first:rounded-l last:rounded-r focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+          dimmed ? 'text-slate-700 hover:text-slate-500' : tone
+        }`}
+      >
+        <Glyph className="size-4" aria-hidden />
+      </button>
+    )
+  }
+  return (
+    <span className={`inline-flex -space-x-px ${className}`} role="group" aria-label={label}>
+      {button('male', Icon.male, 'mâle', 'text-sky-400 hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-300')}
+      {button('female', Icon.female, 'femelle', 'text-rose-400 hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-300')}
+    </span>
+  )
+}
+
+/** « 2 ♂ · 1 ♀ » : le détail des sexes voulus, quand il y a une préférence. */
+export function SexNeedLabel({ need }: { need: SexNeed }) {
+  if (need.male === 0 && need.female === 0) return null
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] tabular-nums text-slate-400">
+      {need.male > 0 && (
+        <span className="inline-flex items-center gap-0.5">
+          {need.male}
+          <Icon.male className="size-3 text-sky-400" aria-label="mâle" />
+        </span>
+      )}
+      {need.female > 0 && (
+        <span className="inline-flex items-center gap-0.5">
+          {need.female}
+          <Icon.female className="size-3 text-rose-400" aria-label="femelle" />
+        </span>
+      )}
+      {need.any > 0 && <span className="text-slate-600">{need.any} au choix</span>}
+    </span>
+  )
+}
+
+/**
+ * Une monture précise de l'enclos, telle qu'elle se montre partout :
+ * icône, nom, génération | sexe, niveau | icônes de ses deux parents, leurs
+ * noms en infobulle — et ce qui compte encore : stérile, ou clonée à refaire.
+ */
+export function MountTag({
+  mount,
+  className = '',
+  note,
+}: {
+  mount: StableMount
+  className?: string
+  /** Un mot de plus, après les parents : « porte Ébène », par exemple. */
+  note?: React.ReactNode
+}) {
+  const catalog = useCatalog()
+  const variety = catalog.mounts.byId.get(mount.variety)
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded border px-1.5 py-1 text-xs ${
+        mount.sterile ? 'border-slate-800 text-slate-500' : 'border-slate-700 bg-slate-800/60 text-slate-300'
+      } ${className}`}
+    >
+      {variety ? (
+        <VarietyLink variety={variety} size={22} className={mount.sterile ? 'text-slate-400' : ''} />
+      ) : (
+        <span>#{mount.variety}</span>
+      )}
+      <span className="h-4 w-px bg-slate-700" aria-hidden />
+      <span className="inline-flex items-center gap-1 tabular-nums">
+        <SexGlyph sex={mount.sex} className="size-3.5" />
+        niv. {mount.level}
+      </span>
+      <span className="h-4 w-px bg-slate-700" aria-hidden />
+      <ParentIcons mount={mount} />
+      {mount.sterile && (
+        <Tooltip content="A déjà reproduit : ne sert plus qu'au clonage" className="flex cursor-help items-center gap-0.5 text-slate-500">
+          <Icon.sterile className="size-3" aria-hidden />
+          stérile
+        </Tooltip>
+      )}
+      {note}
+    </span>
+  )
+}
+
+/** Les deux parents d'une monture en icônes, leurs noms en infobulle — le même bloc que dans `MountTag`. */
+export function ParentIcons({ mount, size = 18 }: { mount: StableMount; size?: number }) {
+  const catalog = useCatalog()
+  const parents = mount.parents.map((id) => (id === null ? null : (catalog.mounts.byId.get(id) ?? null)))
+  const tip = parents.some((parent) => parent !== null)
+    ? `Parents : ${parents.map((parent) => parent?.name ?? '?').join(' + ')}`
+    : 'Parents inconnus'
+  return (
+    <Tooltip content={tip} className="inline-flex cursor-help items-center gap-0.5">
+      {parents.map((parent, index) => {
+        const item = parent ? catalog.byId.get(parent.id) : undefined
+        return item ? (
+          <ItemIcon key={index} item={item} size={size} />
+        ) : (
+          <span key={index} className="inline-block text-center text-slate-600" style={{ width: size }}>
+            ?
+          </span>
+        )
+      })}
+    </Tooltip>
+  )
+}
+
+/**
+ * Une monture réelle, en une puce : sexe, niveau, et ce qui compte encore —
+ * stérile, ou clonée et pas encore refaite.
  */
 export function MountChip({ mount, className = '' }: { mount: StableMount; className?: string }) {
   return (
@@ -91,25 +276,20 @@ export function MountChip({ mount, className = '' }: { mount: StableMount; class
       className={`inline-flex items-center gap-1.5 rounded border px-1.5 py-px text-xs ${
         mount.sterile
           ? 'border-slate-800 text-slate-500'
-          : mount.ready
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-            : 'border-slate-700 bg-slate-800/60 text-slate-300'
+          : 'border-slate-700 bg-slate-800/60 text-slate-300'
       } ${className}`}
     >
       <SexGlyph sex={mount.sex} className="size-3" />
       <span className="tabular-nums">niv. {mount.level}</span>
-      {mount.sterile ? (
+      {mount.sterile && (
         <Tooltip content="A déjà reproduit : ne sert plus qu'au clonage" className="flex cursor-help items-center gap-0.5">
           <Icon.sterile className="size-3" aria-hidden />
           stérile
         </Tooltip>
-      ) : mount.ready ? (
-        <Tooltip content="Jauges d'amour, de maturité et d'endurance pleines" className="cursor-help">
-          féconde
-        </Tooltip>
-      ) : (
-        <Tooltip content="Jauges de fécondité à remplir" className="cursor-help text-slate-500">
-          à préparer
+      )}
+      {!mount.sterile && !mount.ready && (
+        <Tooltip content="Survivante d'un clonage : jauges à zéro, comptées dans le coût restant" className="cursor-help text-sky-300">
+          clonée
         </Tooltip>
       )}
     </span>

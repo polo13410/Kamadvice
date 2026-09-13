@@ -45,7 +45,8 @@ tous les tableaux — les dashboards en profiteraient sans changer.
 
 L'assistant est là : étable partagée, plan recalculé sur l'étable, prochaine
 étape suggérée, accouplements et clonages enregistrés avec leur résultat
-réel, coût du plan actuel. Ce qui reste ouvert :
+réel, coût restant probable — une monture possédée est tenue pour préparée,
+le plan ne suit pas les jauges. Ce qui reste ouvert :
 
 - **Une probabilité globale** sur l'arbre décisionnel — chances de tenir la
   cible en n accouplements, bébés ratés réemployés compris. Aujourd'hui, seules

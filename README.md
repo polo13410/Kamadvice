@@ -112,8 +112,8 @@ frontend/
       MountGenealogy.tsx Section généalogie de la fiche d'une monture : parents,
                          décomposition jusqu'aux gén. 1, ce qu'elle permet d'obtenir
       BreedingTree.tsx   Arbre repliable d'un plan, provenance de chaque monture
-      StablePanel.tsx    L'étable à modifier sur place : sexe, niveau, féconde,
-                         stérile, arbre réel replié, ce que le plan en fait
+      StablePanel.tsx    L'étable à modifier sur place : sexe, niveau, stérile,
+                         arbre réel replié, ce que le plan en fait
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
@@ -140,24 +140,70 @@ reste se recalcule sur l'étable à chaque rendu.
   croisement, ou capture. Quand une variété a plusieurs recettes, celle que
   l'étable rend la moins chère est retenue — comptée en points de jauge à
   verser, pour ne pas dépendre d'un prix.
-- **« Prochaine étape suggérée »**, une seule action : renseigner un sexe,
-  accoupler un couple prêt, cloner deux montures précises, préparer une
-  monture, capturer une génération 1.
+- **« Prochaine étape suggérée »**, une seule action, à l'échelle d'un enclos
+  (10 montures) : renseigner un sexe, accoupler jusqu'à cinq couples prêts,
+  cloner deux montures précises, ou capturer un lot — la composition par
+  variété et par sexe, le bas de l'arbre d'abord (les croisements restants
+  sont listés par couches dans le même sens, jusqu'à la cible), à ajouter au compte-gouttes
+  avec ♂ ♀. Les accouplements ne sont proposés que l'enclos des sauvages
+  plein, ou les captures terminées : on finit le lot d'abord.
+- **« ≈ en moyenne »** à côté des nombres arrondis du nombre probable :
+  `1 / chance` sans arrondi, fractionnaire, pour l'ordre de grandeur —
+  52 % et 70 % font tous deux 2 tentatives arrondies, mais 1,9 et 1,4 en
+  moyenne. Sur les accouplements, les captures et le coût.
+- **Le carburant nourrit tout l'enclos** : les points de jauge et leur prix se
+  partagent entre dix montures (`ENCLOSURE_CAPACITY`), le joueur ne les fait
+  pas évoluer une par une.
+- **« Possédée »** vaut : existe, sexe et niveau donnés, déjà préparée. Une
+  monture cochée ne coûte plus rien ; le plan ne suit pas les jauges.
 - **Accoupler** enregistre le résultat réel (variété et sexe du bébé) : les
-  parents deviennent stériles, le bébé rejoint l'étable avec ses parents et
+  parents deviennent stériles — en trop, matière à clonage —, le bébé rejoint
+  l'étable possédé et préparé au niveau visé, avec ses parents et
   grands-parents déduits, et le plan se recalcule. Un bébé raté n'est pas une
   branche à refaire : il sert ailleurs, ou au clonage.
+- **Seconde chance** : un bébé raté porte les gènes de ses deux parents
+  directs. Une Amande et Rousse née d'Ébène × Indigo tient le rôle d'Ébène
+  (ou d'Indigo) dans un nouveau croisement, et peut redonner Ébène et Indigo.
+  Le plan emploie ces porteuses quand la variété elle-même manque, et le dit
+  (« porte Ébène »). Une montante — dont un parent est d'une génération
+  supérieure à la sienne — est réservée d'abord à cet usage, et ne sert comme
+  elle-même que s'il ne reste rien à porter. Deux garde-fous : une porteuse ne sert qu'un croisement
+  d'une génération strictement supérieure à la sienne (retenter vers le haut,
+  jamais recréer son calibre — ses parents font ça aussi bien), et une monture
+  que le plan emploie telle quelle n'est jamais détournée en porteuse. Seuls
+  les parents directs comptent ; les grands-parents ne sont plus ni saisis
+  ni lus.
 - **Cloner** : deux montures de même espèce et génération se détruisent pour
-  en rendre une, féconde, tirée au sort. Proposé seulement si moins cher que
-  refaire la monture ; jamais entre deux parents stériles encore utiles tous
-  les deux ; la partenaire idéale ne sert à rien d'autre.
+  en rendre une, fertile, tirée au sort à 50/50 — même sexe, mêmes parents.
+  La remise à niveau de ses jauges est comptée dans le coût tant que le
+  clonage est à faire ; une fois enregistré, la survivante est possédée comme
+  les autres. Proposé par lots (jusqu'à cinq), une fois les couples du lot en
+  cours accouplés et **avant** de recapturer, pour que les survivantes partent
+  dans le prochain lot à préparer. Un clonage n'est planifié que s'il revient moins cher que refaire
+  la monture ; la meilleure partenaire est une stérile dont la survie
+  servirait aussi (les deux issues sont bonnes), sinon une qui ne sert à rien
+  d'autre ; jamais les deux parents stériles d'un même croisement, jamais une
+  féconde utile.
 - **Niveau visé et points de mangeoire** sont les deux faces de la table d'XP
   (`meta.json`, `mountXp`, relevée sur la page des dragodindes) : niveau 39 =
   19 266 points, 200 = 867 582.
-- **Le coût est celui du plan actuel**, pas une espérance : préparation
-  restante des montures en place, préparation des montures encore à obtenir,
-  jauges à remettre après clonage, Optimakinas des croisements restants — au
-  carburant le moins cher de chaque jauge. Il bouge à chaque résultat réel.
+- **« Nombre probable »** (réglage du plan) : chaque croisement se prévoit en
+  `1 / chance` tentatives, arrondi en montant dès que la fraction dépasse 0,3
+  (40 % → 3, 52 % → 2, 70 % → 2, 80 % → 1), et chaque tentative consomme un
+  couple — ses parents sont à prévoir d'autant, une monture possédée
+  couvrant une unité. Sans cascade d'un étage à l'autre : les échecs plus bas
+  sont absorbés par le réemploi des bébés ratés et le clonage. Captures,
+  rangs d'ancêtres, Optimakinas et coût suivent. Décoché : une tentative par
+  croisement.
+- **Rangs d'ancêtres**, en accordéon : les parents, puis les grands-parents,
+  puis… — chaque rang ne compte que les emplacements exactement à cette
+  profondeur (une génération 1 rencontrée plus haut n'y redescend pas), en
+  cartes groupées par variété, avec ♂ ♀ pour ajouter d'un clic à l'étable.
+- **Le coût est le coût restant probable**, pas une espérance : préparation
+  des montures encore à obtenir, jauges à refaire après les clonages,
+  Optimakinas des croisements restants — au carburant le moins cher de chaque
+  jauge. Cocher une monture en retire la préparation ; un accouplement en
+  retire celle du bébé. Il bouge à chaque résultat réel.
 
 Ce qu'il sait des montures, et d'où :
 
@@ -179,7 +225,11 @@ Ce qu'il sait des montures, et d'où :
   répartition entre variétés de cette génération n'est pas publique : quand
   les arbres réels rendent plusieurs variétés possibles, la page les liste et
   dit « probabilité exacte inconnue », sans inventer de poids.
-- **Plans et étable** vivent dans `localStorage`, comme les favoris : un
+- **Le journal** garde l'historique : chaque accouplement (parents, bébé,
+  variété visée) et chaque clonage, rangé dans sa couche de la liste des
+  croisements avec un cercle vert, même une fois la branche disparue du plan
+  recalculé. Une entrée s'efface sans toucher à l'étable.
+- **Plans, étable et journal** vivent dans `localStorage`, comme les favoris : un
   élevage dure des jours, la page retrouve où on en était, mais pas d'un
   navigateur à l'autre.
 

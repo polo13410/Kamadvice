@@ -46,6 +46,7 @@ function readPlan(raw: unknown): Plan | null {
           ? settings.feedPoints
           : DEFAULT_SETTINGS.feedPoints,
       optimakina: settings.optimakina === true,
+      probable: settings.probable === true,
     },
     recipes,
   }
