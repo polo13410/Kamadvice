@@ -47,6 +47,7 @@ function readPlan(raw: unknown): Plan | null {
           : DEFAULT_SETTINGS.feedPoints,
       optimakina: settings.optimakina === true,
       probable: settings.probable === true,
+      breederLevel: readLevel(settings.breederLevel, DEFAULT_SETTINGS.breederLevel),
     },
     recipes,
   }

@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS: PlanSettings = {
   feedPoints: 19_266,
   optimakina: false,
   probable: false,
+  breederLevel: 1,
 }
 
 /** La jauge d'expérience : c'est elle qui fait le niveau. */

@@ -65,9 +65,9 @@ export function StateBadge({ state }: { state: Cross['state'] }) {
 
 /**
  * L'état d'un croisement en un cercle, le mot en infobulle : pointillé gris
- * sans aucun parent, moitié jaune moitié pointillée avec un parent sur deux,
- * plein bleu quand les deux sont là, plein vert une fois la monture obtenue,
- * rouge barré quand quelque chose bloque.
+ * sans aucun parent préparé, moitié jaune moitié pointillée avec un parent
+ * préparé sur deux, plein bleu quand les deux le sont, plein vert une fois
+ * la monture obtenue, rouge barré quand quelque chose bloque.
  */
 export function StepCircle({
   cross,
@@ -79,16 +79,18 @@ export function StepCircle({
   done?: boolean
   className?: string
 }) {
-  const owned = cross ? cross.parents.filter((parent) => parent.mount !== null).length : 2
+  // Un parent compte quand il est là *et* préparé : une monture à préparer
+  // n'est pas encore un parent.
+  const owned = cross ? cross.parents.filter((parent) => parent.mount?.ready === true).length : 2
   const label = done
     ? 'Obtenue : la monture est à l’étable'
     : cross?.state === 'blocked'
       ? `Bloqué : ${cross.issues.join(' ; ')}`
       : owned === 2
-        ? 'Les deux parents sont à l’étable : prêt à accoupler'
+        ? 'Les deux parents sont préparés : prêt à accoupler'
         : owned === 1
-          ? 'Un parent sur deux à l’étable'
-          : 'En attente des deux parents'
+          ? 'Un parent sur deux préparé'
+          : 'En attente des deux parents, préparés'
 
   let glyph: React.ReactNode
   if (done) {

@@ -197,14 +197,14 @@ export interface NewMount {
   grandparents?: StableMount['grandparents']
 }
 
-/** Ajoute une monture possédée — donc préparée — et rend son identifiant. */
+/** Ajoute une monture à l'étable — non préparée, sauf à le dire — et rend son identifiant. */
 export function addMount(input: NewMount): string {
   const mount: StableMount = {
     id: newId(),
     variety: input.variety,
     sex: input.sex ?? null,
     level: input.level ?? 1,
-    ready: input.ready ?? true,
+    ready: input.ready ?? false,
     sterile: input.sterile ?? false,
     parents: input.parents ?? [null, null],
     grandparents: input.grandparents ?? [null, null, null, null],
@@ -228,6 +228,17 @@ export function updateMount(id: string, patch: Partial<Omit<StableMount, 'id' | 
   save(stable.map((mount) => (mount.id === id ? { ...mount, ...patch } : mount)))
 }
 
+/**
+ * Préparée : jauges faites, et montée au niveau visé du plan si elle était en
+ * dessous — préparer, c'est la mangeoire jusqu'au niveau, puis les jauges
+ * de fécondité. Une monture plus haute garde son niveau.
+ */
+export function prepareMount(id: string, level: number) {
+  const mount = stable.find((candidate) => candidate.id === id)
+  if (!mount) return
+  updateMount(id, { ready: true, level: Math.max(mount.level, level) })
+}
+
 export function removeMount(id: string) {
   if (!stable.some((mount) => mount.id === id)) return
   save(stable.filter((mount) => mount.id !== id))
@@ -235,9 +246,9 @@ export function removeMount(id: string) {
 
 /**
  * Un accouplement a eu lieu : les deux parents deviennent stériles, et le bébé
- * — de la variété et du sexe constatés en jeu — rejoint l'étable, tenu pour
- * préparé au niveau visé du plan (sa préparation était déjà dans le coût), avec
- * pour arbre réel ses deux parents et leurs parents à eux.
+ * — de la variété et du sexe constatés en jeu — rejoint l'étable au niveau
+ * donné (1 à la naissance), pas encore préparé, avec pour arbre réel ses deux
+ * parents et leurs parents à eux.
  */
 export function recordBreeding(
   fatherId: string,
@@ -255,7 +266,7 @@ export function recordBreeding(
     variety,
     sex,
     level,
-    ready: true,
+    ready: false,
     sterile: false,
     parents: [father.variety, mother.variety],
     grandparents: [father.parents[0], father.parents[1], mother.parents[0], mother.parents[1]],
@@ -280,10 +291,9 @@ export function recordBreeding(
 }
 
 /**
- * Un clonage a eu lieu : la survivante redevient fertile — tenue pour
- * préparée, comme toute monture possédée : la remise à niveau de ses jauges
- * était déjà comptée dans le coût du clonage —, l'autre disparaît. Sexe,
- * niveau et parents restent les siens.
+ * Un clonage a eu lieu : la survivante redevient fertile, jauges à zéro et
+ * niveau 1 — à préparer avec le prochain enclos —, l'autre disparaît. Sexe
+ * et parents restent les siens.
  */
 export function recordClone(survivorId: string, lostId: string) {
   const survivor = stable.find((mount) => mount.id === survivorId)
@@ -296,7 +306,7 @@ export function recordClone(survivorId: string, lostId: string) {
     stable
       .filter((mount) => mount.id !== lostId)
       .map((mount) =>
-        mount.id === survivorId ? { ...mount, sterile: false, ready: true } : mount,
+        mount.id === survivorId ? { ...mount, sterile: false, ready: false, level: 1 } : mount,
       ),
   )
 }

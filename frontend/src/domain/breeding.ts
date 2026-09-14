@@ -106,11 +106,10 @@ export function levelForXp(xp: readonly number[], points: number): number {
 export type Sex = 'male' | 'female'
 
 /**
- * Une monture réelle, à l'étable. Une monture déclarée possédée est tenue
- * pour préparée : sexe et niveau connus, jauges faites, plus rien à verser.
- * Deux états comptent encore : stérile — elle a reproduit, elle ne sert plus
- * qu'au clonage — et, pour une survivante de clonage seulement, des jauges
- * remises à zéro qu'on compte dans le coût tant qu'on ne les a pas refaites.
+ * Une monture réelle, à l'étable. Deux états font le cycle : préparée —
+ * jauges faites, prête à reproduire ; une capture, un bébé, une survivante
+ * de clonage arrivent à préparer, et leur préparation compte dans le coût
+ * jusque-là — et stérile — elle a reproduit, elle ne sert plus qu'au clonage.
  */
 export interface StableMount {
   id: string
@@ -142,6 +141,12 @@ export interface PlanSettings {
    * tentative par croisement.
    */
   probable: boolean
+  /**
+   * Niveau du métier d'éleveur : il fait le nombre d'enclos (voir
+   * `enclosuresFor`), donc combien de montures se préparent à la fois et
+   * combien de couples s'accouplent par vague.
+   */
+  breederLevel: number
 }
 
 /**
@@ -201,6 +206,18 @@ export interface Slot {
    * la donner quand même — c'est la seconde chance.
    */
   potential: boolean
+  /**
+   * La réserve : les copies en stock, au-delà de la monture en place, quand
+   * « nombre probable » en demande plusieurs — même variété, même sexe,
+   * fécondes. Elles couvrent autant d'unités ; le croisement reprend avec
+   * elles quand la monture en place a reproduit.
+   */
+  extras: StableMount[]
+  /**
+   * Le croisement qui pourvoit l'emplacement — ou, quand une monture est déjà
+   * en place mais que « nombre probable » en demande d'autres, celui qui fait
+   * les suivantes : on ne l'attend pas pour continuer d'accoupler en dessous.
+   */
   cross: Cross | null
   clone: ClonePlan | null
   /** Le sexe qu'il faudrait ici, quand l'autre parent est déjà connu. */
@@ -211,9 +228,10 @@ export interface Slot {
 
 /**
  * Deux montures de même espèce et génération se détruisent pour en rendre
- * une, féconde, tirée au sort entre les deux — même sexe, même arbre. On
- * propose le clonage quand une variété manque et qu'une copie stérile
- * existe ; la partenaire est choisie pour coûter le moins à perdre.
+ * une, féconde, tirée au sort entre les deux — même sexe, même arbre, mais
+ * niveau 1 et jauges à zéro. On propose le clonage quand une variété manque
+ * et qu'une copie stérile existe ; la partenaire est choisie pour coûter le
+ * moins à perdre.
  */
 export interface ClonePlan {
   /** La monture dont on veut une copie féconde. */
@@ -256,24 +274,81 @@ export interface Cross {
  */
 export const ENCLOSURE_CAPACITY = 10
 
+/** Le plus d'enclos qu'un éleveur puisse tenir, au niveau 200. */
+export const ENCLOSURES_MAX = 6
+
+/**
+ * Les enclos qu'un éleveur peut tenir : un jusqu'au niveau 39, un de plus
+ * tous les quarante niveaux — deux à 40, trois à 80… six à 200. Chaque
+ * enclos loge dix montures : c'est ce que le plan prépare et accouple à la
+ * fois.
+ */
+export const enclosuresFor = (breederLevel: number): number =>
+  Math.max(1, Math.min(ENCLOSURES_MAX, 1 + Math.floor(breederLevel / 40)))
+
 /** Une variété du lot, avec le détail des sexes voulus, comme dans « À obtenir ». */
 export interface CaptureBatchEntry extends SexNeed {
   variety: MountVariety
   count: number
 }
 
+/** Un couple prêt pour un croisement : les deux montures, dans l'ordre des parents du croisement. */
+export interface BreedCouple {
+  cross: Cross
+  parents: [StableMount, StableMount]
+}
+
+/**
+ * Les couples qu'un croisement peut former : ses montures fécondes de
+ * chaque côté — la monture en place et la réserve — appariées mâle avec
+ * femelle, et ce qui reste seul de chaque côté. Avec `onlyReady`, seules
+ * les montures préparées comptent : ce sont elles qu'on accouple.
+ */
+export interface Pairing {
+  couples: [StableMount, StableMount][]
+  /** De chaque côté, les fécondes restées sans partenaire. */
+  single: [StableMount[], StableMount[]]
+}
+
+export function pairing(cross: Cross, onlyReady = false): Pairing {
+  const [a, b] = cross.parents
+  const fits = (mount: StableMount) => !mount.sterile && mount.sex !== null && (!onlyReady || mount.ready)
+  const sideA = [...(a.mount ? [a.mount] : []), ...a.extras].filter(fits)
+  const sideB = [...(b.mount ? [b.mount] : []), ...b.extras].filter(fits)
+  const couples: [StableMount, StableMount][] = []
+  const taken = new Set<string>()
+  const singleA: StableMount[] = []
+  for (const x of sideA) {
+    const y = sideB.find((candidate) => !taken.has(candidate.id) && candidate.sex !== x.sex)
+    if (y) {
+      taken.add(y.id)
+      couples.push([x, y])
+    } else singleA.push(x)
+  }
+  return { couples, single: [singleA, sideB.filter((candidate) => !taken.has(candidate.id))] }
+}
+
+export const couplesOf = (cross: Cross, onlyReady = false): [StableMount, StableMount][] =>
+  pairing(cross, onlyReady).couples
+
 export type Suggestion =
   | { kind: 'done' }
   | { kind: 'info'; mount: StableMount; slot: Slot; message: string }
-  /** Jusqu'à cinq couples — dix montures — prêts à accoupler ensemble. */
-  | { kind: 'breeds'; crosses: Cross[] }
   /**
-   * Jusqu'à cinq clonages — dix montures — à faire avant de recapturer ou de
-   * ré-accoupler : les survivantes rejoignent le prochain lot à préparer.
+   * Jusqu'à cinq couples préparés à accoupler, génération la plus haute
+   * d'abord. `pending` : les fécondes du plan pas encore préparées, qui
+   * rejoindraient le lot si on les préparait avant.
    */
+  | { kind: 'breeds'; couples: BreedCouple[]; pending: StableMount[] }
+  /** Jusqu'à cinq clonages dont la survivante complète un couple à venir. */
   | { kind: 'clones'; items: { slot: Slot; clone: ClonePlan }[] }
-  /** Un lot de captures, un enclos plein au plus, le bas de l'arbre d'abord. */
-  | { kind: 'captures'; entries: CaptureBatchEntry[]; total: number; remaining: number }
+  /**
+   * Un lot de captures : de quoi porter à cinq les couples possibles, le bas
+   * de l'arbre d'abord. `couples` : ceux déjà possibles, préparés ou non.
+   */
+  | { kind: 'captures'; entries: CaptureBatchEntry[]; total: number; remaining: number; couples: number; target: number }
+  /** Les montures fécondes du plan à préparer — jauges à remplir — avant d'accoupler, dix par enclos. */
+  | { kind: 'prepare'; enclosures: StableMount[][] }
 
 /**
  * Combien de fois un emplacement doit être pourvu. `need` est ce que les
@@ -325,6 +400,9 @@ export interface Evaluation {
 const CAPTURE_PENALTY = 20_000
 const MATING_PENALTY = 40_000
 
+/** L'item consommé à chaque capture, quelle que soit la monture. */
+export const CAPTURE_NET_NAME = 'Filet de capture universel'
+
 const opposite = (sex: Sex): Sex => (sex === 'male' ? 'female' : 'male')
 
 /** Les trois jauges de fécondité, en points. */
@@ -364,6 +442,12 @@ export function evaluatePlan(
   const settings = plan.settings
 
   const herd = stable.filter((mount) => mounts.byId.get(mount.variety)?.species === target.species)
+  // La recette théorique numérote les étapes : depuis une étable vide, la
+  // liste complète, par couches. Sans étable, c'est cette évaluation-ci.
+  const numbering = new Map<SlotPath, number>()
+  if (stable.length > 0) {
+    for (const cross of evaluatePlan(mounts, plan, []).crosses) numbering.set(cross.path, cross.step)
+  }
   const byVariety = new Map<VarietyId, StableMount[]>()
   for (const mount of herd) {
     const list = byVariety.get(mount.variety)
@@ -397,9 +481,20 @@ export function evaluatePlan(
   const carrierFits = (mount: StableMount, varietyId: VarietyId, forGeneration: number | null): boolean => {
     if (mount.variety === varietyId) return true
     if (forGeneration === null) return false
-    const own = mounts.byId.get(mount.variety)
-    return own !== undefined && own.generation < forGeneration
+    return effectiveGeneration(mount) < forGeneration
   }
+
+  /**
+   * La génération qu'une monture vaut : la plus haute entre la sienne et
+   * celles de ses parents. Un bébé raté d'un croisement de génération 4 vaut
+   * ses parents de génération 3 : il retente ce croisement-là, il ne sert
+   * pas un croisement plus bas, même s'il y convenait tel quel.
+   */
+  const effectiveGeneration = (mount: StableMount): number =>
+    Math.max(
+      mounts.byId.get(mount.variety)?.generation ?? 0,
+      ...mount.parents.map((parent) => (parent === null ? 0 : (mounts.byId.get(parent)?.generation ?? 0))),
+    )
 
   // --- Estimation, sans réserver : ce que coûte une monture féconde de la variété. ---
   const estimates = new Map<VarietyId, number>()
@@ -439,9 +534,9 @@ export function evaluatePlan(
 
   /**
    * Les montures « montantes » : un bébé raté dont un parent est d'une
-   * génération supérieure à la sienne. Elles valent plus comme porteuses vers
-   * le haut que comme elles-mêmes — on ne les emploie telles quelles qu'en
-   * dernier, si rien ne reste à porter.
+   * génération supérieure à la sienne. Elles ne servent que comme porteuses
+   * vers le haut, jamais comme elles-mêmes : c'est leur génération la plus
+   * haute qui compte.
    */
   const upward = new Set(
     herd
@@ -459,8 +554,6 @@ export function evaluatePlan(
     cloning: ReadonlySet<VarietyId> | null
     /** Employées telles quelles par la première passe : jamais détournées. */
     protectedIds: ReadonlySet<string>
-    /** Montantes qu'on autorise, faute de mieux, à servir comme elles-mêmes. */
-    exactUpward: ReadonlySet<string>
     /**
      * Ne poser que des couples complets — un mâle et une femelle disponibles
      * pour le même croisement — et laisser les célibataires. Ce qui est posé
@@ -469,6 +562,8 @@ export function evaluatePlan(
      * croisement plus haut dans l'arbre, qui n'avait que celui-là.
      */
     pairsOnly?: boolean
+    /** Avec `pairsOnly` : seules les montures préparées se posent — les couples préparés d'abord. */
+    readyOnly?: boolean
     pins?: ReadonlyMap<SlotPath, string>
     /**
      * Les variétés que l'arbre emploie quelque part : une monture féconde de
@@ -481,18 +576,24 @@ export function evaluatePlan(
     carriers: withCarriers,
     cloning,
     protectedIds,
-    exactUpward,
     pairsOnly = false,
+    readyOnly = false,
     pins,
     inTree,
   }: RunOptions) {
     const slots: Slot[] = []
     const crosses: Cross[] = []
     const reserved = new Map<string, Slot>()
-    const pinned = (path: SlotPath): StableMount | null => {
+    /** Les variétés déjà traversées au-dessus de chaque emplacement, pour y rattacher un croisement après coup. */
+    const trails = new Map<SlotPath, ReadonlySet<VarietyId>>()
+    const pinned = (path: SlotPath, sex: Sex | null = null): StableMount | null => {
       const id = pins?.get(path)
       const mount = id === undefined ? undefined : herd.find((candidate) => candidate.id === id)
-      return mount && !mount.sterile && !reserved.has(mount.id) ? mount : null
+      // Une épingle ne s'impose pas contre le sexe que l'autre parent demande :
+      // deux mâles épinglés face à face ne feront jamais un couple.
+      return mount && !mount.sterile && !reserved.has(mount.id) && (sex === null || mount.sex === null || mount.sex === sex)
+        ? mount
+        : null
     }
     // Une monture épinglée attend son emplacement : personne d'autre ne la prend.
     const pinnedIds = new Set(pins?.values() ?? [])
@@ -500,9 +601,10 @@ export function evaluatePlan(
     const available = (varietyId: VarietyId, sex: Sex | null, forGeneration: number | null): StableMount[] =>
       holders(varietyId)
         .filter((mount) => !mount.sterile && !reserved.has(mount.id) && !pinnedIds.has(mount.id))
+        .filter((mount) => !readyOnly || mount.ready)
         .filter((mount) =>
           mount.variety === varietyId
-            ? !upward.has(mount.id) || exactUpward.has(mount.id)
+            ? !upward.has(mount.id)
             : withCarriers && !protectedIds.has(mount.id) && carrierFits(mount, varietyId, forGeneration),
         )
         .filter((mount) => sex === null || mount.sex === null || mount.sex === sex)
@@ -537,7 +639,7 @@ export function evaluatePlan(
       const alternative = rebuildEstimate(variety, trail)
       let best: { plan: ClonePlan; cost: number } | null = null
       for (const keep of keeps) {
-        const reset = prepCost(xp, { ...keep, ready: false }, settings)
+        const reset = prepCost(xp, { ...keep, ready: false, level: 1 }, settings)
         for (const partner of herd) {
           if (partner.id === keep.id || reserved.has(partner.id)) continue
           const partnerVariety = mounts.byId.get(partner.variety)
@@ -600,12 +702,14 @@ export function evaluatePlan(
         source: 'capture',
         mount: null,
         potential: false,
+        extras: [],
         cross: null,
         clone: null,
         wantedSex,
         issue: null,
       }
       slots.push(slot)
+      trails.set(path, trail)
 
       // La cible : n'importe quelle monture de la variété fait l'affaire,
       // stérile comprise — on ne lui demande plus rien. Une porteuse, non :
@@ -616,7 +720,7 @@ export function evaluatePlan(
       // emplacements qui n'existeront pas.
       const mount =
         preset ??
-        pinned(path) ??
+        pinned(path, wantedSex) ??
         (path === ''
           ? ((byVariety.get(variety.id) ?? [])[0] ?? null)
           : pairsOnly && variety.recipes.length === 0
@@ -640,11 +744,25 @@ export function evaluatePlan(
         return slot
       }
 
+      attach(slot, trail)
+      return slot
+    }
+
+    /**
+     * Le croisement d'un emplacement : la recette, le couple, les deux
+     * parents. Sans recette possible, l'emplacement reste à capturer. Appelé
+     * pour un emplacement vide, et après coup pour un emplacement pourvu dont
+     * « nombre probable » demande d'autres exemplaires (voir `supply`).
+     */
+    function attach(slot: Slot, trail: ReadonlySet<VarietyId>): void {
+      const { path, variety, depth, wantedSex } = slot
+      const settled = slot.mount !== null || slot.clone !== null
       const recipes = trail.has(variety.id) ? [] : variety.recipes
       if (recipes.length === 0) {
+        if (settled) return
         slot.source = 'capture'
         if (wantedSex) slot.issue = `Il faut ${wantedSex === 'male' ? 'un mâle' : 'une femelle'}`
-        return slot
+        return
       }
 
       // La recette : imposée, sinon celle que l'étable rend la moins chère.
@@ -661,8 +779,8 @@ export function evaluatePlan(
       const first = mounts.byId.get(varA)
       const second = mounts.byId.get(varB)
       if (!first || !second) {
-        slot.source = 'capture'
-        return slot
+        if (!settled) slot.source = 'capture'
+        return
       }
 
       // Le couple : un mâle et une femelle parmi ce que l'étable a. Quand les
@@ -713,7 +831,10 @@ export function evaluatePlan(
         : generationChance(settings.targetLevel, settings.targetLevel, settings.optimakina)
 
       const issues = parents.flatMap((parent) => (parent.issue ? [parent.issue] : []))
-      const state: CrossState = !chanceFromMounts ? 'waiting' : issues.length > 0 ? 'blocked' : 'ready'
+      // Prêt : les deux parents en place, et préparés — une monture à
+      // préparer attend encore.
+      const prepared = parents.every((parent) => parent.mount?.ready === true)
+      const state: CrossState = !chanceFromMounts ? 'waiting' : issues.length > 0 ? 'blocked' : prepared ? 'ready' : 'waiting'
 
       const possibleTargets = possibleTargetVarieties(mounts, variety, parents)
       const cross: Cross = {
@@ -731,17 +852,158 @@ export function evaluatePlan(
         step: crosses.length + 1,
       }
       crosses.push(cross)
-      slot.source = 'cross'
+      if (!settled) slot.source = 'cross'
       slot.cross = cross
-      return slot
+    }
+
+    /**
+     * La réserve d'un emplacement : ce que l'étable a en stock de la même
+     * variété — féconde, de sexe connu, libre, et pas une montante —, la plus
+     * haute d'abord. Le sexe est libre : les réserves des deux parents
+     * s'apparient entre elles (voir `pairing`).
+     */
+    const stock = (varietyId: VarietyId): StableMount[] =>
+      (byVariety.get(varietyId) ?? [])
+        .filter(
+          (mount) =>
+            !mount.sterile &&
+            mount.sex !== null &&
+            !reserved.has(mount.id) &&
+            !pinnedIds.has(mount.id) &&
+            !upward.has(mount.id),
+        )
+        .sort((a, b) => b.level - a.level)
+
+    /**
+     * « Nombre probable » demande plusieurs exemplaires par emplacement, et
+     * une monture en place n'en couvre qu'un. Une fois tous les emplacements
+     * pourvus au mieux, on complète : d'abord le croisement de plus sous
+     * chaque emplacement pourvu à qui il manque des exemplaires — ses
+     * parents prennent ce que l'étable a en stock, et une place de parent
+     * vaut plus qu'une réserve —, puis la réserve avec ce qui reste. C'est
+     * lui qui tient la base occupée pendant que le haut de l'arbre se joue,
+     * au lieu d'attendre qu'un échec vide l'emplacement. Les besoins ne se
+     * multiplient pas pour autant (voir `computeNeeds`) : chaque emplacement
+     * de l'arbre n'a toujours qu'un croisement.
+     *
+     * Quand la réserve couvre à elle seule ce qui manquait à un emplacement,
+     * son croisement de plus n'a plus lieu d'être : on défait tout ce que
+     * cette passe a posé et on recommence sans lui — ses parents redeviennent
+     * libres pour d'autres places, ce qu'un simple retrait après coup ne
+     * rendrait pas.
+     */
+    function supply(root: Slot): void {
+      const skip = new Set<SlotPath>()
+      for (let round = 0; round < 8; round++) {
+        const attached: Slot[] = []
+        for (;;) {
+          const needs = computeNeeds(root, 'rounded')
+          const short = slots.filter(
+            (slot) =>
+              slot.path !== '' &&
+              slot.cross === null &&
+              (slot.mount !== null || slot.clone !== null) &&
+              !skip.has(slot.path) &&
+              !attached.includes(slot) &&
+              (needs.get(slot.path)?.missing ?? 0) > 0,
+          )
+          if (short.length === 0) break
+          for (const slot of short) {
+            attached.push(slot)
+            attach(slot, trails.get(slot.path) ?? new Set())
+          }
+        }
+        const needs = computeNeeds(root, 'rounded')
+        // La réserve, croisement par croisement : d'abord un partenaire pour
+        // chaque monture restée seule en face, puis des paires mâle-femelle
+        // prises des deux côtés à la fois, enfin le reste dans l'ordre de
+        // l'arbre — des exemplaires qui attendront leur partenaire.
+        const missingOf = (slot: Slot): number => (needs.get(slot.path)?.need ?? 0) - 1 - slot.extras.length
+        const fill = (slot: Slot, count: number, fits: (mount: StableMount) => boolean): number => {
+          let done = 0
+          for (const mount of stock(slot.variety.id)) {
+            if (done >= count) break
+            if (!fits(mount)) continue
+            reserved.set(mount.id, slot)
+            slot.extras.push(mount)
+            done += 1
+          }
+          return done
+        }
+        for (const cross of crosses) {
+          const [a, b] = cross.parents
+          if (!a.mount || !b.mount || a.mount.sex === null || b.mount.sex === null) continue
+          const single = pairing(cross).single
+          for (const [side, other] of [[a, b], [b, a]] as const) {
+            for (const lonely of single[side === a ? 0 : 1]) {
+              if (missingOf(other) <= 0) break
+              fill(other, 1, (mount) => mount.sex === opposite(lonely.sex!))
+            }
+          }
+          while (missingOf(a) > 0 && missingOf(b) > 0) {
+            const forA = stock(a.variety.id)
+            const forB = stock(b.variety.id)
+            const x = forA.find((candidate) => forB.some((partner) => partner.sex !== candidate.sex))
+            const y = x && forB.find((partner) => partner.sex !== x.sex)
+            if (!x || !y) break
+            reserved.set(x.id, a)
+            a.extras.push(x)
+            reserved.set(y.id, b)
+            b.extras.push(y)
+          }
+        }
+        for (const slot of slots) {
+          if (slot.path === '' || !slot.mount || slot.mount.sex === null) continue
+          fill(slot, missingOf(slot), () => true)
+        }
+        const covered = computeNeeds(root, 'rounded')
+        const useless = slots.filter(
+          (slot) => slot.cross !== null && slot.mount !== null && (covered.get(slot.path)?.missing ?? 0) === 0,
+        )
+        // Un emplacement écarté que la réserve ne couvre finalement pas
+        // retrouve son croisement au tour suivant.
+        const uncovered = [...skip].filter((path) => (covered.get(path)?.missing ?? 0) > 0)
+        if (useless.length === 0 && uncovered.length === 0) return
+        for (const slot of attached) if (slots.includes(slot)) detach(slot)
+        for (const slot of slots) {
+          for (const extra of slot.extras) reserved.delete(extra.id)
+          slot.extras = []
+        }
+        for (const slot of useless) skip.add(slot.path)
+        for (const path of uncovered) skip.delete(path)
+      }
+    }
+
+    /** Défait le croisement d'un emplacement pourvu : tout ce qui vivait en dessous disparaît, ses montures sont rendues. */
+    function detach(slot: Slot): void {
+      const cross = slot.cross
+      if (!cross) return
+      slot.cross = null
+      const gone = new Set<Slot>()
+      const visit = (node: Slot) => {
+        gone.add(node)
+        if (node.cross) for (const parent of node.cross.parents) visit(parent)
+      }
+      for (const parent of cross.parents) visit(parent)
+      for (const [id, owner] of [...reserved]) if (gone.has(owner)) reserved.delete(id)
+      for (let i = slots.length - 1; i >= 0; i--) if (gone.has(slots[i]!)) slots.splice(i, 1)
+      for (let i = crosses.length - 1; i >= 0; i--) if (crosses[i] === cross || gone.has(crosses[i]!.child)) crosses.splice(i, 1)
+      for (const node of gone) trails.delete(node.path)
     }
 
     const root = build('', target, 0, new Set(), null, null, null)
+    if (settings.probable && !pairsOnly) supply(root)
     // Par couches, le bas de l'arbre d'abord : on capture, puis on monte
     // d'un rang à la fois, jusqu'à la cible.
+    // Par couches, le bas de l'arbre d'abord : on capture, puis on monte
+    // d'un rang à la fois, jusqu'à la cible. Les numéros sont ceux de la
+    // recette théorique (`numbering`) : une étape garde son numéro quand
+    // celles d'à côté sont faites, et l'étable dit « visée pour l'étape 3 »
+    // sans que le 3 bouge.
     crosses.sort((a, b) => b.child.depth - a.child.depth || a.path.localeCompare(b.path))
-    crosses.forEach((cross, index) => {
-      cross.step = index + 1
+    let next = numbering.size
+    crosses.forEach((cross) => {
+      cross.step = numbering.get(cross.path) ?? ++next
     })
     return { root, slots, crosses, reserved }
   }
@@ -749,9 +1011,7 @@ export function evaluatePlan(
   // Par passes. La première n'emploie que les montures telles quelles (les
   // montantes exceptées) : ce qu'elle prend est protégé. La deuxième y ajoute
   // les porteuses, et dit ce qui manque encore — seules ces variétés-là
-  // valent un clonage. La troisième planifie les clonages pour elles. Une
-  // dernière, s'il reste des montantes sans emploi et des manques, les laisse
-  // servir comme elles-mêmes.
+  // valent un clonage. La troisième planifie les clonages pour elles.
   const lacking = (result: ReturnType<typeof run>) =>
     new Set(result.slots.filter((slot) => slot.mount === null).map((slot) => slot.variety.id))
   /**
@@ -761,9 +1021,15 @@ export function evaluatePlan(
    * le demande — et le couple prêt attendrait pour rien.
    */
   const settle = (options: RunOptions) => {
-    const couples = run({ ...options, pairsOnly: true })
     const pins = new Map<SlotPath, string>()
-    for (const [id, slot] of couples.reserved) if (slot.mount?.id === id) pins.set(slot.path, id)
+    const pin = (result: ReturnType<typeof run>) => {
+      for (const [id, slot] of result.reserved) if (slot.mount?.id === id) pins.set(slot.path, id)
+    }
+    // Les couples de montures préparées d'abord : deux préparées vont
+    // ensemble plutôt que chacune avec une monture à préparer — sans quoi le
+    // premier croisement rencontré prendrait la préparée pour lui seul.
+    pin(run({ ...options, pairsOnly: true, readyOnly: true }))
+    pin(run({ ...options, pairsOnly: true, pins }))
     let result = run({ ...options, pins })
     // Une épingle dont l'emplacement n'a pas été visité retiendrait sa
     // monture pour rien : on la relâche et on rejoue.
@@ -775,17 +1041,23 @@ export function evaluatePlan(
     return result
   }
   const none = new Set<string>()
-  const first = settle({ carriers: false, cloning: null, protectedIds: none, exactUpward: none })
+  const first = settle({ carriers: false, cloning: null, protectedIds: none })
   let chosen = first
   if (lacking(first).size > 0) {
     const guarded = new Set(first.reserved.keys())
     const inTree = new Set(first.slots.map((slot) => slot.variety.id))
-    const second = settle({ carriers: true, cloning: null, protectedIds: guarded, exactUpward: none, inTree })
+    const second = settle({ carriers: true, cloning: null, protectedIds: guarded, inTree })
     const missing = lacking(second)
-    chosen = missing.size > 0 ? settle({ carriers: true, cloning: missing, protectedIds: guarded, exactUpward: none, inTree }) : second
-    const idle = new Set([...upward].filter((id) => !chosen.reserved.has(id)))
-    if (idle.size > 0 && lacking(chosen).size > 0) {
-      chosen = settle({ carriers: true, cloning: lacking(second), protectedIds: guarded, exactUpward: idle, inTree })
+    chosen = second
+    // Un clonage pourvoit un emplacement, et « nombre probable » lui rattache
+    // alors un croisement de plus, dont les parents peuvent manquer à leur
+    // tour : on élargit les variétés à cloner tant qu'il en apparaît, plutôt
+    // que de ne découvrir le clonage suivant qu'après avoir fait le premier.
+    for (let round = 0; missing.size > 0 && round < 8; round++) {
+      chosen = settle({ carriers: true, cloning: missing, protectedIds: guarded, inTree })
+      const before = missing.size
+      for (const id of lacking(chosen)) missing.add(id)
+      if (missing.size === before) break
     }
   }
   const { root, slots, crosses, reserved } = chosen
@@ -802,7 +1074,7 @@ export function evaluatePlan(
     const need = meanNeeds.get(slot.path)
     if (!need) continue
     meanAttempts += need.attempts
-    if (slot.source === 'capture') meanCaptures += need.missing
+    if (capturesOnly(slot)) meanCaptures += need.missing
   }
 
   return {
@@ -821,14 +1093,7 @@ export function evaluatePlan(
       slots,
       crosses,
       needs,
-      // L'enclos des captures : les sauvages de l'espèce, qu'un emplacement
-      // les emploie ou non. Les stériles y sont encore — un lot entamé se
-      // finit d'accoupler avant qu'on reparte capturer — mais ne prennent
-      // pas de place au lot suivant.
-      herd.filter((mount) => (mounts.byId.get(mount.variety)?.recipes.length ?? 1) === 0).length,
-      herd.filter(
-        (mount) => !mount.sterile && (mounts.byId.get(mount.variety)?.recipes.length ?? 1) === 0,
-      ).length,
+      enclosuresFor(settings.breederLevel),
     ),
     remaining,
     done: root.mount !== null,
@@ -852,7 +1117,7 @@ function computeNeeds(root: Slot, mode: NeedMode): Map<SlotPath, SlotNeed> {
   const perCross = (chance: number): number =>
     mode === 'one' ? 1 : mode === 'rounded' ? plannedAttempts(chance) : meanAttempts(chance)
   function walk(slot: Slot, need: number) {
-    const have = slot.mount || slot.clone ? 1 : 0
+    const have = slot.mount ? 1 + slot.extras.length : slot.clone ? 1 : 0
     const missing = Math.max(0, need - have)
     const attempts = slot.cross && missing > 0 ? perCross(slot.cross.chance) : 0
     needs.set(slot.path, { need, missing, attempts })
@@ -909,12 +1174,28 @@ function addNeed(
   entry.missing += need.missing
   entry.owned += need.need - need.missing
   if (need.missing > 0) {
-    if (slot.wantedSex === 'male') entry.male += need.missing
-    else if (slot.wantedSex === 'female') entry.female += need.missing
+    const sex = unitSex(slot)
+    if (sex === 'male') entry.male += need.missing
+    else if (sex === 'female') entry.female += need.missing
     else entry.any += need.missing
   }
   into.set(slot.variety.id, entry)
 }
+
+/**
+ * Un emplacement dont les exemplaires manquants ne viendront que de captures :
+ * aucun croisement n'y est rattaché — génération 1, variété hors élevage, ou
+ * boucle de recettes. Une monture en place n'y change rien : ce qui manque
+ * au-delà d'elle se capture aussi.
+ */
+const capturesOnly = (slot: Slot): boolean => slot.path !== '' && slot.cross === null
+
+/**
+ * Le sexe des exemplaires qui manquent à un emplacement : celui que l'autre
+ * parent impose quand il est seul en face, sinon aucun — la réserve
+ * s'apparie librement.
+ */
+const unitSex = (slot: Slot): Sex | null => slot.wantedSex
 
 /**
  * Les ancêtres de chaque rang : les parents, puis les grands-parents, puis…
@@ -982,21 +1263,25 @@ function possibleTargetVarieties(
 }
 
 /**
- * La prochaine chose à faire, une seule — mais à l'échelle d'un enclos. Dans
- * l'ordre : dire ce qu'on ne sait pas (un sexe), accoupler tous les couples
- * prêts qui tiennent dans un enclos, cloner ce qui s'y prête — une remise à
- * zéro de jauges coûte moins qu'une branche —, et enfin capturer un lot de ce
- * qui manque, le bas de l'arbre d'abord.
+ * La prochaine chose à faire, une seule — à l'échelle des enclos, et en
+ * cycles : accoupler tout ce qui est préparé, cloner ce qui complétera un
+ * couple, capturer de quoi porter à cinq par enclos les couples possibles,
+ * préparer les enclos, et recommencer. Rien n'est mémorisé : chaque étape
+ * se lit dans l'étable — une monture est préparée ou non, stérile ou non —,
+ * et un résultat inattendu redistribue tout au prochain calcul.
+ *
+ * L'accouplement passe devant : dès qu'un couple préparé existe, on
+ * l'accouple, et on ne revoit ce qu'il y a à préparer qu'après. Les bébés
+ * naissent à préparer, une survivante aussi : aucun nouveau couple
+ * n'apparaît avant la fécondation suivante.
  */
 function suggest(
   root: Slot,
   slots: Slot[],
   crosses: Cross[],
   needs: ReadonlyMap<SlotPath, SlotNeed>,
-  /** Sauvages à l'étable, stériles compris : l'enclos entamé. */
-  inEnclosure: number,
-  /** Sauvages féconds seulement : ce qui prend une place au prochain lot. */
-  fertileWild: number,
+  /** Les enclos de l'éleveur : dix montures et cinq couples chacun. */
+  enclosures: number,
 ): Suggestion {
   if (root.mount) return { kind: 'done' }
 
@@ -1006,63 +1291,152 @@ function suggest(
     }
   }
 
-  // Les captures, une unité par monture manquante, le bas de l'arbre d'abord.
-  const units: { variety: MountVariety; sex: Sex | null }[] = []
-  const pending = [...slots]
-    .filter((slot) => slot.source === 'capture')
-    .sort((a, b) => b.depth - a.depth || a.path.localeCompare(b.path))
-  for (const slot of pending) {
-    const missing = needs.get(slot.path)?.missing ?? 0
-    for (let i = 0; i < missing; i++) units.push({ variety: slot.variety, sex: slot.wantedSex })
-  }
+  const capacity = (ENCLOSURE_CAPACITY / 2) * enclosures
+  // La génération la plus haute d'abord — la plus dure à obtenir —, puis
+  // l'ordre des étapes, le bas de l'arbre en premier.
+  const ordered = [...crosses].sort(
+    (a, b) => b.child.variety.generation - a.child.variety.generation || a.step - b.step,
+  )
+  const inPlan = (fits: (mount: StableMount) => boolean): StableMount[] =>
+    slots
+      .filter((slot) => slot.path !== '')
+      .flatMap((slot) => [...(slot.mount ? [slot.mount] : []), ...slot.extras])
+      .filter((mount) => !mount.sterile && fits(mount))
 
-  // L'enclos des captures : les sauvages en place, accouplés ou non. Tant
-  // qu'il n'est pas plein et qu'il reste à capturer, on finit le lot ; les
-  // accouplements viennent quand il est plein — un lot entamé se finit
-  // d'accoupler — ou quand il n'y a plus rien à capturer.
-  const ready = crosses.filter((cross) => cross.state === 'ready')
-  if (ready.length > 0 && (units.length === 0 || inEnclosure >= ENCLOSURE_CAPACITY)) {
-    return { kind: 'breeds', crosses: ready.slice(0, ENCLOSURE_CAPACITY / 2) }
-  }
+  // 1. Accoupler ce qui est préparé.
+  const prepared: BreedCouple[] = ordered.flatMap((cross) =>
+    couplesOf(cross, true).map((parents) => ({ cross, parents })),
+  )
+  const pending = inPlan((mount) => !mount.ready)
+  if (prepared.length > 0) return { kind: 'breeds', couples: prepared.slice(0, capacity), pending }
 
-  // Puis les clonages : deux stériles se détruisent pour en rendre une
-  // féconde, et chaque emplacement qui en attend une a déjà sa paire — la
-  // plus utile, choisie à l'évaluation. On clone avant de recapturer, pour
-  // que les survivantes partent dans le prochain lot à préparer. Un enclos à
-  // la fois.
-  const cloneSlots = slots.filter((slot) => slot.source === 'clone' && slot.clone !== null)
+  // 2. Cloner, quand la survivante complète un couple : l'autre parent est
+  // là, ou se capture. Les autres stériles attendent une vraie occasion.
+  const byPath = new Map(slots.map((slot) => [slot.path, slot]))
+  const siblingOf = (slot: Slot): Slot | undefined =>
+    byPath.get(slot.path.slice(0, -1) + (slot.path.endsWith('0') ? '1' : '0'))
+  const cloneSlots = slots.filter((slot) => {
+    if (slot.source !== 'clone' || slot.clone === null) return false
+    const sibling = siblingOf(slot)
+    return sibling !== undefined && (sibling.mount !== null || sibling.clone !== null || capturesOnly(sibling))
+  })
   if (cloneSlots.length > 0) {
     return {
       kind: 'clones',
-      items: cloneSlots
-        .slice(0, ENCLOSURE_CAPACITY / 2)
-        .map((slot) => ({ slot, clone: slot.clone! })),
+      items: cloneSlots.slice(0, capacity).map((slot) => ({ slot, clone: slot.clone! })),
     }
   }
 
-  if (units.length === 0) return { kind: 'done' }
-
-  // Ce que l'enclos peut encore accueillir fait le lot, le reste attend le suivant.
-  const room = Math.max(1, ENCLOSURE_CAPACITY - fertileWild)
-  const batch = new Map<VarietyId, CaptureBatchEntry>()
-  for (const unit of units.slice(0, room)) {
-    const entry = batch.get(unit.variety.id) ?? { variety: unit.variety, count: 0, male: 0, female: 0, any: 0 }
-    entry.count += 1
-    if (unit.sex === 'male') entry.male += 1
-    else if (unit.sex === 'female') entry.female += 1
-    else entry.any += 1
-    batch.set(unit.variety.id, entry)
+  // 3. Capturer de quoi porter à cinq les couples possibles, préparés ou non.
+  // Une unité par exemplaire manquant, le bas de l'arbre d'abord et par
+  // tours — un exemplaire de chaque emplacement, puis le deuxième de chacun.
+  // Le sexe n'est imposé que si une monture d'en face attend un partenaire ;
+  // sinon il est libre, au choix du joueur.
+  const possible = ordered.reduce((sum, cross) => sum + couplesOf(cross).length, 0)
+  const deficit = capacity - possible
+  interface Unit {
+    variety: MountVariety
+    sex: Sex | null
+    cross: Cross | null
+    side: 0 | 1
   }
-  const entries = [...batch.values()].sort((a, b) => a.variety.name.localeCompare(b.variety.name, 'fr'))
-  const total = Math.min(units.length, room)
-  return { kind: 'captures', entries, total, remaining: units.length - total }
+  const units: Unit[] = []
+  const pendingSlots = [...slots]
+    .filter(capturesOnly)
+    .sort((a, b) => b.depth - a.depth || a.path.localeCompare(b.path))
+    .map((slot) => {
+      const parent = byPath.get(slot.path.slice(0, -1))
+      const cross = parent?.cross ?? null
+      const side: 0 | 1 = slot.path.endsWith('0') ? 0 : 1
+      // Les montures d'en face restées seules : chacune demande le sexe opposé.
+      const demands = cross ? pairing(cross).single[side === 0 ? 1 : 0].map((mount) => opposite(mount.sex!)) : []
+      const missing = needs.get(slot.path)?.missing ?? 0
+      return { slot, cross, side, missing, demands }
+    })
+  const rounds = Math.max(0, ...pendingSlots.map((entry) => entry.missing))
+  for (let round = 0; round < rounds; round++) {
+    for (const entry of pendingSlots) {
+      if (entry.missing <= round) continue
+      units.push({
+        variety: entry.slot.variety,
+        sex: entry.demands[round] ?? unitSex(entry.slot),
+        cross: entry.cross,
+        side: entry.side,
+      })
+    }
+  }
+  const batchOf = (taken: Unit[]): Suggestion => {
+    const batch = new Map<VarietyId, CaptureBatchEntry>()
+    for (const unit of taken) {
+      const entry = batch.get(unit.variety.id) ?? { variety: unit.variety, count: 0, male: 0, female: 0, any: 0 }
+      entry.count += 1
+      if (unit.sex === 'male') entry.male += 1
+      else if (unit.sex === 'female') entry.female += 1
+      else entry.any += 1
+      batch.set(unit.variety.id, entry)
+    }
+    const entries = [...batch.values()].sort((a, b) => a.variety.name.localeCompare(b.variety.name, 'fr'))
+    return { kind: 'captures', entries, total: taken.length, remaining: units.length - taken.length, couples: possible, target: capacity }
+  }
+  if (deficit > 0 && units.length > 0) {
+    // On prend les unités dans l'ordre jusqu'à gagner les couples qui
+    // manquent : une unité fait un couple quand l'autre côté a une monture
+    // de plus qu'elle.
+    const have = new Map<Cross, [number, number]>()
+    const fertile = (slot: Slot) => [...(slot.mount ? [slot.mount] : []), ...slot.extras].filter((mount) => !mount.sterile).length
+    for (const unit of units) {
+      if (unit.cross && !have.has(unit.cross)) have.set(unit.cross, [fertile(unit.cross.parents[0]), fertile(unit.cross.parents[1])])
+    }
+    let gained = 0
+    const taken: Unit[] = []
+    for (const unit of units) {
+      if (gained >= deficit) break
+      taken.push(unit)
+      const counts = unit.cross ? have.get(unit.cross) : undefined
+      if (!counts) continue
+      const before = Math.min(counts[0], counts[1])
+      counts[unit.side] += 1
+      gained += Math.min(counts[0], counts[1]) - before
+    }
+    if (gained > 0) return batchOf(taken)
+  }
+
+  // 4. Préparer les enclos : dix montures par enclos, celles qui font couple
+  // d'abord — génération la plus haute en tête —, puis le reste ; au-delà,
+  // la suite attend la vague suivante.
+  if (pending.length > 0) {
+    const chosen: StableMount[] = []
+    const seen = new Set<string>()
+    const take = (mount: StableMount) => {
+      if (mount.ready || seen.has(mount.id)) return
+      seen.add(mount.id)
+      chosen.push(mount)
+    }
+    for (const cross of ordered) for (const [x, y] of couplesOf(cross)) {
+      take(x)
+      take(y)
+    }
+    for (const mount of pending) take(mount)
+    const kept = chosen.slice(0, ENCLOSURE_CAPACITY * enclosures)
+    const groups: StableMount[][] = []
+    for (let start = 0; start < kept.length; start += ENCLOSURE_CAPACITY) {
+      groups.push(kept.slice(start, start + ENCLOSURE_CAPACITY))
+    }
+    return { kind: 'prepare', enclosures: groups }
+  }
+
+  // 5. Il n'y a pas cinq couples et rien ne complète : on accouple ce qu'on a,
+  // sinon on capture ce qui manque plus haut, un enclos à la fois.
+  if (prepared.length > 0) return { kind: 'breeds', couples: prepared.slice(0, capacity), pending }
+  if (units.length > 0) return batchOf(units.slice(0, ENCLOSURE_CAPACITY * enclosures))
+  return { kind: 'done' }
 }
 
 /** Ce qu'il faut capturer : les emplacements sans monture ni recette, par variété, au nombre et au sexe voulus. */
 export function captures(evaluation: Evaluation): VarietyNeed[] {
   const counts = new Map<VarietyId, VarietyNeed>()
   for (const slot of evaluation.slots) {
-    if (slot.source !== 'capture') continue
+    if (!capturesOnly(slot)) continue
     const need = evaluation.needs.get(slot.path)
     if (!need || need.missing === 0) continue
     addNeed(counts, slot, need)
@@ -1157,22 +1531,26 @@ export function estimateCost(
 
   let toObtain = 0
   let meanToObtain = 0
-  let clones = 0
-  let cloneFeed = 0
+  let toCapture = 0
+  let inPlace = 0
+  let inPlaceFeed = 0
   for (const slot of evaluation.slots) {
     if (slot.path === '') continue
-    // Au-delà de la monture en place, chaque exemplaire manquant est à préparer.
-    toObtain += evaluation.needs.get(slot.path)?.missing ?? 0
+    // Au-delà des montures en place, chaque exemplaire manquant est à préparer.
+    const missingHere = evaluation.needs.get(slot.path)?.missing ?? 0
+    toObtain += missingHere
     meanToObtain += evaluation.meanNeeds.get(slot.path)?.missing ?? 0
-    if (slot.mount) {
-      // Une survivante de clonage pas encore confirmée : ses jauges restent à refaire.
-      if (!slot.mount.ready) {
-        clones += 1
-        cloneFeed += Math.max(0, settings.feedPoints - xpAtLevel(xp, slot.mount.level))
-      }
-    } else if (slot.clone) {
-      clones += 1
-      cloneFeed += Math.max(0, settings.feedPoints - xpAtLevel(xp, slot.clone.keep.level))
+    if (capturesOnly(slot)) toCapture += missingHere
+    // Les montures en place pas encore préparées — captures, bébés,
+    // survivantes de clonage — ont leurs jauges à faire depuis leur niveau.
+    for (const mount of [...(slot.mount ? [slot.mount] : []), ...slot.extras]) {
+      if (mount.sterile || mount.ready) continue
+      inPlace += 1
+      inPlaceFeed += Math.max(0, settings.feedPoints - xpAtLevel(xp, mount.level))
+    }
+    if (!slot.mount && slot.clone) {
+      inPlace += 1
+      inPlaceFeed += Math.max(0, settings.feedPoints - xpAtLevel(xp, 1))
     }
   }
   const newFeed = Math.max(0, settings.feedPoints - xpAtLevel(xp, 1))
@@ -1185,12 +1563,27 @@ export function estimateCost(
       detail: `${toObtain} monture${toObtain > 1 ? 's' : ''} à faire naître ou à capturer, du niveau 1 aux jauges pleines, par enclos de ${ENCLOSURE_CAPACITY}`,
     },
   ]
-  if (clones > 0) {
+  if (inPlace > 0) {
     lines.push({
-      label: 'Jauges à refaire après clonage',
-      points: (cloneFeed + clones * fertility) * share,
-      amount: priceOf(cloneFeed, clones * fertility),
-      detail: `${clones} survivante${clones > 1 ? 's' : ''} de clonage, jauges à zéro, jusqu’à confirmation — par enclos de ${ENCLOSURE_CAPACITY}`,
+      label: 'Montures en place à préparer',
+      points: (inPlaceFeed + inPlace * fertility) * share,
+      amount: priceOf(inPlaceFeed, inPlace * fertility),
+      detail: `${inPlace} monture${inPlace > 1 ? 's' : ''} à l’étable ou à cloner, pas encore préparée${inPlace > 1 ? 's' : ''} : mangeoire depuis leur niveau et jauges de fécondité, par enclos de ${ENCLOSURE_CAPACITY}`,
+    })
+  }
+  if (toCapture > 0) {
+    // Un filet par capture : le filet universel, celui qui prend toute monture sauvage.
+    const net = catalog.items.find((item) => item.name === CAPTURE_NET_NAME) ?? null
+    const netPrice = net === null ? null : ignored?.has(net.id) ? 0 : (prices.get(net.id) ?? null)
+    if (net !== null && netPrice === null) {
+      missing.add(`${CAPTURE_NET_NAME} sans prix`)
+      unpriced.set(net.id, net)
+    }
+    lines.push({
+      label: 'Filets de capture',
+      points: 0,
+      amount: netPrice === null ? null : netPrice * toCapture,
+      detail: `${toCapture} ${CAPTURE_NET_NAME}${toCapture > 1 ? 's' : ''}, un par monture à capturer`,
     })
   }
   let meanOptimakina = 0

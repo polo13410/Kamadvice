@@ -36,6 +36,7 @@ import { useCatalog } from "../data/catalogContext";
 import { useIgnored } from "../data/ignored";
 import {
   addMount,
+  prepareMount,
   recordBreeding,
   forgetEvent,
   recordClone,
@@ -62,6 +63,9 @@ import {
   attemptsFor,
   captures,
   CONFIDENCE_LEVELS,
+  ENCLOSURE_CAPACITY,
+  ENCLOSURES_MAX,
+  enclosuresFor,
   estimateCost,
   evaluatePlan,
   meanAttempts,
@@ -135,51 +139,40 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
   const toCapture = useMemo(() => captures(evaluation), [evaluation]);
   const ranks = useMemo(() => ancestorRows(evaluation), [evaluation]);
   /**
-   * Les étapes, par couches : les croisements restants, et les montures déjà
-   * obtenues qui en tenaient lieu — celles qui ont une recette et sont à
-   * l'étable —, pour voir le chemin parcouru avec le chemin qui reste.
+   * Les étapes : la liste complète des croisements de la recette théorique,
+   * par couches et dans un ordre qui ne bouge pas. Chacune est ce que le
+   * plan en fait aujourd'hui — à croiser, obtenue (cochée), à cloner, ou
+   * plus nécessaire parce qu'une monture plus haut couvre la branche.
    */
   const steps = useMemo(() => {
-    // La profondeur d'une variété dans la recette théorique : c'est elle qui
-    // range dans les couches ce que le journal raconte, même quand la branche
-    // n'existe plus dans le plan recalculé.
-    const theoretical = evaluatePlan(catalog.mounts, theoreticalPlan(target.id, plan.settings), []);
-    const depthOf = new Map<number, number>();
-    for (const slot of theoretical.slots) {
-      const known = depthOf.get(slot.variety.id);
-      if (known === undefined || slot.depth < known) depthOf.set(slot.variety.id, slot.depth);
-    }
-    const species = (id: number) => catalog.mounts.byId.get(id)?.species;
-    const events = journal.filter((event) =>
-      species(event.kind === "breeding" ? event.baby.variety : event.survivor.variety) === target.species,
+    const theoretical = evaluatePlan(
+      catalog.mounts,
+      { ...theoreticalPlan(target.id, plan.settings), recipes: plan.recipes },
+      [],
     );
-    const born = new Set(events.flatMap((event) => (event.kind === "breeding" ? [event.baby.id] : [])));
-
+    const byPath = new Map(evaluation.slots.map((slot) => [slot.path, slot]));
     type Entry =
-      | { depth: number; path: string; kind: "cross"; cross: Cross; slot: Slot }
-      | { depth: number; path: string; kind: "owned"; slot: Slot }
-      | { depth: number; path: string; kind: "event"; event: JournalEvent };
-    const items: Entry[] = [
-      ...evaluation.crosses.map(
-        (cross): Entry => ({ depth: cross.child.depth, path: cross.path, kind: "cross", cross, slot: cross.child }),
-      ),
-      // Une monture à l'étable qui a une recette : obtenue, sauf si le journal
-      // raconte déjà sa naissance.
-      ...evaluation.slots
-        .filter((slot) => slot.mount !== null && slot.variety.recipes.length > 0 && !born.has(slot.mount.id))
-        .map((slot): Entry => ({ depth: slot.depth, path: slot.path, kind: "owned", slot })),
-      ...events.map((event): Entry => ({
-        depth: depthOf.get(event.kind === "breeding" ? (event.intended ?? event.baby.variety) : event.survivor.variety) ?? -1,
-        path: `~${event.at}`,
-        kind: "event",
-        event,
-      })),
-    ];
-    const rank = { event: 0, owned: 1, cross: 2 } as const;
-    return items.sort(
-      (a, b) => b.depth - a.depth || rank[a.kind] - rank[b.kind] || a.path.localeCompare(b.path),
-    );
-  }, [catalog.mounts, evaluation, journal, plan.settings, target]);
+      | { depth: number; path: string; number: number; kind: "cross"; cross: Cross }
+      | { depth: number; path: string; number: number; kind: "owned"; slot: Slot }
+      | { depth: number; path: string; number: number; kind: "clone"; slot: Slot }
+      | { depth: number; path: string; number: number; kind: "covered"; slot: Slot };
+    return theoretical.crosses.map((planned): Entry => {
+      const base = { depth: planned.child.depth, path: planned.path, number: planned.step };
+      const slot = byPath.get(planned.path);
+      if (slot?.cross) return { ...base, kind: "cross", cross: slot.cross };
+      if (slot?.mount) return { ...base, kind: "owned", slot };
+      if (slot?.clone) return { ...base, kind: "clone", slot };
+      return { ...base, kind: "covered", slot: planned.child };
+    });
+  }, [catalog.mounts, evaluation, plan.recipes, plan.settings, target]);
+  const history = useMemo(() => {
+    const species = (id: number) => catalog.mounts.byId.get(id)?.species;
+    return journal
+      .filter((event) =>
+        species(event.kind === "breeding" ? event.baby.variety : event.survivor.variety) === target.species,
+      )
+      .sort((a, b) => b.at.localeCompare(a.at));
+  }, [catalog.mounts, journal, target]);
   const settings = plan.settings;
   const totalToCapture = toCapture.reduce(
     (sum, entry) => sum + entry.missing,
@@ -277,11 +270,7 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
         )}
       </DashboardHeader>
 
-      <NextStep
-        suggestion={evaluation.suggestion}
-        target={target}
-        level={settings.targetLevel}
-      />
+      <NextStep suggestion={evaluation.suggestion} target={target} level={settings.targetLevel} />
 
       {/* Les réglages : ce que les chiffres supposent de chaque parent. Niveau
           et points sont les deux faces de la table d'XP. */}
@@ -302,6 +291,28 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
               }}
               className={`${FIELD_NUMBER} w-20`}
             />
+          </label>
+        </Tooltip>
+        <FilterDivider />
+        <Tooltip content={`Niveau du métier d’éleveur : un enclos jusqu’au niveau 39, un de plus tous les 40 niveaux, ${ENCLOSURES_MAX} au niveau 200. Chaque enclos prépare ${ENCLOSURE_CAPACITY} montures et accouple ${ENCLOSURE_CAPACITY / 2} couples à la fois.`}>
+          <label className="flex h-9 items-center gap-2 text-sm text-slate-400">
+            <Icon.breeding className="size-4" aria-hidden />
+            Éleveur
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={settings.breederLevel}
+              onChange={(event) => {
+                const level = Number(event.target.value);
+                if (Number.isInteger(level) && level >= 1 && level <= 200)
+                  updateSettings(plan.id, { breederLevel: level });
+              }}
+              className={`${FIELD_NUMBER} w-20`}
+            />
+            <span className="text-xs text-slate-600">
+              {enclosuresFor(settings.breederLevel)} enclos
+            </span>
           </label>
         </Tooltip>
         <FilterDivider />
@@ -375,11 +386,7 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
                         className="ml-auto"
                         need={entry}
                         onAdd={(sex) =>
-                          addMount({
-                            variety: entry.variety.id,
-                            sex,
-                            level: settings.targetLevel,
-                          })
+                          addMount({ variety: entry.variety.id, sex })
                         }
                       />
                     </li>
@@ -431,11 +438,7 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
                             <SexAddButtons
                               need={entry}
                               onAdd={(sex) =>
-                                addMount({
-                                  variety: entry.variety.id,
-                                  sex,
-                                  level: settings.targetLevel,
-                                })
+                                addMount({ variety: entry.variety.id, sex })
                               }
                             />
                           </div>
@@ -452,14 +455,12 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
 
       <Section
         icon={Icon.cross}
-        title="Croisements restants, dans l’ordre"
-        note="Une ligne par croisement : ce qu'on a, ce qui manque, ce que ça donne. Les montures se déclarent depuis la suggestion ou l'étable ; « Accoupler » enregistre le résultat réel, stérilise les parents et recalcule tout."
+        title="Les étapes, dans l’ordre"
+        note="Toutes les étapes de la recette, par couches, dans un ordre qui ne bouge pas : une étape faite se coche, une étape couverte par une monture plus haut aussi. Les montures se déclarent depuis la suggestion ou l'étable ; « Accoupler » enregistre le résultat réel, stérilise les parents et recalcule tout."
       >
-        {evaluation.crosses.length === 0 ? (
+        {steps.length === 0 ? (
           <p className="rounded-lg border border-slate-800 p-3 text-sm text-slate-500">
-            {evaluation.done
-              ? "La cible est à l’étable : rien à croiser."
-              : "Aucun croisement : tout s’obtient par capture ou clonage."}
+            Aucun croisement : tout s’obtient par capture.
           </p>
         ) : (
           <ol className="space-y-2">
@@ -472,9 +473,7 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
                     <li className="pt-2 text-[11px] uppercase tracking-wide text-slate-500 first:pt-0">
                       {entry.depth === 0
                         ? "La cible"
-                        : entry.depth < 0
-                          ? "Hors du plan"
-                          : `Vers les ${ancestorRank(entry.depth).toLowerCase()}`}
+                        : `Vers les ${ancestorRank(entry.depth).toLowerCase()}`}
                     </li>
                   )}
                   {entry.kind === "cross" ? (
@@ -482,13 +481,17 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
                       planId={plan.id}
                       cross={entry.cross}
                       evaluation={evaluation}
-                      level={settings.targetLevel}
                       probable={settings.probable}
                     />
-                  ) : entry.kind === "owned" ? (
-                    <DoneStep slot={entry.slot} recipe={plan.recipes[entry.path] ?? 0} />
+                  ) : entry.kind === "clone" ? (
+                    <CloneStep number={entry.number} slot={entry.slot} />
                   ) : (
-                    <HistoryStep event={entry.event} stable={stable} />
+                    <DoneStep
+                      number={entry.number}
+                      slot={entry.slot}
+                      recipe={plan.recipes[entry.path] ?? 0}
+                      covered={entry.kind === "covered"}
+                    />
                   )}
                 </Fragment>
               );
@@ -496,6 +499,27 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
           </ol>
         )}
       </Section>
+
+      {history.length > 0 && (
+        <details className="group rounded-lg border border-slate-800">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
+            <Icon.next
+              className="size-3.5 shrink-0 text-slate-600 transition-transform group-open:rotate-90"
+              aria-hidden
+            />
+            <Icon.history className="size-4 shrink-0" aria-hidden />
+            Journal
+            <span className="font-normal normal-case tracking-normal text-slate-600">
+              {history.length} accouplement{history.length > 1 ? "s" : ""} et clonage{history.length > 1 ? "s" : ""} enregistrés, du plus récent au plus ancien
+            </span>
+          </summary>
+          <ol className="space-y-2 border-t border-slate-800/60 px-3 py-3">
+            {history.map((event) => (
+              <HistoryStep key={event.id} event={event} stable={stable} />
+            ))}
+          </ol>
+        </details>
+      )}
 
       <details className="group rounded-lg border border-slate-800">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
@@ -523,6 +547,7 @@ function PlanDashboard({ plan, catalog }: { plan: Plan; catalog: Catalog }) {
             mounts={stable}
             species={target.species}
             evaluation={evaluation}
+            preparedLevel={settings.targetLevel}
           />
         </div>
       </details>
@@ -577,7 +602,7 @@ function NextStep({
 }: {
   suggestion: Suggestion;
   target: { name: string };
-  /** Niveau visé du plan : celui qu'on prête à un bébé, tenu pour préparé. */
+  /** Niveau visé du plan : préparer une monture l'y monte. */
   level: number;
 }) {
   return (
@@ -604,16 +629,33 @@ function NextStep({
         )}
         {suggestion.kind === "breeds" && (
           <div className="space-y-2">
-            {suggestion.crosses.length > 1 && (
-              <p className="text-xs text-slate-500">
-                {suggestion.crosses.length} couples prêts : un enclos
-                d’accouplements. Enregistrez chaque résultat au fur et à mesure.
+            <p className="text-xs text-slate-500">
+              {suggestion.couples.length > 1
+                ? `${suggestion.couples.length} couples préparés, la génération la plus haute d’abord : un enclos d’accouplements. `
+                : "Un couple préparé. "}
+              Enregistrez chaque résultat au fur et à mesure ; les bébés
+              rejoignent l’enclos à préparer.
+            </p>
+            {suggestion.couples.map((couple) => (
+              <BreedAction
+                key={`${couple.cross.path}:${couple.parents[0].id}`}
+                cross={couple.cross}
+                parents={couple.parents}
+              />
+            ))}
+            {suggestion.pending.length > 0 && (
+              <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                {suggestion.pending.length} monture
+                {suggestion.pending.length > 1 ? "s" : ""} du plan pas encore
+                préparée{suggestion.pending.length > 1 ? "s" : ""} : elles
+                attendront le lot suivant, ou
+                <PrepareAll mounts={suggestion.pending} level={level} label="préparez-les maintenant" />
               </p>
             )}
-            {suggestion.crosses.map((cross) => (
-              <BreedAction key={cross.path} cross={cross} level={level} />
-            ))}
           </div>
+        )}
+        {suggestion.kind === "prepare" && (
+          <PrepareBatch enclosures={suggestion.enclosures} level={level} />
         )}
         {suggestion.kind === "clones" && (
           <div className="space-y-2">
@@ -622,8 +664,9 @@ function NextStep({
                 ? `${suggestion.items.length} clonages : un enclos. `
                 : ""}
               Deux stériles se détruisent pour en rendre une, féconde, tirée au
-              sort — même sexe, mêmes parents. Les survivantes partent dans le
-              prochain lot à préparer, avant de recapturer ou de ré-accoupler.
+              sort — même sexe, mêmes parents, mais niveau 1 et jauges à zéro.
+              Les survivantes partent dans le prochain lot à préparer, avant
+              de recapturer ou de ré-accoupler.
             </p>
             {suggestion.items.map((item) => (
               <CloneAction key={item.slot.path} slot={item.slot} clone={item.clone} />
@@ -631,7 +674,7 @@ function NextStep({
           </div>
         )}
         {suggestion.kind === "captures" && (
-          <CaptureBatch suggestion={suggestion} level={level} />
+          <CaptureBatch suggestion={suggestion} />
         )}
       </div>
     </section>
@@ -644,30 +687,96 @@ function SexPicker({ mountId }: { mountId: string }) {
   );
 }
 
+/** Marque préparées toutes ces montures d'un coup, montées au niveau visé. */
+function PrepareAll({ mounts, level, label }: { mounts: readonly StableMount[]; level: number; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        for (const mount of mounts) prepareMount(mount.id, level);
+      }}
+      className={`${BUTTON} h-7 text-xs`}
+    >
+      <Icon.done className="size-3.5" aria-hidden />
+      {label}
+    </button>
+  );
+}
+
 /**
- * Un lot de captures : de quoi remplir un enclos, à ajouter au compte-gouttes
- * — chaque ajout recalcule le lot, et quand il est vide le plan passe à la
- * suite.
+ * Les enclos à préparer : les montures fécondes du plan dont les jauges sont
+ * à faire — captures, bébés, survivantes de clonage —, dix par enclos. Une à
+ * une, ou toutes.
+ */
+function PrepareBatch({ enclosures, level }: { enclosures: readonly (readonly StableMount[])[]; level: number }) {
+  const mounts = enclosures.flat();
+  return (
+    <div className="space-y-2">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>
+          Préparer {enclosures.length > 1 ? `${enclosures.length} enclos` : "l’enclos"} :{" "}
+          {mounts.length} monture{mounts.length > 1 ? "s" : ""}
+        </span>
+        <span className="text-xs text-slate-500">
+          mangeoire jusqu’au niveau {level}, puis amour, maturité et endurance
+          — ensemble, le carburant nourrit tout l’enclos ; « Préparée » la
+          monte au niveau {level}
+        </span>
+        <PrepareAll mounts={mounts} level={level} label="Toutes préparées" />
+      </p>
+      {enclosures.map((group, index) => (
+        <div key={index} className="space-y-1">
+          {enclosures.length > 1 && (
+            <p className="text-xs uppercase tracking-wide text-slate-500">Enclos {index + 1}</p>
+          )}
+          <ul className="flex flex-wrap gap-2">
+            {group.map((mount) => (
+              <li key={mount.id} className="flex items-center gap-2">
+                <MountTag mount={mount} />
+                <button
+                  type="button"
+                  onClick={() => prepareMount(mount.id, level)}
+                  className={`${BUTTON} h-7 text-xs`}
+                >
+                  <Icon.done className="size-3.5" aria-hidden />
+                  Préparée
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Un lot de captures : de quoi porter à cinq les couples possibles, à
+ * ajouter au compte-gouttes — chaque ajout recalcule le lot, les sexes
+ * demandés avec, et quand il est vide le plan passe à la suite. Un sexe
+ * n'est imposé que si une monture d'en face attend un partenaire.
  */
 function CaptureBatch({
   suggestion,
-  level,
 }: {
   suggestion: Extract<Suggestion, { kind: "captures" }>;
-  /** Niveau visé du plan : une capture cochée ici est tenue pour préparée. */
-  level: number;
 }) {
   return (
     <div className="space-y-2">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span>
-          Capturer un enclos : {suggestion.total} monture
+          Capturer {suggestion.total} monture
           {suggestion.total > 1 ? "s" : ""}
         </span>
         <span className="text-xs text-slate-500">
-          à l’état sauvage, puis à faire évoluer ensemble
+          pour arriver à {suggestion.target} couples
+          {suggestion.couples > 0
+            ? ` — ${suggestion.couples} déjà possible${suggestion.couples > 1 ? "s" : ""}`
+            : ""}
+          . Elles arrivent au niveau 1, à préparer avec le reste de l’enclos
           {suggestion.remaining > 0 &&
-            ` — encore ${suggestion.remaining} après ce lot`}
+            ` — encore ${suggestion.remaining} à capturer plus tard`}
+          .
         </span>
       </p>
       <ul className="flex flex-wrap gap-2">
@@ -683,9 +792,7 @@ function CaptureBatch({
             <SexNeedLabel need={entry} />
             <SexAddButtons
               need={entry}
-              onAdd={(sex) =>
-                addMount({ variety: entry.variety.id, sex, level })
-              }
+              onAdd={(sex) => addMount({ variety: entry.variety.id, sex })}
             />
           </li>
         ))}
@@ -701,24 +808,26 @@ function CaptureBatch({
  */
 function BreedAction({
   cross,
-  level,
+  parents,
   withParents = true,
 }: {
   cross: Cross;
-  level: number;
+  /** Le couple précis : les montures en place du croisement, ou une paire de leur réserve. */
+  parents?: [StableMount, StableMount];
   withParents?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [a, b] = cross.parents;
+  const couple = parents ?? (a.mount && b.mount ? ([a.mount, b.mount] as const) : null);
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span>Accoupler</span>
-        {withParents && (
+        {withParents && couple && (
           <>
-            {a.mount && <MountTag mount={a.mount} note={a.potential && <span className="text-[10px] text-sky-300">porte {a.variety.name}</span>} />}
+            <MountTag mount={couple[0]} note={a.potential && <span className="text-[10px] text-sky-300">porte {a.variety.name}</span>} />
             <span className="text-slate-600">et</span>
-            {b.mount && <MountTag mount={b.mount} note={b.potential && <span className="text-[10px] text-sky-300">porte {b.variety.name}</span>} />}
+            <MountTag mount={couple[1]} note={b.potential && <span className="text-[10px] text-sky-300">porte {b.variety.name}</span>} />
           </>
         )}
         <span className="text-slate-600">→</span>
@@ -738,10 +847,10 @@ function BreedAction({
           </button>
         )}
       </div>
-      {open && (
+      {open && couple && (
         <BreedingForm
           cross={cross}
-          level={level}
+          parents={couple}
           onClose={() => setOpen(false)}
         />
       )}
@@ -751,28 +860,26 @@ function BreedAction({
 
 /**
  * Après l'accouplement en jeu : la variété et le sexe du bébé, et l'étable fait
- * le reste. Le bébé arrive tenu pour préparé, au niveau visé du plan — sa
- * préparation était déjà dans le coût restant, elle en sort.
+ * le reste. Le bébé arrive au niveau 1, à préparer avec le prochain enclos.
  */
 function BreedingForm({
   cross,
-  level,
+  parents,
   onClose,
 }: {
   cross: Cross;
-  level: number;
+  parents: readonly [StableMount, StableMount];
   onClose: () => void;
 }) {
   const catalog = useCatalog();
-  const [a, b] = cross.parents;
+  const [a, b] = parents;
   const [variety, setVariety] = useState<number | null>(cross.child.variety.id);
   const [sex, setSex] = useState<Sex | null>(null);
   const options = catalog.mounts.varieties.filter(
     (candidate) => candidate.species === cross.child.variety.species,
   );
-  if (!a.mount || !b.mount) return null;
-  const father = a.mount.sex === "female" ? b.mount : a.mount;
-  const mother = father === a.mount ? b.mount : a.mount;
+  const father = a.sex === "female" ? b : a;
+  const mother = father === a ? b : a;
 
   return (
     <form
@@ -780,7 +887,7 @@ function BreedingForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (variety === null) return;
-        recordBreeding(father.id, mother.id, variety, sex, level, cross.child.variety.id);
+        recordBreeding(father.id, mother.id, variety, sex, 1, cross.child.variety.id);
         onClose();
       }}
     >
@@ -811,10 +918,10 @@ function BreedingForm({
         Annuler
       </button>
       <span className="basis-full text-slate-600">
-        Les deux parents deviennent stériles — en trop, matière à clonage. Le
-        bébé rejoint l’étable possédé et préparé, avec ses parents et
-        grands-parents réels ; sa préparation sort du coût restant. S’il n’est
-        pas la variété visée, il servira ailleurs ou au clonage.
+        Les deux parents deviennent stériles — matière à clonage. Le bébé
+        rejoint l’étable au niveau 1, à préparer, avec ses parents réels.
+        S’il n’est pas la variété visée, il servira ailleurs ou au clonage.
+        Tout se recalcule : un bébé inattendu peut redistribuer les rôles.
       </span>
     </form>
   );
@@ -895,9 +1002,10 @@ function CloneAction({ slot, clone }: { slot: Slot; clone: ClonePlan }) {
             Annuler
           </button>
           <span className="basis-full text-slate-600">
-            L’autre disparaît de l’étable. La survivante est possédée, jauges à
-            zéro : leur remise à niveau reste dans le coût restant jusqu’à ce
-            que vous la déclariez préparée.
+            L’autre disparaît de l’étable. La survivante redevient féconde,
+            au niveau 1 et jauges à zéro : elle rejoint l’enclos à préparer,
+            et sa remise à niveau reste dans le coût jusqu’à la case
+            « Préparée ».
           </span>
         </form>
       )}
@@ -961,9 +1069,10 @@ function Costs({ cost }: { cost: ReturnType<typeof estimateCost> }) {
           </tbody>
         </table>
         <p className="mt-2 text-[11px] text-slate-600">
-          Une monture possédée est tenue pour préparée et ne coûte plus rien. Ni
-          tentatives moyennes ni branches à refaire : ce chiffre est ce qu’il
-          reste probablement à fabriquer, et bouge à chaque résultat réel.
+          Une monture préparée ne coûte plus rien ; une capture ou un bébé
+          compte sa préparation jusqu’à la case « Préparée ». Ni tentatives
+          moyennes ni branches à refaire : ce chiffre est ce qu’il reste
+          probablement à fabriquer, et bouge à chaque résultat réel.
         </p>
       </details>
       {!cost.complete && (
@@ -1010,20 +1119,18 @@ function Step({
   planId,
   cross,
   evaluation,
-  level,
   probable,
 }: {
   planId: string;
   cross: Cross;
   evaluation: Evaluation;
-  level: number;
   probable: boolean;
 }) {
   const [a, b] = cross.parents;
   const [open, setOpen] = useState(false);
   const suggested =
     evaluation.suggestion.kind === "breeds" &&
-    evaluation.suggestion.crosses.includes(cross);
+    evaluation.suggestion.couples.some((couple) => couple.cross === cross);
   const odds = [
     `≈ ${formatAttempts(Math.round(meanAttempts(cross.chance) * 10) / 10)} tentatives en moyenne`,
     ...CONFIDENCE_LEVELS.map(
@@ -1095,9 +1202,9 @@ function Step({
           )}
         </span>
       </div>
-      {open && cross.state === "ready" && (
+      {open && cross.state === "ready" && a.mount && b.mount && (
         <div className="border-t border-slate-800/60 px-3 py-2">
-          <BreedingForm cross={cross} level={level} onClose={() => setOpen(false)} />
+          <BreedingForm cross={cross} parents={[a.mount, b.mount]} onClose={() => setOpen(false)} />
         </div>
       )}
     </li>
@@ -1176,16 +1283,30 @@ function HistoryStep({ event, stable }: { event: JournalEvent; stable: readonly 
   );
 }
 
-function DoneStep({ slot, recipe }: { slot: Slot; recipe: number }) {
+/**
+ * Une étape cochée : la monture est à l'étable — ou, `covered`, une monture
+ * plus haut dans l'arbre rend la branche inutile.
+ */
+function DoneStep({
+  number,
+  slot,
+  recipe,
+  covered = false,
+}: {
+  number: number;
+  slot: Slot;
+  recipe: number;
+  covered?: boolean;
+}) {
   const catalog = useCatalog();
   const pair = slot.variety.recipes[Math.min(recipe, slot.variety.recipes.length - 1)];
   const parents = pair
     ? pair.map((id) => catalog.mounts.byId.get(id)).filter((v) => v !== undefined)
     : [];
   return (
-    <li className="rounded-lg border border-slate-800/60 bg-slate-900/20">
+    <li className={`rounded-lg border border-slate-800/60 bg-slate-900/20 ${covered ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm text-slate-500">
-        <span className="w-6 shrink-0 text-right text-xs text-slate-600">✓</span>
+        <span className="w-6 shrink-0 text-right text-xs tabular-nums text-slate-600">{number}.</span>
         <StepCircle cross={null} done />
         <span className="flex min-w-0 flex-wrap items-center gap-2">
           {parents.map((parent, index) => (
@@ -1198,6 +1319,23 @@ function DoneStep({ slot, recipe }: { slot: Slot; recipe: number }) {
           <VarietyLink variety={slot.variety} />
         </span>
         {slot.mount && <MountTag mount={slot.mount} className="ml-auto" />}
+        {covered && (
+          <span className="ml-auto text-xs text-slate-600">plus nécessaire : couverte par une monture plus haut</span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** Une étape que le plan règle par un clonage plutôt qu'un croisement. */
+function CloneStep({ number, slot }: { number: number; slot: Slot }) {
+  return (
+    <li className="rounded-lg border border-slate-800">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm">
+        <span className="w-6 shrink-0 text-right text-xs tabular-nums text-slate-500">{number}.</span>
+        <Icon.duplicate className="size-4 shrink-0 text-sky-400" aria-hidden />
+        <span className="text-xs text-slate-500">Par clonage plutôt que par croisement :</span>
+        {slot.clone && <CloneAction slot={slot} clone={slot.clone} />}
       </div>
     </li>
   );

@@ -5,15 +5,14 @@
  * le plan fait de chaque monture — réservée pour telle étape, matière à
  * clonage, ou en trop. Sur le tableau de bord, toutes espèces confondues.
  *
- * Une monture possédée est tenue pour préparée : seuls comptent le sexe, le
- * niveau et la stérilité — plus, pour une survivante de clonage, la
- * confirmation que ses jauges sont refaites. L'arbre réel se déduit à la
- * naissance et ne se renseigne à la main que pour une monture venue
- * d'ailleurs, replié.
+ * Ce qui compte d'une monture : le sexe, le niveau, si elle est préparée —
+ * jauges faites, prête à reproduire — et si elle est stérile. L'arbre réel
+ * se déduit à la naissance et ne se renseigne à la main que pour une monture
+ * venue d'ailleurs, replié.
  */
 import { useState } from 'react'
 import { useCatalog } from '../data/catalogContext'
-import { addMount, duplicateMount, removeMount, updateMount } from '../data/inventory'
+import { addMount, duplicateMount, prepareMount, removeMount, updateMount } from '../data/inventory'
 import { SPECIES, SPECIES_INFO, varietyName } from '../data/mounts'
 import type { Evaluation, Sex, StableMount } from '../domain/breeding'
 import type { Species, VarietyId } from '../domain/types'
@@ -33,12 +32,15 @@ export default function StablePanel({
   mounts,
   species,
   evaluation,
+  preparedLevel,
 }: {
   mounts: readonly StableMount[]
   /** Restreint l'étable, et le formulaire d'ajout, à cette espèce. */
   species?: Species
   /** Le plan qui lit cette étable : pour dire ce qu'il fait de chaque monture. */
   evaluation?: Evaluation
+  /** Niveau visé du plan : cocher « Préparée » y monte la monture si elle est en dessous. */
+  preparedLevel?: number
 }) {
   const catalog = useCatalog()
   const shown = mounts.filter(
@@ -67,6 +69,9 @@ export default function StablePanel({
                 <Th width="w-80" icon={Icon.genealogy} tip="Ses deux parents directs : seuls eux comptent dans la reproduction">
                   Parents
                 </Th>
+                <Th width="w-20" align="center" tip="Jauges faites, prête à reproduire — cocher la monte au niveau visé du plan. Une capture ou un bébé arrive à préparer.">
+                  Préparée
+                </Th>
                 <Th width="w-20" align="center" tip="A déjà reproduit : ne sert plus qu'au clonage">
                   Stérile
                 </Th>
@@ -78,7 +83,7 @@ export default function StablePanel({
             </thead>
             <tbody>
               {shown.map((mount) => (
-                <MountRow key={mount.id} mount={mount} evaluation={evaluation} />
+                <MountRow key={mount.id} mount={mount} evaluation={evaluation} preparedLevel={preparedLevel} />
               ))}
             </tbody>
           </table>
@@ -88,7 +93,15 @@ export default function StablePanel({
   )
 }
 
-function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Evaluation }) {
+function MountRow({
+  mount,
+  evaluation,
+  preparedLevel,
+}: {
+  mount: StableMount
+  evaluation?: Evaluation
+  preparedLevel?: number
+}) {
   const catalog = useCatalog()
   const variety = catalog.mounts.byId.get(mount.variety)
   const usage = evaluation ? describeUsage(mount, evaluation) : null
@@ -121,6 +134,20 @@ function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Eval
       </td>
       <td className="px-2 py-1.5">
         {variety && <ParentsEditor mount={mount} species={variety.species} />}
+      </td>
+      <td className="px-2 py-1.5 text-center">
+        <input
+          type="checkbox"
+          checked={mount.ready}
+          disabled={mount.sterile}
+          onChange={(event) =>
+            event.target.checked && preparedLevel !== undefined
+              ? prepareMount(mount.id, preparedLevel)
+              : updateMount(mount.id, { ready: event.target.checked })
+          }
+          aria-label="Préparée"
+          className="size-4 cursor-pointer accent-emerald-500 disabled:cursor-default disabled:opacity-40"
+        />
       </td>
       <td className="px-2 py-1.5 text-center">
         <input
@@ -160,11 +187,14 @@ function MountRow({ mount, evaluation }: { mount: StableMount; evaluation?: Eval
   )
 }
 
-/** Ce que le plan fait de cette monture. */
+/**
+ * Ce que le plan fait de cette monture *aujourd'hui* : rien n'est acquis, le
+ * prochain résultat peut la destiner ailleurs.
+ */
 function describeUsage(mount: StableMount, evaluation: Evaluation): string {
   const slot = evaluation.reserved.get(mount.id)
   if (!slot) {
-    return mount.sterile ? 'En trop : matière à clonage' : 'En trop'
+    return mount.sterile ? 'En attente : matière à clonage' : 'Sans emploi pour l’instant'
   }
   if (slot.path === '') return 'La cible'
   if (slot.clone) {
@@ -172,7 +202,8 @@ function describeUsage(mount: StableMount, evaluation: Evaluation): string {
   }
   const parentPath = slot.path.slice(0, -1)
   const cross = evaluation.crosses.find((candidate) => candidate.path === parentPath)
-  return cross ? `Étape ${cross.step}` : 'Réservée'
+  const reserve = slot.extras.some((extra) => extra.id === mount.id) ? 'En réserve pour' : 'Visée pour'
+  return cross ? `${reserve} l’étape ${cross.step}` : `${reserve} le plan`
 }
 
 /**

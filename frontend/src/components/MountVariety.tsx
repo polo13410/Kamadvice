@@ -238,6 +238,11 @@ export function MountTag({
           stérile
         </Tooltip>
       )}
+      {!mount.sterile && !mount.ready && (
+        <Tooltip content="Jauges à faire avant de reproduire : comptées dans le coût restant" className="cursor-help text-sky-300">
+          à préparer
+        </Tooltip>
+      )}
       {note}
     </span>
   )
@@ -288,8 +293,8 @@ export function MountChip({ mount, className = '' }: { mount: StableMount; class
         </Tooltip>
       )}
       {!mount.sterile && !mount.ready && (
-        <Tooltip content="Survivante d'un clonage : jauges à zéro, comptées dans le coût restant" className="cursor-help text-sky-300">
-          clonée
+        <Tooltip content="Jauges à faire avant de reproduire : comptées dans le coût restant" className="cursor-help text-sky-300">
+          à préparer
         </Tooltip>
       )}
     </span>

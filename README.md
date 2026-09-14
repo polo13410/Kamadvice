@@ -141,12 +141,37 @@ reste se recalcule sur l'étable à chaque rendu.
   l'étable rend la moins chère est retenue — comptée en points de jauge à
   verser, pour ne pas dépendre d'un prix.
 - **« Prochaine étape suggérée »**, une seule action, à l'échelle d'un enclos
-  (10 montures) : renseigner un sexe, accoupler jusqu'à cinq couples prêts,
-  cloner deux montures précises, ou capturer un lot — la composition par
-  variété et par sexe, le bas de l'arbre d'abord (les croisements restants
-  sont listés par couches dans le même sens, jusqu'à la cible), à ajouter au compte-gouttes
-  avec ♂ ♀. Les accouplements ne sont proposés que l'enclos des sauvages
-  plein, ou les captures terminées : on finit le lot d'abord.
+  (10 montures, cinq couples, par enclos), et en cycles que rien ne mémorise
+  — chaque étape se lit dans l'étable, préparée ou non, stérile ou non :
+  1. **Accoupler** dès qu'un couple préparé existe, la génération la plus
+     haute d'abord (c'est la plus dure à obtenir), puis l'ordre des étapes,
+     cinq couples par enclos au plus ; ce qu'il reste à préparer se revoit
+     après. La vague ne s'interrompt pas : les bébés naissent à préparer, une
+     survivante aussi, aucun nouveau couple n'apparaît avant la fécondation
+     suivante. Deux montures préparées vont ensemble plutôt que chacune avec
+     une monture à préparer.
+  2. **Cloner** ce dont la survivante complète un couple — l'autre parent est
+     là, ou se capture. Les autres stériles attendent une vraie occasion.
+  3. **Capturer** de quoi porter à **cinq par enclos les couples possibles**,
+     préparés ou non : le bas de l'arbre d'abord, par tours — un exemplaire de chaque
+     emplacement, puis le deuxième de chacun —, le sexe imposé seulement
+     quand une monture d'en face attend un partenaire, libre sinon. Cinq
+     couples priment sur dix montures : si les captures penchent d'un côté,
+     le lot redemande l'autre sexe. À ajouter au compte-gouttes avec ♂ ♀,
+     chaque ajout recalcule le lot.
+  4. **Préparer les enclos** : dix montures par enclos à faire monter —
+     celles qui font couple d'abord —, « Préparée » sur chacune ou d'un coup ;
+     au-delà, la suite attend la vague suivante. Puis retour en 1.
+  **Les étapes** sont celles de la recette théorique, toutes, par couches,
+  le bas de l'arbre d'abord, dans un ordre et avec des numéros qui ne
+  bougent pas — l'étable dit « visée pour l'étape 3 » avec le même 3. Une
+  étape faite se coche sur place ; une étape couverte par une monture plus
+  haut aussi, grisée ; une étape réglée par un clonage le dit. Le cercle
+  d'une étape compte ses parents préparés, pas seulement présents.
+- **Niveau d'éleveur** (réglage du plan) : un enclos jusqu'au niveau 39, un
+  de plus tous les quarante niveaux, six au niveau 200 (`enclosuresFor`).
+  Chaque enclos prépare dix montures et accouple cinq couples à la fois ; la
+  fécondation les liste enclos par enclos.
 - **« ≈ en moyenne »** à côté des nombres arrondis du nombre probable :
   `1 / chance` sans arrondi, fractionnaire, pour l'ordre de grandeur —
   52 % et 70 % font tous deux 2 tentatives arrondies, mais 1,9 et 1,4 en
@@ -154,32 +179,38 @@ reste se recalcule sur l'étable à chaque rendu.
 - **Le carburant nourrit tout l'enclos** : les points de jauge et leur prix se
   partagent entre dix montures (`ENCLOSURE_CAPACITY`), le joueur ne les fait
   pas évoluer une par une.
-- **« Possédée »** vaut : existe, sexe et niveau donnés, déjà préparée. Une
-  monture cochée ne coûte plus rien ; le plan ne suit pas les jauges.
+- **« Préparée »** : jauges faites, prête à reproduire. Une capture, un bébé
+  ou une survivante de clonage arrive à préparer, et compte sa préparation
+  dans le coût jusqu'à la case cochée ; une monture préparée ne coûte plus
+  rien. Cocher la monte au niveau visé du plan si elle est en dessous —
+  préparer, c'est la mangeoire jusqu'au niveau, puis les jauges. Le plan suit
+  ce booléen, pas les jauges elles-mêmes.
 - **Accoupler** enregistre le résultat réel (variété et sexe du bébé) : les
-  parents deviennent stériles — en trop, matière à clonage —, le bébé rejoint
-  l'étable possédé et préparé au niveau visé, avec ses parents et
-  grands-parents déduits, et le plan se recalcule. Un bébé raté n'est pas une
-  branche à refaire : il sert ailleurs, ou au clonage.
+  parents deviennent stériles — matière à clonage —, le bébé rejoint
+  l'étable au niveau 1, à préparer, avec ses parents déduits, et le plan se
+  recalcule. Rien n'est attribué pour de bon : « visée pour l'étape 3 » dit
+  ce que le plan ferait aujourd'hui de la monture, et un bébé inattendu peut
+  redistribuer les rôles. Un bébé raté n'est pas une branche à refaire : il
+  sert ailleurs, ou au clonage.
 - **Seconde chance** : un bébé raté porte les gènes de ses deux parents
   directs. Une Amande et Rousse née d'Ébène × Indigo tient le rôle d'Ébène
   (ou d'Indigo) dans un nouveau croisement, et peut redonner Ébène et Indigo.
   Le plan emploie ces porteuses quand la variété elle-même manque, et le dit
-  (« porte Ébène »). Une montante — dont un parent est d'une génération
-  supérieure à la sienne — est réservée d'abord à cet usage, et ne sert comme
-  elle-même que s'il ne reste rien à porter. Deux garde-fous : une porteuse ne sert qu'un croisement
-  d'une génération strictement supérieure à la sienne (retenter vers le haut,
-  jamais recréer son calibre — ses parents font ça aussi bien), et une monture
-  que le plan emploie telle quelle n'est jamais détournée en porteuse. Seuls
-  les parents directs comptent ; les grands-parents ne sont plus ni saisis
-  ni lus.
+  (« porte Ébène »). C'est sa génération la plus haute qui compte — la
+  sienne ou celle d'un parent : une montante, dont un parent est d'une
+  génération supérieure à la sienne, ne sert jamais comme elle-même, même
+  si elle y conviendrait, et une porteuse ne sert qu'un croisement d'une
+  génération strictement supérieure à ce qu'elle vaut (retenter vers le
+  haut, jamais recréer son calibre — ses parents font ça aussi bien). Une
+  monture que le plan emploie telle quelle n'est jamais détournée en
+  porteuse. Seuls les parents directs comptent ; les grands-parents ne sont
+  plus ni saisis ni lus.
 - **Cloner** : deux montures de même espèce et génération se détruisent pour
-  en rendre une, fertile, tirée au sort à 50/50 — même sexe, mêmes parents.
-  La remise à niveau de ses jauges est comptée dans le coût tant que le
-  clonage est à faire ; une fois enregistré, la survivante est possédée comme
-  les autres. Proposé par lots (jusqu'à cinq), une fois les couples du lot en
-  cours accouplés et **avant** de recapturer, pour que les survivantes partent
-  dans le prochain lot à préparer. Un clonage n'est planifié que s'il revient moins cher que refaire
+  en rendre une, fertile, tirée au sort à 50/50 — même sexe, mêmes parents,
+  mais niveau 1 et jauges à zéro. La survivante arrive à préparer et rejoint
+  l'enclos suivant. Proposé par lots (jusqu'à cinq), quand il n'y a plus de couple
+  préparé et **avant** de recapturer, seulement si sa survivante complète
+  un couple à venir. Un clonage n'est planifié que s'il revient moins cher que refaire
   la monture ; la meilleure partenaire est une stérile dont la survie
   servirait aussi (les deux issues sont bonnes), sinon une qui ne sert à rien
   d'autre ; jamais les deux parents stériles d'un même croisement, jamais une
@@ -194,16 +225,25 @@ reste se recalcule sur l'étable à chaque rendu.
   couvrant une unité. Sans cascade d'un étage à l'autre : les échecs plus bas
   sont absorbés par le réemploi des bébés ratés et le clonage. Captures,
   rangs d'ancêtres, Optimakinas et coût suivent. Décoché : une tentative par
-  croisement.
+  croisement. Une monture en place n'en couvre qu'une : les copies en stock —
+  même variété, même sexe, fécondes — deviennent sa **réserve**, et s'il en
+  manque encore l'emplacement garde un **croisement de plus** en dessous, qui
+  fait les suivantes avec ce que l'étable a ou capture. C'est ce qui tient la
+  base occupée — accoupler des générations 1 pendant que le haut de l'arbre
+  se joue — au lieu d'attendre qu'un échec vide l'emplacement ; un croisement
+  dont les deux parents ont de la réserve fournit plusieurs couples d'un
+  coup. Les besoins ne se multiplient pas pour autant : chaque emplacement
+  n'a toujours qu'un croisement.
 - **Rangs d'ancêtres**, en accordéon : les parents, puis les grands-parents,
   puis… — chaque rang ne compte que les emplacements exactement à cette
   profondeur (une génération 1 rencontrée plus haut n'y redescend pas), en
   cartes groupées par variété, avec ♂ ♀ pour ajouter d'un clic à l'étable.
 - **Le coût est le coût restant probable**, pas une espérance : préparation
-  des montures encore à obtenir, jauges à refaire après les clonages,
-  Optimakinas des croisements restants — au carburant le moins cher de chaque
-  jauge. Cocher une monture en retire la préparation ; un accouplement en
-  retire celle du bébé. Il bouge à chaque résultat réel.
+  des montures encore à obtenir, préparation des montures en place pas
+  encore préparées (depuis leur niveau), un Filet de capture universel par
+  capture, Optimakinas des croisements restants — au carburant le moins cher
+  de chaque jauge. Cocher « Préparée » en retire la préparation. Il bouge à
+  chaque résultat réel.
 
 Ce qu'il sait des montures, et d'où :
 
@@ -226,9 +266,8 @@ Ce qu'il sait des montures, et d'où :
   les arbres réels rendent plusieurs variétés possibles, la page les liste et
   dit « probabilité exacte inconnue », sans inventer de poids.
 - **Le journal** garde l'historique : chaque accouplement (parents, bébé,
-  variété visée) et chaque clonage, rangé dans sa couche de la liste des
-  croisements avec un cercle vert, même une fois la branche disparue du plan
-  recalculé. Une entrée s'efface sans toucher à l'étable.
+  variété visée) et chaque clonage, dans une section repliée à part, du plus
+  récent au plus ancien. Une entrée s'efface sans toucher à l'étable.
 - **Plans, étable et journal** vivent dans `localStorage`, comme les favoris : un
   élevage dure des jours, la page retrouve où on en était, mais pas d'un
   navigateur à l'autre.
