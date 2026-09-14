@@ -6,13 +6,28 @@
  * démarrage et on construit les index en mémoire : c'est ce qui permet de trier,
  * filtrer et chiffrer 17 000 items sans le moindre appel réseau ensuite.
  */
-import type { Carburant, Catalog, Item, ItemId, ItemType, Job, Recipe } from '../domain/types'
+import type {
+  Carburant,
+  Catalog,
+  Item,
+  ItemId,
+  ItemType,
+  Job,
+  MountCatalog,
+  MountChild,
+  MountVariety,
+  Recipe,
+  Species,
+  VarietyId,
+} from '../domain/types'
 import { normalize } from '../lib/format'
 
 interface RawMeta {
   iconBaseUrls: string[]
   jobIconBaseUrls: string[]
   categories: Record<string, string>
+  /** XP cumulée d'une monture, indexée par niveau (0 à 200). `null` si non relevée. */
+  mountXp: number[] | null
 }
 
 type RawTypes = Record<string, { n: string; c: number }>
@@ -40,6 +55,61 @@ interface RawCarburant {
   p: number
   c: number | null
 }
+interface RawMount {
+  i: number
+  s: Species
+  n: string
+  g: number
+  r: [number, number][]
+  c: number | null
+  m: number | null
+}
+
+const SPECIES_RANK: Record<Species, number> = { dragodinde: 0, muldo: 1, volkorne: 2 }
+
+/**
+ * Les variétés de montures et leurs deux index : par item (monture ou
+ * certificat) pour la fiche, et par parent pour « permet d'obtenir ». Quelques
+ * centaines de lignes : rien à faire côté build.
+ */
+function buildMounts(raw: RawMount[], xp: number[] | null): MountCatalog {
+  const varieties: MountVariety[] = raw.map((row) => ({
+    id: row.i,
+    species: row.s,
+    name: row.n,
+    generation: row.g,
+    recipes: row.r.map(([a, b]) => [a, b] as const),
+    certificateId: row.c,
+  }))
+  varieties.sort(
+    (a, b) =>
+      SPECIES_RANK[a.species] - SPECIES_RANK[b.species] ||
+      a.generation - b.generation ||
+      a.name.localeCompare(b.name, 'fr'),
+  )
+
+  const byId = new Map<VarietyId, MountVariety>()
+  const byItemId = new Map<ItemId, MountVariety>()
+  const childrenOf = new Map<VarietyId, MountChild[]>()
+  for (const variety of varieties) {
+    byId.set(variety.id, variety)
+    byItemId.set(variety.id, variety)
+    if (variety.certificateId !== null) byItemId.set(variety.certificateId, variety)
+    for (const [a, b] of variety.recipes) {
+      for (const [parent, partner] of [
+        [a, b],
+        [b, a],
+      ]) {
+        if (parent === undefined || partner === undefined) continue
+        const children = childrenOf.get(parent)
+        const entry = { child: variety.id, partner }
+        if (children) children.push(entry)
+        else childrenOf.set(parent, [entry])
+      }
+    }
+  }
+  return { varieties, byId, byItemId, childrenOf, xp: xp ?? [] }
+}
 
 async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
   // `?v=` change avec le contenu des données (voir `vite.config.ts`) : le
@@ -56,16 +126,20 @@ async function fetchJson<T>(name: string, signal?: AbortSignal): Promise<T> {
 }
 
 export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
-  const [meta, rawTypes, rawItems, rawRecipes, rawJobs, rawCarburants] = await Promise.all([
-    fetchJson<RawMeta>('meta', signal),
-    fetchJson<RawTypes>('types', signal),
-    fetchJson<RawItem[]>('items', signal),
-    fetchJson<RawRecipe[]>('recipes', signal),
-    fetchJson<RawJob[]>('jobs', signal),
-    // 5 Ko : les charger avec le reste évite un second état de chargement dans
-    // le tableau de bord, pour un poids qui ne se voit pas.
-    fetchJson<RawCarburant[]>('carburants', signal),
-  ])
+  const [meta, rawTypes, rawItems, rawRecipes, rawJobs, rawCarburants, rawMounts] =
+    await Promise.all([
+      fetchJson<RawMeta>('meta', signal),
+      fetchJson<RawTypes>('types', signal),
+      fetchJson<RawItem[]>('items', signal),
+      fetchJson<RawRecipe[]>('recipes', signal),
+      fetchJson<RawJob[]>('jobs', signal),
+      // 5 Ko : les charger avec le reste évite un second état de chargement dans
+      // le tableau de bord, pour un poids qui ne se voit pas.
+      fetchJson<RawCarburant[]>('carburants', signal),
+      // 30 Ko, même raison : la fiche d'une monture et le planificateur
+      // s'ouvrent sans attendre.
+      fetchJson<RawMount[]>('mounts', signal),
+    ])
 
   const typeById = new Map<number, ItemType>()
   for (const [id, type] of Object.entries(rawTypes)) {
@@ -137,6 +211,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     types: [...typeById.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     categories,
     carburants,
+    mounts: buildMounts(rawMounts, meta.mountXp),
     iconBaseUrls: meta.iconBaseUrls,
     jobIconBaseUrls: meta.jobIconBaseUrls,
   }

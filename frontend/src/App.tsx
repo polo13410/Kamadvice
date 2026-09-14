@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import type { LucideIcon } from 'lucide-react'
 import CopyOnAltClick from './components/CopyOnAltClick'
 import Footer from './components/Footer'
-import NavMenu from './components/NavMenu'
 import SearchBox from './components/SearchBox'
+import { JobsMenu, PlansMenu, ViewsMenu } from './components/SectionMenus'
+import ServerOnboarding from './components/ServerOnboarding'
 import ServerPicker from './components/ServerPicker'
 import { recordVisit, watchPresence } from './data/audience'
 import { CatalogContext } from './data/catalogContext'
@@ -14,7 +14,8 @@ import { migrateLocalPrices } from './data/priceMigration'
 import { useServer } from './data/servers'
 import type { Catalog } from './domain/types'
 import { Icon } from './lib/icons'
-import { DASHBOARDS, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
+import { BREEDING_PATH, CARBURANT_PATH, FAVORITES, JOBS_PATH, SEARCH } from './lib/pages'
+import BreedingPage from './pages/BreedingPage'
 import CarburantPage from './pages/CarburantPage'
 import FavoritesPage from './pages/FavoritesPage'
 import HomePage from './pages/HomePage'
@@ -23,6 +24,7 @@ import ItemPage from './pages/ItemPage'
 import JobPage from './pages/JobPage'
 import JobsPage from './pages/JobsPage'
 import NotFoundPage from './pages/NotFoundPage'
+import PlanPage from './pages/PlanPage'
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -122,9 +124,15 @@ export default function App() {
   return (
     <CatalogContext.Provider value={catalog}>
       <CopyOnAltClick />
+      <ServerOnboarding />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-          <div className={`mx-auto flex ${CHROME} items-center gap-8 px-4 py-3`}>
+          {/* Sur un écran étroit, la recherche passe seule sur une seconde
+              ligne, pleine largeur : logo, serveur et navigation gardent la
+              première. À partir de `md`, tout tient sur une ligne. */}
+          <div
+            className={`mx-auto flex ${CHROME} flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 md:flex-nowrap md:gap-8`}
+          >
             {/* Les deux flancs grandissent à parts égales : c'est ce qui pose
                 la recherche au milieu du header, et non au milieu de ce que la
                 navigation lui laisse. */}
@@ -150,11 +158,14 @@ export default function App() {
               <ServerPicker variant="header" />
             </div>
 
-            <SearchBox className="w-full max-w-2xl" />
+            <SearchBox className="order-last w-full md:order-0 md:max-w-2xl" />
 
+            {/* Une section par menu, ses écrans épinglés en tête : les
+                métiers, les plans d'élevage, les vues. */}
             <nav className="flex flex-1 items-center justify-end gap-1">
-              <NavMenu label="Dashboard" icon={Icon.dashboard} items={DASHBOARDS} />
-              <NavLink to={FAVORITES.to} icon={Icon.favorite} label={FAVORITES.label} />
+              <JobsMenu />
+              <PlansMenu />
+              <ViewsMenu />
             </nav>
           </div>
         </header>
@@ -165,10 +176,12 @@ export default function App() {
             <Route path={FAVORITES.to} element={<FavoritesPage />} />
             <Route path={SEARCH.to} element={<ItemsPage />} />
             <Route path="/item/:id" element={<ItemPage />} />
-            <Route path={DASHBOARDS[0]!.to} element={<CarburantPage />} />
-            <Route path="/dashboard" element={<Navigate to={DASHBOARDS[0]!.to} replace />} />
+            <Route path={CARBURANT_PATH} element={<CarburantPage />} />
+            <Route path="/dashboard" element={<Navigate to={CARBURANT_PATH} replace />} />
             <Route path={JOBS_PATH} element={<JobsPage />} />
             <Route path={`${JOBS_PATH}/:slug`} element={<JobPage />} />
+            <Route path={BREEDING_PATH} element={<BreedingPage />} />
+            <Route path={`${BREEDING_PATH}/:planId`} element={<PlanPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
@@ -176,27 +189,6 @@ export default function App() {
         <Footer shell={CHROME} />
       </div>
     </CatalogContext.Provider>
-  )
-}
-
-/**
- * Lien du header, accordé au bouton de `NavMenu` : les deux se côtoient dans la
- * même barre, un écart de style s'y verrait.
- */
-function NavLink({ to, icon: Glyph, label }: { to: string; icon: LucideIcon; label: string }) {
-  const { pathname } = useLocation()
-  const current = pathname === to
-  return (
-    <Link
-      to={to}
-      aria-current={current ? 'page' : undefined}
-      className={`flex items-center gap-1.5 rounded px-2 py-1 text-sm hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
-        current ? 'text-slate-100' : 'text-slate-400'
-      }`}
-    >
-      <Glyph className="size-4 shrink-0" aria-hidden />
-      {label}
-    </Link>
   )
 }
 

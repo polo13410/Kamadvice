@@ -41,6 +41,26 @@ avec B1 et B2, où B2 se crafte avec C1 et C2…
 L'endroit naturel : `domain/craft.ts` (`createEvaluator`), qui alimente déjà
 tous les tableaux — les dashboards en profiteraient sans changer.
 
+## Élevage : suites possibles
+
+L'assistant est là : étable partagée, plan recalculé sur l'étable, prochaine
+étape suggérée, accouplements et clonages enregistrés avec leur résultat
+réel, coût restant probable — une monture possédée est tenue pour préparée,
+le plan ne suit pas les jauges. Ce qui reste ouvert :
+
+- **Une probabilité globale** sur l'arbre décisionnel — chances de tenir la
+  cible en n accouplements, bébés ratés réemployés compris. Aujourd'hui, seules
+  les chances par accouplement sont données, à dessein.
+- **Le sexe des bébés** dans les chances : un croisement réussi peut donner la
+  bonne variété du mauvais sexe. Le plan le constate, il ne l'anticipe pas.
+- **Plusieurs plans sur la même étable** : chacun se calcule seul et peut
+  réclamer la même monture. Réserver par plan, ou fusionner les plans d'une
+  espèce.
+- **Partager étable et plans** entre navigateurs : comme les vues, ça attend
+  les comptes utilisateur côté Supabase.
+- **La répartition entre variétés** d'une même génération, si la formule du
+  jeu finit par être documentée : `possibleTargetVarieties` est l'endroit.
+
 ## Brisage de runes (reporté)
 
 Discuté, pas engagé. Les conclusions — formule, coefficient à relever en

@@ -13,6 +13,30 @@ const PERCENT = new Intl.NumberFormat('fr-FR', {
 export const formatPercent = (ratio: number | null): string =>
   ratio === null ? '—' : PERCENT.format(ratio)
 
+const CHANCE = new Intl.NumberFormat('fr-FR', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+})
+
+/**
+ * Une probabilité : « 41,7 % », sans signe — contrairement à `formatPercent`,
+ * qui parle de marges et précède les gains d'un `+`. Deux décimales au plus :
+ * 30,30 % se lit, 30,3 % aussi, et 60 % reste 60 %.
+ */
+export const formatChance = (chance: number | null | undefined): string =>
+  chance === null || chance === undefined || !Number.isFinite(chance) ? '—' : CHANCE.format(chance)
+
+/** Un compte de tentatives : entier, ou une décimale pour une moyenne. `∞` quand c'est sans espoir. */
+export const formatAttempts = (value: number | null | undefined): string =>
+  value === null || value === undefined
+    ? '—'
+    : !Number.isFinite(value)
+      ? '∞'
+      : Number.isInteger(value)
+        ? KAMAS.format(value)
+        : new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(value)
+
 const RATIO = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,

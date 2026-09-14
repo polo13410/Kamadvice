@@ -6,6 +6,7 @@ import NotFound, { useBackExit, type Exit } from "../components/NotFound";
 import FavoriteButton from "../components/FavoriteButton";
 import ItemIcon from "../components/ItemIcon";
 import Kamas from "../components/Kamas";
+import MountGenealogy from "../components/MountGenealogy";
 import PriceField from "../components/PriceField";
 import PriceChart from "../components/PriceChart";
 import ShareButton from "../components/ShareButton";
@@ -279,6 +280,10 @@ export default function ItemPage() {
 
         </section>
       )}
+
+      {/* Une monture n'a pas de recette : sa généalogie en tient lieu, à la
+          même place. Le composant se tait pour tout autre item. */}
+      <MountGenealogy item={item} />
 
       <section className="space-y-3">
         <SectionTitle icon={Icon.history}>Historique des prix</SectionTitle>

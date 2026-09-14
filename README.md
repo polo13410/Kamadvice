@@ -48,6 +48,9 @@ gratuite de Supabase.
 dofus_data/              Dumps bruts du jeu (source, non servie)
   items.json             MAPPED_ITEMS de dofusdude/dofus3-main
   recipes.json, jobs.json  Assets bruts (dumps Unity) : seuls à porter le jobId
+  mounts.json            Dump brut des montures : lie une monture à son certificat
+  breeding.json          Relevé communautaire (dofuspourlesnoobs.com) : génération
+                         et croisements de chaque variété — absent de tout dump
 netlify.toml             Configuration de déploiement
 supabase/
   schema.sql             Table des relevés, vue des prix courants, RLS
@@ -55,6 +58,7 @@ supabase/
 frontend/
   scripts/
     build-data.mjs       ../dofus_data/*.json  ->  public/data/*.json
+    fetch-mounts.mjs     Télécharge mounts.json et relève breeding.json
   public/data/           Artefacts servis au navigateur (versionnés)
     servers/             Emblèmes des serveurs de jeu, <clé>.webp, 64 px
   src/
@@ -63,10 +67,17 @@ frontend/
       craft.ts           Coût de craft et marge — métier pur, sans React
       carburant.ts       Lignes du tableau de bord des carburants, meilleur
                          rendement par jauge
+      breeding.ts        Plan d'élevage : arbre des croisements, avancement,
+                         probabilités, tentatives et coût — métier pur
     data/
       catalog.ts         Chargement + indexation du catalogue
       carburants.ts      Connaissance de jeu : jauges, familles, calibres,
                          paliers — et lecture d'un carburant depuis ses effets
+      mounts.ts          Connaissance de jeu : espèces, jauges de fécondité,
+                         réglages par défaut d'un plan, lecture des Makina
+      inventory.ts       L'étable : montures possédées, partagées par les plans ;
+                         accouplements et clonages s'y enregistrent
+      plans.ts           Plans d'élevage sauvegardés : cible, réglages, recettes imposées
       hdv.ts             Connaissance de jeu : dans quel hôtel de vente se
                          relève chaque item
       supabase.ts        Client du projet, ou null en local seul
@@ -97,6 +108,12 @@ frontend/
       TableHead.tsx      En-tête de colonne triable, avec bulle
       ServerPicker.tsx   Choix du serveur de jeu, emblèmes à l'appui
       ServerIcon.tsx     Emblème d'un serveur, badge à l'initiale en repli
+      MountVariety.tsx   Une variété de monture : icône, nom, pastille de génération
+      MountGenealogy.tsx Section généalogie de la fiche d'une monture : parents,
+                         décomposition jusqu'aux gén. 1, ce qu'elle permet d'obtenir
+      BreedingTree.tsx   Arbre repliable d'un plan, provenance de chaque monture
+      StablePanel.tsx    L'étable à modifier sur place : sexe, niveau, stérile,
+                         arbre réel replié, ce que le plan en fait
     pages/
       ItemsPage.tsx      Liste triable / filtrable (virtualisée)
       ItemPage.tsx       Fiche item : prix, historique, recette, usages
@@ -104,7 +121,156 @@ frontend/
       JobsPage.tsx       Les métiers producteurs, en cartes
       JobPage.tsx        Tableau de bord d'un métier : ses recettes face à l'HDV,
                          filtrées par niveau, type, coûts, ingrédients
+      BreedingPage.tsx   Élevage : créer un plan, retrouver ceux en cours, l'étable
+      PlanPage.tsx       Un plan : prochaine étape suggérée, réglages, coût du
+                         plan actuel, croisements restants, étable, arbre complet
 ```
+
+## Élevage des montures
+
+L'assistant (`/dashboard/elevage`) part d'une variété visée — dragodinde,
+muldo ou volkorne — et la déroule sur **l'étable**, la liste des montures
+possédées (variété, sexe, niveau, féconde, stérile, arbre réel), partagée par
+tous les plans. Un plan ne retient que sa cible et ses réglages : tout le
+reste se recalcule sur l'étable à chaque rendu.
+
+- **À chaque emplacement de l'arbre**, la monture de l'étable qui convient si
+  elle existe (sexe compatible avec l'autre parent, la plus avancée d'abord),
+  sinon la façon la moins chère de l'obtenir : clonage d'une copie stérile,
+  croisement, ou capture. Quand une variété a plusieurs recettes, celle que
+  l'étable rend la moins chère est retenue — comptée en points de jauge à
+  verser, pour ne pas dépendre d'un prix.
+- **« Prochaine étape suggérée »**, une seule action, à l'échelle d'un enclos
+  (10 montures, cinq couples, par enclos), et en cycles que rien ne mémorise
+  — chaque étape se lit dans l'étable, préparée ou non, stérile ou non :
+  1. **Accoupler** dès qu'un couple préparé existe, la génération la plus
+     haute d'abord (c'est la plus dure à obtenir), puis l'ordre des étapes,
+     cinq couples par enclos au plus ; ce qu'il reste à préparer se revoit
+     après. La vague ne s'interrompt pas : les bébés naissent à préparer, une
+     survivante aussi, aucun nouveau couple n'apparaît avant la fécondation
+     suivante. Deux montures préparées vont ensemble plutôt que chacune avec
+     une monture à préparer.
+  2. **Cloner** ce dont la survivante complète un couple — l'autre parent est
+     là, ou se capture. Les autres stériles attendent une vraie occasion.
+  3. **Capturer** de quoi porter à **cinq par enclos les couples possibles**,
+     préparés ou non : le bas de l'arbre d'abord, par tours — un exemplaire de chaque
+     emplacement, puis le deuxième de chacun —, le sexe imposé seulement
+     quand une monture d'en face attend un partenaire, libre sinon. Cinq
+     couples priment sur dix montures : si les captures penchent d'un côté,
+     le lot redemande l'autre sexe. À ajouter au compte-gouttes avec ♂ ♀,
+     chaque ajout recalcule le lot.
+  4. **Préparer les enclos** : dix montures par enclos à faire monter —
+     celles qui font couple d'abord —, « Préparée » sur chacune ou d'un coup ;
+     au-delà, la suite attend la vague suivante. Puis retour en 1.
+  **Les étapes** sont celles de la recette théorique, toutes, par couches,
+  le bas de l'arbre d'abord, dans un ordre et avec des numéros qui ne
+  bougent pas — l'étable dit « visée pour l'étape 3 » avec le même 3. Une
+  étape faite se coche sur place ; une étape couverte par une monture plus
+  haut aussi, grisée ; une étape réglée par un clonage le dit. Le cercle
+  d'une étape compte ses parents préparés, pas seulement présents.
+- **Niveau d'éleveur** (réglage du plan) : un enclos jusqu'au niveau 39, un
+  de plus tous les quarante niveaux, six au niveau 200 (`enclosuresFor`).
+  Chaque enclos prépare dix montures et accouple cinq couples à la fois ; la
+  fécondation les liste enclos par enclos.
+- **« ≈ en moyenne »** à côté des nombres arrondis du nombre probable :
+  `1 / chance` sans arrondi, fractionnaire, pour l'ordre de grandeur —
+  52 % et 70 % font tous deux 2 tentatives arrondies, mais 1,9 et 1,4 en
+  moyenne. Sur les accouplements, les captures et le coût.
+- **Le carburant nourrit tout l'enclos** : les points de jauge et leur prix se
+  partagent entre dix montures (`ENCLOSURE_CAPACITY`), le joueur ne les fait
+  pas évoluer une par une.
+- **« Préparée »** : jauges faites, prête à reproduire. Une capture, un bébé
+  ou une survivante de clonage arrive à préparer, et compte sa préparation
+  dans le coût jusqu'à la case cochée ; une monture préparée ne coûte plus
+  rien. Cocher la monte au niveau visé du plan si elle est en dessous —
+  préparer, c'est la mangeoire jusqu'au niveau, puis les jauges. Le plan suit
+  ce booléen, pas les jauges elles-mêmes.
+- **Accoupler** enregistre le résultat réel (variété et sexe du bébé) : les
+  parents deviennent stériles — matière à clonage —, le bébé rejoint
+  l'étable au niveau 1, à préparer, avec ses parents déduits, et le plan se
+  recalcule. Rien n'est attribué pour de bon : « visée pour l'étape 3 » dit
+  ce que le plan ferait aujourd'hui de la monture, et un bébé inattendu peut
+  redistribuer les rôles. Un bébé raté n'est pas une branche à refaire : il
+  sert ailleurs, ou au clonage.
+- **Seconde chance** : un bébé raté porte les gènes de ses deux parents
+  directs. Une Amande et Rousse née d'Ébène × Indigo tient le rôle d'Ébène
+  (ou d'Indigo) dans un nouveau croisement, et peut redonner Ébène et Indigo.
+  Le plan emploie ces porteuses quand la variété elle-même manque, et le dit
+  (« porte Ébène »). C'est sa génération la plus haute qui compte — la
+  sienne ou celle d'un parent : une montante, dont un parent est d'une
+  génération supérieure à la sienne, ne sert jamais comme elle-même, même
+  si elle y conviendrait, et une porteuse ne sert qu'un croisement d'une
+  génération strictement supérieure à ce qu'elle vaut (retenter vers le
+  haut, jamais recréer son calibre — ses parents font ça aussi bien). Une
+  monture que le plan emploie telle quelle n'est jamais détournée en
+  porteuse. Seuls les parents directs comptent ; les grands-parents ne sont
+  plus ni saisis ni lus.
+- **Cloner** : deux montures de même espèce et génération se détruisent pour
+  en rendre une, fertile, tirée au sort à 50/50 — même sexe, mêmes parents,
+  mais niveau 1 et jauges à zéro. La survivante arrive à préparer et rejoint
+  l'enclos suivant. Proposé par lots (jusqu'à cinq), quand il n'y a plus de couple
+  préparé et **avant** de recapturer, seulement si sa survivante complète
+  un couple à venir. Un clonage n'est planifié que s'il revient moins cher que refaire
+  la monture ; la meilleure partenaire est une stérile dont la survie
+  servirait aussi (les deux issues sont bonnes), sinon une qui ne sert à rien
+  d'autre ; jamais les deux parents stériles d'un même croisement, jamais une
+  féconde utile.
+- **Niveau visé et points de mangeoire** sont les deux faces de la table d'XP
+  (`meta.json`, `mountXp`, relevée sur la page des dragodindes) : niveau 39 =
+  19 266 points, 200 = 867 582.
+- **« Nombre probable »** (réglage du plan) : chaque croisement se prévoit en
+  `1 / chance` tentatives, arrondi en montant dès que la fraction dépasse 0,3
+  (40 % → 3, 52 % → 2, 70 % → 2, 80 % → 1), et chaque tentative consomme un
+  couple — ses parents sont à prévoir d'autant, une monture possédée
+  couvrant une unité. Sans cascade d'un étage à l'autre : les échecs plus bas
+  sont absorbés par le réemploi des bébés ratés et le clonage. Captures,
+  rangs d'ancêtres, Optimakinas et coût suivent. Décoché : une tentative par
+  croisement. Une monture en place n'en couvre qu'une : les copies en stock —
+  même variété, même sexe, fécondes — deviennent sa **réserve**, et s'il en
+  manque encore l'emplacement garde un **croisement de plus** en dessous, qui
+  fait les suivantes avec ce que l'étable a ou capture. C'est ce qui tient la
+  base occupée — accoupler des générations 1 pendant que le haut de l'arbre
+  se joue — au lieu d'attendre qu'un échec vide l'emplacement ; un croisement
+  dont les deux parents ont de la réserve fournit plusieurs couples d'un
+  coup. Les besoins ne se multiplient pas pour autant : chaque emplacement
+  n'a toujours qu'un croisement.
+- **Rangs d'ancêtres**, en accordéon : les parents, puis les grands-parents,
+  puis… — chaque rang ne compte que les emplacements exactement à cette
+  profondeur (une génération 1 rencontrée plus haut n'y redescend pas), en
+  cartes groupées par variété, avec ♂ ♀ pour ajouter d'un clic à l'étable.
+- **Le coût est le coût restant probable**, pas une espérance : préparation
+  des montures encore à obtenir, préparation des montures en place pas
+  encore préparées (depuis leur niveau), un Filet de capture universel par
+  capture, Optimakinas des croisements restants — au carburant le moins cher
+  de chaque jauge. Cocher « Préparée » en retire la préparation. Il bouge à
+  chaque résultat réel.
+
+Ce qu'il sait des montures, et d'où :
+
+- **Les variétés** sont les items des types « Dragodinde », « Muldo » et
+  « Volkorne » (68, 120 et 120), la forme qu'ont prise les montures depuis la
+  refonte 3.5 ; c'est eux qui portent l'icône et le prix HDV. Le dump
+  `mounts.json` de dofusdude ne sert qu'à rattacher les certificats d'étable,
+  il s'arrête à 71 muldos.
+- **Générations et croisements** viennent de dofuspourlesnoobs.com
+  (`npm run mounts` les relève dans `dofus_data/breeding.json`), recoupés
+  sans écart avec dofuselevage.fr. Bien des muldos et volkornes ont **plusieurs
+  recettes** (Muldo Roux : six couples) ; le plan en retient une par
+  emplacement, au choix. La numérotation des volkornes n'est pas monotone —
+  « Ivoire et Pourpre » est génération 4, « Ivoire » génération 5 — et le code
+  ne suppose jamais qu'un parent est d'une génération inférieure.
+- **La probabilité** est celle de la génération cible : 30 % + 0,15 % ×
+  (niveau A + niveau B), +10 % avec une Optimakina, plafonnée à 100 %,
+  donnée accouplement par accouplement sur les niveaux réels des parents. La
+  répartition entre variétés de cette génération n'est pas publique : quand
+  les arbres réels rendent plusieurs variétés possibles, la page les liste et
+  dit « probabilité exacte inconnue », sans inventer de poids.
+- **Le journal** garde l'historique : chaque accouplement (parents, bébé,
+  variété visée) et chaque clonage, dans une section repliée à part, du plus
+  récent au plus ancien. Une entrée s'efface sans toucher à l'étable.
+- **Plans, étable et journal** vivent dans `localStorage`, comme les favoris : un
+  élevage dure des jours, la page retrouve où on en était, mais pas d'un
+  navigateur à l'autre.
 
 `src/domain/craft.ts` est le cœur métier : pour un item, il donne le prix
 d'achat, le coût de fabrication en achetant les ingrédients, les ingrédients dont
@@ -166,6 +332,7 @@ Tout se lance depuis `frontend/` :
 cd frontend
 npm install
 npm run data      # régénère public/data/ depuis ../dofus_data/ (après une MAJ Dofus)
+npm run mounts    # re-télécharge mounts.json et relève les croisements (puis npm run data)
 npm run dev       # serveur de dev
 npm run build     # typecheck + bundle de production dans dist/
 npm run preview   # sert dist/ en local
@@ -212,3 +379,15 @@ publication de `frontend/dist`, fallback SPA et cache long sur `/data/*`.
 - **Pas d'information de métier** sur les recettes : elle est absente du dump.
 - 11 recettes sont ignorées au build, leur résultat n'existant plus dans le
   catalogue (`npm run data` les liste).
+- **Les croisements sont un relevé communautaire**, pas une donnée du jeu :
+  `npm run data` signale toute variété sans génération ou parent inconnu, à
+  corriger dans `dofus_data/breeding.json`. Deux dragodindes (à Plumes, en
+  armure) n'ont pas de recette et ne se planifient pas.
+- **Le sexe d'un bébé est aléatoire** et n'entre pas dans les probabilités du
+  plan : un croisement peut donner la bonne variété du mauvais sexe — le plan
+  le constate au résultat et cherche alors le sexe qui manque.
+- **Pas de probabilité globale** sur tout l'arbre décisionnel : seules les
+  chances par accouplement sont données. Le coût est celui du plan tel qu'il
+  est, sans espérance de tentatives.
+- **Deux plans peuvent réclamer la même monture** : chacun se calcule seul sur
+  l'étable. À mener un plan à la fois par espèce.

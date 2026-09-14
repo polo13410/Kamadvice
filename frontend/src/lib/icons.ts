@@ -12,6 +12,8 @@ import {
   ArrowLeft,
   ArrowUp,
   ArrowUpToLine,
+  Baby,
+  Ban,
   Boxes,
   Briefcase,
   Check,
@@ -19,34 +21,53 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUp,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  Copy,
   ClipboardCheck,
+  ClipboardList,
   Clock,
   CircleAlert,
   CircleSlash,
   Coins,
   Compass,
+  Dices,
+  Dna,
+  Egg,
   Filter,
   FlaskConical,
   Fuel,
   Gauge,
+  GitFork,
   Hammer,
   Heart,
+  HeartOff,
   History,
   ImageOff,
   Layers3,
   LayoutDashboard,
   LoaderCircle,
+  Mars,
+  Milestone,
   Minus,
   Package,
   PackageCheck,
   PackageX,
+  PawPrint,
+  Pin,
+  PinOff,
+  Plus,
   Radio,
+  Receipt,
+  Repeat,
   RotateCcw,
   Ruler,
   ScrollText,
   Search,
   Share2,
   SkipForward,
+  SlidersHorizontal,
   Store,
   Tag,
   Target,
@@ -56,6 +77,7 @@ import {
   TriangleAlert,
   Trophy,
   Users,
+  Venus,
   WandSparkles,
   Weight,
   X,
@@ -112,6 +134,45 @@ export const Icon = {
   /** Meilleure option de son groupe. */
   best: Trophy,
 
+  // Élevage des montures
+  /** Le tableau de bord d'élevage : un plan, un œuf à couver. */
+  breeding: Egg,
+  /** Une monture, quelle que soit l'espèce. */
+  mount: PawPrint,
+  /** Généalogie d'une variété : parents et ancêtres. */
+  genealogy: Dna,
+  /** Un croisement : deux parents, un bébé. */
+  cross: GitFork,
+  /** Génération d'une variété. */
+  generation: Milestone,
+  /** Sexe d'une monture. */
+  male: Mars,
+  female: Venus,
+  /** Bébé obtenu d'un croisement. */
+  baby: Baby,
+  /** Probabilité, tentatives : ce qui dépend du hasard. */
+  chance: Dices,
+  /** Nombre de tentatives. */
+  attempts: Repeat,
+  /** Un plan sauvegardé. */
+  plan: ClipboardList,
+  /** Réglages d'un plan : niveau visé, points, makina. */
+  settings: SlidersHorizontal,
+  /** Coût total d'un plan. */
+  cost: Receipt,
+  /** Étape faite / prête / en cours / en attente / bloquée. */
+  stepDone: CircleCheck,
+  stepReady: CircleCheck,
+  stepProgress: CircleDot,
+  stepWaiting: CircleDashed,
+  stepBlocked: Ban,
+  /** Monture stérile : elle a déjà reproduit. */
+  sterile: HeartOff,
+  /** Ajouter : un plan, une monture. */
+  add: Plus,
+  /** Dupliquer une monture de l'étable. */
+  duplicate: Copy,
+
   // Fréquentation
   /** Navigateurs connectés en ce moment. */
   online: Radio,
@@ -137,6 +198,9 @@ export const Icon = {
 
   // Actions
   delete: Trash2,
+  /** Épingler un écran : il remonte en tête de sa liste. Rempli quand il l'est. */
+  pin: Pin,
+  unpin: PinOff,
   /** Copier le lien de la page courante. */
   share: Share2,
   /** Action accomplie, le temps qu'on s'en aperçoive. */

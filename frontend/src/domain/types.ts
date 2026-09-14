@@ -57,6 +57,58 @@ export interface Carburant {
   cap: number | null
 }
 
+/** Les trois espèces de montures d'élevage. « Monture » désigne les trois. */
+export type Species = 'dragodinde' | 'muldo' | 'volkorne'
+
+/**
+ * Une variété est identifiée par son item de monture — « Dragodinde Amande et
+ * Rousse » —, celui qui porte l'icône et le prix HDV depuis la refonte 3.5.
+ */
+export type VarietyId = ItemId
+
+/**
+ * Une variété de monture, et comment elle s'obtient.
+ *
+ * Produit par `scripts/build-data.mjs` : l'item vient du dump, la génération
+ * et les croisements d'un relevé communautaire (`dofus_data/breeding.json`).
+ */
+export interface MountVariety {
+  id: VarietyId
+  species: Species
+  /** Nom court, sans l'espèce : « Amande et Rousse ». */
+  name: string
+  generation: number
+  /**
+   * Les couples de parents qui la donnent. Vide en génération 1 et pour les
+   * montures hors élevage ; plusieurs pour bien des muldos et volkornes.
+   */
+  recipes: readonly (readonly [VarietyId, VarietyId])[]
+  /** Le certificat d'étable de la même variété, s'il existe encore au catalogue. */
+  certificateId: ItemId | null
+}
+
+/** Un croisement où une variété est parent : ce qu'il donne, et avec qui. */
+export interface MountChild {
+  child: VarietyId
+  partner: VarietyId
+}
+
+export interface MountCatalog {
+  /** Par espèce, génération, puis nom. */
+  varieties: MountVariety[]
+  byId: ReadonlyMap<VarietyId, MountVariety>
+  /** Depuis l'item de monture *ou* son certificat : une fiche d'item retrouve sa variété. */
+  byItemId: ReadonlyMap<ItemId, MountVariety>
+  /** Index inverse des recettes : ce qu'une variété permet d'obtenir. */
+  childrenOf: ReadonlyMap<VarietyId, MountChild[]>
+  /**
+   * XP cumulée d'une monture à chaque niveau, indexée par le niveau :
+   * `xp[39] === 19266`, `xp[200] === 867582`. Vide si la table n'a pas été
+   * relevée — le planificateur retombe alors sur un niveau saisi à la main.
+   */
+  xp: readonly number[]
+}
+
 export interface Catalog {
   items: Item[]
   byId: ReadonlyMap<ItemId, Item>
@@ -76,6 +128,8 @@ export interface Catalog {
    * seule page lit.
    */
   carburants: Carburant[]
+  /** Les montures d'élevage et leurs croisements : voir `data/mounts.ts`. */
+  mounts: MountCatalog
   categories: Record<number, string>
   /** Sources d'icônes, à essayer dans l'ordre : voir ItemIcon. */
   iconBaseUrls: string[]
