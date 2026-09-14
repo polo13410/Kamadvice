@@ -55,6 +55,8 @@ import {
   PackageCheck,
   PackageX,
   PawPrint,
+  Pin,
+  PinOff,
   Plus,
   Radio,
   Receipt,
@@ -196,6 +198,9 @@ export const Icon = {
 
   // Actions
   delete: Trash2,
+  /** Épingler un écran : il remonte en tête de sa liste. Rempli quand il l'est. */
+  pin: Pin,
+  unpin: PinOff,
   /** Copier le lien de la page courante. */
   share: Share2,
   /** Action accomplie, le temps qu'on s'en aperçoive. */

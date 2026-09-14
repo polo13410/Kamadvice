@@ -130,3 +130,90 @@ body {
     animation-duration: 7s;
   }
 }
+
+/*
+ * La vitrine de l'accueil : trois mouvements, tous décoratifs.
+ *
+ * - `.float` : un lent balancement vertical, pour le logo au centre du hero.
+ * - `.drift` : la dérive des icônes dispersées autour du logo, voir plus bas.
+ * - `.rise` : l'entrée d'une section, qui monte en s'opacifiant. `both` garde
+ *   l'état initial pendant le délai : une section retardée n'apparaît pas
+ *   avant de commencer à monter.
+ *
+ * Tout s'arrête sous `prefers-reduced-motion` : ce ne sont que des ornements,
+ * et la page se lit aussi bien immobile.
+ */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/*
+ * La dérive d'une icône flottante du hero : un petit circuit en quatre
+ * étapes, dont chaque étape est propre à l'élément (`--drift-1` à
+ * `--drift-4`, posées en style inline). Une seule animation pour toutes,
+ * mais aucune ne suit le même chemin ni le même tempo.
+ */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: var(--drift-1);
+  }
+  50% {
+    transform: var(--drift-2);
+  }
+  75% {
+    transform: var(--drift-3);
+  }
+}
+
+.drift {
+  animation: drift 10s ease-in-out infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.rise {
+  animation: rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/*
+ * Quadrillage en filigrane derrière le hero, fondu vers le bas : la page se
+ * pose sur une grille, comme une carte, sans que le motif gêne la lecture.
+ */
+.home-grid {
+  background-image:
+    linear-gradient(to right, rgb(148 163 184 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(148 163 184 / 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float,
+  .drift,
+  .rise {
+    animation: none;
+  }
+}

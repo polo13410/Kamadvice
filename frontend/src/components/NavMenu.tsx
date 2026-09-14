@@ -8,6 +8,14 @@
  * site, l'APG recommande justement le disclosure, qui laisse le navigateur
  * faire son travail.
  *
+ * Avec `to`, le libellé est lui-même un lien vers la page de la section (la
+ * liste des métiers, l'élevage), et un chevron à part ouvre la liste : au
+ * doigt, où le survol n'existe pas, c'est lui qu'on touche.
+ *
+ * Les entrées épinglées passent en tête, au-dessus d'un trait ; chaque entrée
+ * qui porte une clé d'épingle a son bouton pour l'épingler ou la détacher,
+ * à côté du lien et non dedans — un bouton dans un lien n'est pas valide.
+ *
  * Pas de portail non plus, contrairement à `Tooltip` : le header est
  * `sticky` sans `overflow-hidden`, un panneau positionné en absolu s'en
  * échappe déjà proprement.
@@ -16,16 +24,22 @@
  * événement partirait au premier appui et se battrait avec le clic.
  */
 import type { LucideIcon } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { pinnedFirst, togglePin, usePins } from '../data/pins'
 import { Icon } from '../lib/icons'
+import { isCurrent } from '../lib/pages'
 
 export interface NavMenuItem {
   to: string
   label: string
   icon?: LucideIcon
+  /** Une image à la place de l'icône : celle d'un métier, d'une monture. */
+  glyph?: ReactNode
   /** Une ligne pour dire ce qu'on y trouve. Facultatif. */
   description?: string
+  /** Clé d'épingle (voir `data/pins`) : l'entrée se laisse épingler. */
+  pinKey?: string
 }
 
 /**
@@ -34,14 +48,26 @@ export interface NavMenuItem {
  */
 const CLOSE_DELAY_MS = 150
 
+const TRIGGER =
+  'flex items-center gap-1.5 rounded px-2 py-1 text-sm hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none'
+
 export default function NavMenu({
   label,
   icon: Glyph,
   items,
+  to,
+  empty,
+  align = 'left',
 }: {
   label: string
   icon?: LucideIcon
   items: readonly NavMenuItem[]
+  /** La page de la section : le libellé y mène, le chevron ouvre la liste. */
+  to?: string
+  /** Ce que dit le panneau quand la liste est vide. */
+  empty?: ReactNode
+  /** Bord du bouton sur lequel le panneau s'aligne. */
+  align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
   /** Ouverture au clavier : le premier lien doit prendre le focus. */
@@ -52,11 +78,15 @@ export default function NavMenu({
   const panelId = useId()
   const closing = useRef<number | undefined>(undefined)
   const { pathname } = useLocation()
+  const pins = usePins()
 
   const cancelClose = () => window.clearTimeout(closing.current)
   useEffect(() => cancelClose, [])
 
-  const active = items.some((item) => item.to === pathname)
+  const active =
+    (to !== undefined && isCurrent(pathname, to)) || items.some((item) => isCurrent(pathname, item.to))
+
+  const ordered = pinnedFirst(items, (item) => item.pinKey, pins)
 
   /** Les liens du panneau, dans l'ordre du DOM : pas de ref par entrée. */
   const links = () => [...(panel.current?.querySelectorAll('a') ?? [])]
@@ -112,6 +142,14 @@ export default function NavMenu({
     move(event.key === 'ArrowDown' ? 1 : -1)
   }
 
+  const tone = active || open ? 'text-slate-100' : 'text-slate-400'
+  const chevron = (
+    <Icon.dropdown
+      className={`size-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+      aria-hidden
+    />
+  )
+
   return (
     <div
       ref={root}
@@ -133,54 +171,136 @@ export default function NavMenu({
         closing.current = window.setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
       }}
     >
-      <button
-        ref={trigger}
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((value) => !value)}
-        className={`flex items-center gap-1.5 rounded px-2 py-1 text-sm hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
-          active || open ? 'text-slate-100' : 'text-slate-400'
-        }`}
-      >
-        {Glyph && <Glyph className="size-4 shrink-0" aria-hidden />}
-        {label}
-        <Icon.dropdown
-          className={`size-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-          aria-hidden
-        />
-      </button>
+      {to === undefined ? (
+        <button
+          ref={trigger}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((value) => !value)}
+          className={`${TRIGGER} ${tone}`}
+        >
+          {Glyph && <Glyph className="size-4 shrink-0" aria-hidden />}
+          {label}
+          {chevron}
+        </button>
+      ) : (
+        <div className="flex items-center">
+          <Link
+            to={to}
+            aria-current={isCurrent(pathname, to) ? 'page' : undefined}
+            className={`${TRIGGER} pr-1 ${tone}`}
+          >
+            {Glyph && <Glyph className="size-4 shrink-0" aria-hidden />}
+            {label}
+          </Link>
+          <button
+            ref={trigger}
+            type="button"
+            aria-label={`Ouvrir la liste : ${label}`}
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => setOpen((value) => !value)}
+            className={`rounded py-1.5 pr-1.5 pl-0.5 hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${tone}`}
+          >
+            {chevron}
+          </button>
+        </div>
+      )}
 
       {open && (
         <div
           ref={panel}
           id={panelId}
-          className="absolute left-0 top-full z-30 mt-2 min-w-52 overflow-hidden rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50"
+          className={`absolute top-full z-30 mt-2 max-h-[70vh] min-w-60 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50 ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
         >
-          {items.map((item) => {
-            const ItemGlyph = item.icon
-            const current = item.to === pathname
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                aria-current={current ? 'page' : undefined}
-                className={`flex items-start gap-2 px-3 py-2 text-sm hover:bg-slate-800 hover:text-amber-400 focus-visible:bg-slate-800 focus-visible:outline-none ${
-                  current ? 'text-amber-400' : 'text-slate-300'
-                }`}
-              >
-                {ItemGlyph && <ItemGlyph className="mt-0.5 size-4 shrink-0" aria-hidden />}
-                <span className="min-w-0">
-                  {item.label}
-                  {item.description && (
-                    <span className="block text-xs text-slate-500">{item.description}</span>
-                  )}
-                </span>
-              </Link>
-            )
-          })}
+          {ordered.items.length === 0 && empty !== undefined && (
+            <p className="max-w-64 px-3 py-2 text-xs text-slate-500">{empty}</p>
+          )}
+          {ordered.items.map((item, index) => (
+            <Fragment key={item.to}>
+              {index > 0 && index === ordered.divider && (
+                <div role="separator" className="my-1 border-t border-slate-800" />
+              )}
+              <MenuRow
+                item={item}
+                current={isCurrent(pathname, item.to)}
+                pinned={item.pinKey !== undefined && pins.has(item.pinKey)}
+              />
+            </Fragment>
+          ))}
         </div>
       )}
     </div>
+  )
+}
+
+/** Une entrée du panneau : le lien, et l'épingle à côté s'il y a lieu. */
+function MenuRow({ item, current, pinned }: { item: NavMenuItem; current: boolean; pinned: boolean }) {
+  const ItemGlyph = item.icon
+  return (
+    <div className="flex items-center">
+      <Link
+        to={item.to}
+        aria-current={current ? 'page' : undefined}
+        className={`flex min-w-0 flex-1 items-start gap-2 px-3 py-2 text-sm hover:bg-slate-800 hover:text-amber-400 focus-visible:bg-slate-800 focus-visible:outline-none ${
+          current ? 'text-amber-400' : 'text-slate-300'
+        }`}
+      >
+        {item.glyph !== undefined ? (
+          <span className="mt-0.5 shrink-0">{item.glyph}</span>
+        ) : (
+          ItemGlyph && <ItemGlyph className="mt-0.5 size-4 shrink-0" aria-hidden />
+        )}
+        <span className="min-w-0">
+          <span className="block truncate">{item.label}</span>
+          {item.description && (
+            <span className="block text-xs text-slate-500">{item.description}</span>
+          )}
+        </span>
+      </Link>
+      {item.pinKey !== undefined && (
+        <PinButton pinKey={item.pinKey} pinned={pinned} label={item.label} className="mr-1.5" />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Le bouton d'épingle, tel qu'il se montre dans toutes les listes : discret
+ * tant que l'entrée n'est pas épinglée, ambre et plein quand elle l'est.
+ * Il arrête la propagation du clic : posé dans une option de liste, il ne
+ * doit pas la choisir.
+ */
+export function PinButton({
+  pinKey,
+  pinned,
+  label,
+  className = '',
+}: {
+  pinKey: string
+  pinned: boolean
+  label: string
+  className?: string
+}) {
+  const title = pinned ? `Détacher ${label}` : `Épingler ${label}`
+  return (
+    <button
+      type="button"
+      aria-pressed={pinned}
+      aria-label={title}
+      title={title}
+      onClick={(event) => {
+        event.stopPropagation()
+        togglePin(pinKey)
+      }}
+      className={`shrink-0 rounded p-1 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+        pinned ? 'text-amber-400 hover:text-slate-400' : 'text-slate-600 hover:text-amber-400'
+      } ${className}`}
+    >
+      <Icon.pin className={`size-3.5 ${pinned ? 'fill-current' : ''}`} aria-hidden />
+    </button>
   )
 }

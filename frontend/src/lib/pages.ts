@@ -19,14 +19,27 @@ export const BREEDING_PATH = '/dashboard/elevage'
 
 export const planPath = (planId: string): string => `${BREEDING_PATH}/${planId}`
 
-/** Entrées du menu « Dashboard ». À garder alignées sur les routes de `App`. */
+/** Le tableau de bord des carburants d'enclos. */
+export const CARBURANT_PATH = '/dashboard/catalyst'
+
+/**
+ * Une page est « courante » sur son chemin et sur ceux qu'elle abrite : la
+ * liste des métiers l'est sur le tableau de bord d'un métier, l'élevage sur un
+ * plan. Le header et le menu s'en servent pour souligner la section ouverte.
+ */
+export const isCurrent = (pathname: string, to: string): boolean =>
+  pathname === to || pathname.startsWith(`${to}/`)
+
+export const CARBURANT: NavMenuItem = {
+  to: CARBURANT_PATH,
+  label: 'Carburant',
+  icon: Icon.fuel,
+  description: "Acheter ou crafter les carburants d'enclos, par jauge et par niveau",
+}
+
+/** Les tableaux de bord, tels que l'accueil les présente. À garder alignés sur les routes de `App`. */
 export const DASHBOARDS: NavMenuItem[] = [
-  {
-    to: '/dashboard/catalyst',
-    label: 'Carburant',
-    icon: Icon.fuel,
-    description: "Acheter ou crafter les carburants d'enclos, par jauge et par niveau",
-  },
+  CARBURANT,
   {
     to: JOBS_PATH,
     label: 'Métiers',
@@ -55,6 +68,13 @@ export const FAVORITES: NavMenuItem = {
   icon: Icon.favorite,
   description: 'Les items que vous suivez, filtrables par type et par rentabilité',
 }
+
+/**
+ * Les vues : des listes d'items toutes faites, au format tableau de bord. Le
+ * menu « Vues » du header les déroule ; les vues sur mesure (voir `TODO.md`)
+ * viendront s'y ajouter.
+ */
+export const VIEWS: NavMenuItem[] = [CARBURANT, FAVORITES]
 
 /**
  * De quoi amorcer une première recherche. Des noms de familles larges plutôt

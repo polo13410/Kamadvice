@@ -8,16 +8,22 @@
  * `aria-activedescendant`. La liste empêche le `pointerdown` de lui voler le
  * focus, sans quoi la sortie de focus la refermerait avant le clic.
  *
+ * Les serveurs épinglés passent en tête, au-dessus d'un trait ; chaque option
+ * porte son épingle. Le bouton d'épingle n'est pas dans l'ordre de tabulation
+ * du combobox — le focus reste sur le bouton —, il se clique.
+ *
  * Fermeture comme `NavMenu` : clic extérieur, Échap, sortie au Tab.
  *
  * Deux habillages du même bouton : `field`, un champ bordé à la hauteur des
  * contrôles de l'app, pour l'accueil ; `header`, texte nu accordé aux liens
  * du header, où il rappelle le serveur courant et permet d'en changer.
  */
-import { useEffect, useId, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { PIN, pinnedFirst, usePins } from '../data/pins'
 import { KIND_LABEL, SERVERS, setServer, useServer } from '../data/servers'
 import { Icon } from '../lib/icons'
 import { BUTTON } from './Adorned'
+import { PinButton } from './NavMenu'
 import ServerIcon from './ServerIcon'
 
 const TRIGGER = {
@@ -34,17 +40,25 @@ export default function ServerPicker({
   className?: string
 }) {
   const server = useServer()
+  const pins = usePins()
+  const ordered = useMemo(
+    () => pinnedFirst(SERVERS, (candidate) => PIN.server(candidate.id), pins),
+    [pins],
+  )
+  const list = ordered.items
+
   const [open, setOpen] = useState(false)
   /** Rang de l'option visée au clavier ou sous la souris. */
-  const [active, setActive] = useState(() => SERVERS.indexOf(server))
+  const [active, setActive] = useState(() => list.indexOf(server))
   const root = useRef<HTMLDivElement>(null)
   const listId = useId()
   const optionId = (index: number) => `${listId}-${index}`
 
-  // À l'ouverture, on repart du serveur courant, pas de la dernière option survolée.
+  // À l'ouverture, on repart du serveur courant, pas de la dernière option
+  // survolée — et une épingle posée réordonne la liste, le rang suit.
   useEffect(() => {
-    if (open) setActive(SERVERS.indexOf(server))
-  }, [open, server])
+    if (open) setActive(list.indexOf(server))
+  }, [open, server, list])
 
   useEffect(() => {
     if (!open) return
@@ -61,7 +75,7 @@ export default function ServerPicker({
   }, [open])
 
   function choose(index: number) {
-    const picked = SERVERS[index]
+    const picked = list[index]
     if (picked) setServer(picked.id)
     setOpen(false)
   }
@@ -80,7 +94,7 @@ export default function ServerPicker({
         return
       }
       const step = event.key === 'ArrowDown' ? 1 : -1
-      setActive((index) => Math.min(Math.max(index + step, 0), SERVERS.length - 1))
+      setActive((index) => Math.min(Math.max(index + step, 0), list.length - 1))
       return
     }
     if (!open) return
@@ -89,7 +103,7 @@ export default function ServerPicker({
       setActive(0)
     } else if (event.key === 'End') {
       event.preventDefault()
-      setActive(SERVERS.length - 1)
+      setActive(list.length - 1)
     } else if (event.key === 'Enter' || event.key === ' ') {
       // Fermé, ces touches déclenchent le clic du bouton, qui ouvre : rien à faire.
       event.preventDefault()
@@ -134,30 +148,40 @@ export default function ServerPicker({
           role="listbox"
           aria-label="Serveurs de jeu"
           onPointerDown={(event) => event.preventDefault()}
-          className="absolute left-0 top-full z-30 mt-2 max-h-80 w-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50"
+          className="absolute top-full left-0 z-30 mt-2 max-h-80 w-72 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50"
         >
-          {SERVERS.map((candidate, index) => {
+          {list.map((candidate, index) => {
             const selected = candidate === server
             const highlighted = index === active
+            const key = PIN.server(candidate.id)
             return (
-              <div
-                key={candidate.id}
-                id={optionId(index)}
-                role="option"
-                aria-selected={selected}
-                onPointerMove={() => setActive(index)}
-                onClick={() => choose(index)}
-                className={`flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-sm ${
-                  highlighted ? 'bg-slate-800 text-amber-400' : selected ? 'text-amber-400' : 'text-slate-300'
-                }`}
-              >
-                <ServerIcon server={candidate} size={28} />
-                <span className="min-w-0 flex-1">
-                  <span className="block">{candidate.name}</span>
-                  <span className="block text-xs text-slate-500">{KIND_LABEL[candidate.kind]}</span>
-                </span>
-                {selected && <Icon.done className="size-4 shrink-0" aria-hidden />}
-              </div>
+              <Fragment key={candidate.id}>
+                {index > 0 && index === ordered.divider && (
+                  <div role="separator" className="my-1 border-t border-slate-800" />
+                )}
+                <div
+                  id={optionId(index)}
+                  role="option"
+                  aria-selected={selected}
+                  onPointerMove={() => setActive(index)}
+                  onClick={() => choose(index)}
+                  className={`flex cursor-pointer items-center gap-2.5 py-1.5 pr-1.5 pl-3 text-sm ${
+                    highlighted
+                      ? 'bg-slate-800 text-amber-400'
+                      : selected
+                        ? 'text-amber-400'
+                        : 'text-slate-300'
+                  }`}
+                >
+                  <ServerIcon server={candidate} size={28} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{candidate.name}</span>
+                    <span className="block text-xs text-slate-500">{KIND_LABEL[candidate.kind]}</span>
+                  </span>
+                  {selected && <Icon.done className="size-4 shrink-0" aria-hidden />}
+                  <PinButton pinKey={key} pinned={pins.has(key)} label={candidate.name} />
+                </div>
+              </Fragment>
             )
           })}
         </div>

@@ -84,15 +84,32 @@ export function scopedKey(key: string, server: GameServer = current): string {
   return server === DEFAULT_SERVER ? key : `${key}.${server.id}`
 }
 
+/**
+ * Un serveur a-t-il déjà été choisi dans ce navigateur ? Tant que non, l'app
+ * montre les prix du serveur par défaut, et le demande au premier passage.
+ * Un stockage inaccessible compte comme choisi : on ne redemande pas à
+ * chaque visite ce qu'on ne peut pas retenir.
+ */
+export function hasChosenServer(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) !== null
+  } catch {
+    return true
+  }
+}
+
 export function setServer(id: string) {
   const next = SERVERS.find((server) => server.id === id)
-  if (!next || next === current) return
-  current = next
+  if (!next) return
+  // Écrit même sans changement : confirmer le serveur par défaut au premier
+  // passage est un choix, et il doit être retenu comme tel.
   try {
     localStorage.setItem(STORAGE_KEY, next.id)
   } catch {
     // Le choix vaut pour la session ; il sera à refaire au prochain démarrage.
   }
+  if (next === current) return
+  current = next
   for (const listener of listeners) listener()
 }
 
