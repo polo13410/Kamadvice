@@ -23,7 +23,7 @@ import NavMenu, { type NavMenuItem } from './NavMenu'
 
 const plural = (count: number, word: string) => `${count} ${word}${count > 1 ? 's' : ''}`
 
-function useJobItems(): NavMenuItem[] {
+export function useJobItems(): NavMenuItem[] {
   const catalog = useCatalog()
   return useMemo(
     () =>

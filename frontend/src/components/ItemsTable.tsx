@@ -9,7 +9,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCatalog } from '../data/catalogContext'
 import { useIgnored } from '../data/ignored'
-import { usePrices } from '../data/prices'
+import { useCurrentPrices, usePrices } from '../data/prices'
 import { createEvaluator } from '../domain/craft'
 import type { Item } from '../domain/types'
 import { formatKamas, formatPercent, normalize } from '../lib/format'
@@ -27,6 +27,8 @@ export interface ItemRow {
   /** Nom normalisé, prêt pour la recherche. */
   search: string
   buy: number | null
+  /** Instant du dernier relevé de prix, en millisecondes ; `null` sans relevé daté. */
+  updated: number | null
   /** L'item a une recette. Sans quoi son coût de craft n'est pas inconnu : il n'existe pas. */
   craftable: boolean
   craft: number | null
@@ -56,16 +58,20 @@ const COLUMNS = 'grid grid-cols-[1.75rem_1fr_9rem_3.5rem_16rem_8rem_6rem] items-
 export function useItemRows(): ItemRow[] {
   const catalog = useCatalog()
   const prices = usePrices()
+  const points = useCurrentPrices()
   const ignored = useIgnored()
 
   return useMemo(() => {
     const evaluate = createEvaluator(catalog, prices, ignored)
     return catalog.items.map((item) => {
       const report = evaluate.report(item.id)
+      const at = points.get(item.id)?.at ?? null
+      const updated = at === null ? null : Date.parse(at)
       return {
         item,
         search: normalize(item.name),
         buy: report.buy,
+        updated: updated === null || Number.isNaN(updated) ? null : updated,
         craftable: report.craft !== null,
         // Coût complet uniquement : un total partiel n'est pas comparable aux
         // autres lignes, et « trier par coût » n'y répondrait plus.
@@ -74,7 +80,7 @@ export function useItemRows(): ItemRow[] {
         marginRatio: report.marginRatio,
       }
     })
-  }, [catalog, prices, ignored])
+  }, [catalog, prices, points, ignored])
 }
 
 /** Trie une copie des lignes : celles reçues sont mémoïsées en amont. */
@@ -82,7 +88,10 @@ export function sortRows(rows: ItemRow[], sort: Sort): ItemRow[] {
   const sign = sort.dir === 'asc' ? 1 : -1
   return [...rows].sort((a, b) => {
     if (sort.key === 'name') return sign * a.item.name.localeCompare(b.item.name, 'fr')
-    if (sort.key === 'level') return sign * (a.item.level - b.item.level)
+    // À niveau égal, l'ordre alphabétique : une liste ouverte se lit par niveau, et reste stable.
+    if (sort.key === 'level') {
+      return sign * (a.item.level - b.item.level) || a.item.name.localeCompare(b.item.name, 'fr')
+    }
     if (sort.key === 'type') {
       // Les items sans type rejoignent les prix inconnus tout en bas, et deux
       // items d'un même type se départagent par leur nom : sans ce second
@@ -141,14 +150,19 @@ export default function ItemsTable({
         <SortHeader label="Item" icon={Icon.item} active={sort} sortKey="name" onClick={onSort} />
         <SortHeader label="Type" icon={Icon.type} active={sort} sortKey="type" onClick={onSort} />
         <SortHeader label="Niv." active={sort} sortKey="level" onClick={onSort} align="right" />
-        <SortHeader
-          label="Prix HDV"
-          icon={Icon.price}
-          active={sort}
-          sortKey="buy"
-          onClick={onSort}
-          align="right"
-        />
+        {/* La colonne du prix se trie par montant ou par date de relevé :
+            le second est le tri d'ouverture, ce qui vient d'être relevé en tête. */}
+        <span className="flex items-center justify-end gap-3">
+          <SortHeader label="Relevé" icon={Icon.history} active={sort} sortKey="updated" onClick={onSort} />
+          <SortHeader
+            label="Prix HDV"
+            icon={Icon.price}
+            active={sort}
+            sortKey="buy"
+            onClick={onSort}
+            align="right"
+          />
+        </span>
         <SortHeader
           label="Coût craft"
           icon={Icon.craft}

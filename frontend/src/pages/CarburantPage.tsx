@@ -50,6 +50,7 @@ import {
   type MaxingEstimate,
 } from "../domain/carburant";
 import {
+  DEFAULT_SORT_KEY,
   defaultSortDir,
   isFiltering,
   NO_FILTERS,
@@ -182,7 +183,8 @@ export default function CarburantPage() {
   const sortControl = (key: CarburantSortKey) => ({
     dir: filters.sort.key === key ? filters.sort.dir : null,
     onToggle: () => toggleSort(key),
-    onReset: () => update({ sort: { key: "gauge", dir: "asc" } }),
+    onReset: () =>
+      update({ sort: { key: DEFAULT_SORT_KEY, dir: defaultSortDir(DEFAULT_SORT_KEY) } }),
   });
 
   /**

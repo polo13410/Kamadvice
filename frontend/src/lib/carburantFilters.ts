@@ -42,7 +42,7 @@ export interface CarburantFilters {
   sort: { key: CarburantSortKey; dir: SortDir }
 }
 
-export const DEFAULT_SORT_KEY: CarburantSortKey = 'gauge'
+export const DEFAULT_SORT_KEY: CarburantSortKey = 'level'
 
 /**
  * Sens initial d'un tri : lecture par le début, chiffres par le haut —
