@@ -11,9 +11,9 @@
  * plus de trente lignes, et les champs de prix supportent mal d'être
  * démontés en plein défilement.
  */
-import { Fragment, useMemo, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import DashboardHeader from '../components/DashboardHeader'
+import { Fragment, useMemo, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import DashboardHeader from "../components/DashboardHeader";
 import {
   FilterBar,
   FilterChips,
@@ -22,13 +22,13 @@ import {
   FilterReset,
   FilterSearch,
   FilterToggle,
-} from '../components/FilterBar'
-import ItemIcon from '../components/ItemIcon'
-import Kamas from '../components/Kamas'
-import PriceField from '../components/PriceField'
-import { PriceWizardButton } from '../components/PriceWizard'
-import Th, { INGREDIENT_GRID } from '../components/TableHead'
-import { Tooltip } from '../components/Tooltip'
+} from "../components/FilterBar";
+import ItemIcon from "../components/ItemIcon";
+import Kamas from "../components/Kamas";
+import PriceField from "../components/PriceField";
+import { PriceWizardButton } from "../components/PriceWizard";
+import Th, { INGREDIENT_GRID } from "../components/TableHead";
+import { Tooltip } from "../components/Tooltip";
 import {
   capLabel,
   carburantLabel,
@@ -37,10 +37,10 @@ import {
   GAUGES_ALPHA,
   SIZE_LABELS,
   SIZES,
-} from '../data/carburants'
-import { useCatalog } from '../data/catalogContext'
-import { useIgnored } from '../data/ignored'
-import { usePrices } from '../data/prices'
+} from "../data/carburants";
+import { useCatalog } from "../data/catalogContext";
+import { useIgnored } from "../data/ignored";
+import { usePrices } from "../data/prices";
 import {
   bestPerGauge,
   buildCarburantRows,
@@ -48,7 +48,7 @@ import {
   type CarburantIngredient,
   type CarburantRow,
   type MaxingEstimate,
-} from '../domain/carburant'
+} from "../domain/carburant";
 import {
   defaultSortDir,
   isFiltering,
@@ -56,20 +56,31 @@ import {
   useCarburantFilters,
   type CarburantFilters,
   type CarburantSortKey,
-} from '../lib/carburantFilters'
-import { formatKamas, formatRatio, normalize } from '../lib/format'
-import { heat, heatScale } from '../lib/heat'
-import { Icon } from '../lib/icons'
-import { within } from '../lib/range'
+} from "../lib/carburantFilters";
+import { formatKamas, formatRatio, normalize } from "../lib/format";
+import { heat, heatScale } from "../lib/heat";
+import { Icon } from "../lib/icons";
+import { within } from "../lib/range";
 
-const NONE = <span className="tabular-nums text-slate-600">—</span>
+const NONE = <span className="tabular-nums text-slate-600">—</span>;
 
 /** Rang de chaque jauge dans l'ordre alphabétique, second critère des tris. */
-const GAUGE_RANK = new Map(GAUGES_ALPHA.map((gauge, index) => [gauge.key, index]))
+const GAUGE_RANK = new Map(
+  GAUGES_ALPHA.map((gauge, index) => [gauge.key, index]),
+);
 
-const GAUGE_OPTIONS = GAUGES_ALPHA.map((gauge) => ({ value: gauge.key, label: gauge.label }))
-const FAMILY_OPTIONS = FAMILIES.map((family) => ({ value: family.key, label: family.label }))
-const SIZE_OPTIONS = SIZES.map((size) => ({ value: size, label: SIZE_LABELS[size] }))
+const GAUGE_OPTIONS = GAUGES_ALPHA.map((gauge) => ({
+  value: gauge.key,
+  label: gauge.label,
+}));
+const FAMILY_OPTIONS = FAMILIES.map((family) => ({
+  value: family.key,
+  label: family.label,
+}));
+const SIZE_OPTIONS = SIZES.map((size) => ({
+  value: size,
+  label: SIZE_LABELS[size],
+}));
 
 /**
  * Compare deux lignes selon le tri demandé.
@@ -78,35 +89,40 @@ const SIZE_OPTIONS = SIZES.map((size) => ({ value: size, label: SIZE_LABELS[size
  * les jauges, pas l'ordre des calibres à l'intérieur d'une jauge, qui reste le
  * plus lisible du petit au grand.
  */
-function compare(a: CarburantRow, b: CarburantRow, sort: CarburantFilters['sort']): number {
-  const sign = sort.dir === 'asc' ? 1 : -1
-  const byGauge = (GAUGE_RANK.get(a.gauge) ?? 0) - (GAUGE_RANK.get(b.gauge) ?? 0)
-  const byLevel = a.level - b.level
+function compare(
+  a: CarburantRow,
+  b: CarburantRow,
+  sort: CarburantFilters["sort"],
+): number {
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const byGauge =
+    (GAUGE_RANK.get(a.gauge) ?? 0) - (GAUGE_RANK.get(b.gauge) ?? 0);
+  const byLevel = a.level - b.level;
 
-  if (sort.key === 'gauge') return sign * byGauge || byLevel
-  if (sort.key === 'level') return sign * byLevel || byGauge
+  if (sort.key === "gauge") return sign * byGauge || byLevel;
+  if (sort.key === "level") return sign * byLevel || byGauge;
 
   // Une ligne sans chiffre ne répond ni au « plus » ni au « moins » : elle
   // reste en bas dans les deux sens.
-  const left = sort.key === 'ratio' ? a.pointsPerKama : a.craftMargin
-  const right = sort.key === 'ratio' ? b.pointsPerKama : b.craftMargin
-  if (left === null && right === null) return byGauge || byLevel
-  if (left === null) return 1
-  if (right === null) return -1
-  return sign * (left - right) || byGauge || byLevel
+  const left = sort.key === "ratio" ? a.pointsPerKama : a.craftMargin;
+  const right = sort.key === "ratio" ? b.pointsPerKama : b.craftMargin;
+  if (left === null && right === null) return byGauge || byLevel;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return sign * (left - right) || byGauge || byLevel;
 }
 
 export default function CarburantPage() {
-  const catalog = useCatalog()
-  const prices = usePrices()
-  const ignored = useIgnored()
-  const [filters, update] = useCarburantFilters()
+  const catalog = useCatalog();
+  const prices = usePrices();
+  const ignored = useIgnored();
+  const [filters, update] = useCarburantFilters();
 
   const rows = useMemo(
     () => buildCarburantRows(catalog, prices, ignored),
     [catalog, prices, ignored],
-  )
-  const unknown = useMemo(() => unknownCarburants(catalog), [catalog])
+  );
+  const unknown = useMemo(() => unknownCarburants(catalog), [catalog]);
 
   /**
    * Les filtres de portée d'abord, le meilleur rendement ensuite : « le
@@ -120,44 +136,54 @@ export default function CarburantPage() {
         rows.map((row) => [
           row.item.id,
           normalize(
-            [row.item.name, ...row.ingredients.map((i) => i.item?.name ?? '')].join(' '),
+            [
+              row.item.name,
+              ...row.ingredients.map((i) => i.item?.name ?? ""),
+            ].join(" "),
           ),
         ]),
       ),
     [rows],
-  )
+  );
 
   const { visible, bestIds } = useMemo(() => {
-    const needle = normalize(filters.search.trim())
+    const needle = normalize(filters.search.trim());
     // Un ensemble vide ne restreint rien ; à l'intérieur d'un ensemble, c'est
     // un OU (Baffeur ou Caresseur) ; entre ensembles, un ET.
     const scoped = rows.filter((row) => {
-      if (needle && !haystacks.get(row.item.id)?.includes(needle)) return false
-      if (filters.gauges.size > 0 && !filters.gauges.has(row.gauge)) return false
-      if (filters.families.size > 0 && !filters.families.has(row.family)) return false
-      if (filters.sizes.size > 0 && !filters.sizes.has(row.size)) return false
-      if (!within(row.level, filters.level)) return false
-      return true
-    })
-    const best = bestPerGauge(scoped)
-    const kept = filters.bestOnly ? scoped.filter((row) => best.has(row.item.id)) : scoped
-    return { visible: kept.sort((a, b) => compare(a, b, filters.sort)), bestIds: best }
-  }, [rows, haystacks, filters])
+      if (needle && !haystacks.get(row.item.id)?.includes(needle)) return false;
+      if (filters.gauges.size > 0 && !filters.gauges.has(row.gauge))
+        return false;
+      if (filters.families.size > 0 && !filters.families.has(row.family))
+        return false;
+      if (filters.sizes.size > 0 && !filters.sizes.has(row.size)) return false;
+      if (!within(row.level, filters.level)) return false;
+      return true;
+    });
+    const best = bestPerGauge(scoped);
+    const kept = filters.bestOnly
+      ? scoped.filter((row) => best.has(row.item.id))
+      : scoped;
+    return {
+      visible: kept.sort((a, b) => compare(a, b, filters.sort)),
+      bestIds: best,
+    };
+  }, [rows, haystacks, filters]);
 
   /** Premier clic : le sens naturel de la colonne. Les suivants basculent. */
   const toggleSort = (key: CarburantSortKey) =>
     update({
       sort:
         filters.sort.key === key
-          ? { key, dir: filters.sort.dir === 'asc' ? 'desc' : 'asc' }
+          ? { key, dir: filters.sort.dir === "asc" ? "desc" : "asc" }
           : { key, dir: defaultSortDir(key) },
-    })
+    });
 
   const sortControl = (key: CarburantSortKey) => ({
     dir: filters.sort.key === key ? filters.sort.dir : null,
     onToggle: () => toggleSort(key),
-    onReset: () => update({ sort: { key: 'gauge', dir: 'asc' } }),
-  })
+    onReset: () => update({ sort: { key: "gauge", dir: "asc" } }),
+  });
 
   /**
    * De quoi orienter la saisie : combien de prix sont attendus (les carburants
@@ -165,19 +191,19 @@ export default function CarburantPage() {
    * écart, qui sert d'échelle à la carte de chaleur.
    */
   const { priced, expected, scale } = useMemo(() => {
-    const wanted = new Set<number>()
+    const wanted = new Set<number>();
     for (const row of visible) {
-      wanted.add(row.item.id)
-      for (const ingredient of row.ingredients) wanted.add(ingredient.itemId)
+      wanted.add(row.item.id);
+      for (const ingredient of row.ingredients) wanted.add(ingredient.itemId);
     }
-    let known = 0
-    for (const id of wanted) if (prices.has(id)) known += 1
+    let known = 0;
+    for (const id of wanted) if (prices.has(id)) known += 1;
     return {
       priced: known,
       expected: wanted.size,
       scale: heatScale(visible.map((row) => row.craftMargin)),
-    }
-  }, [visible, prices])
+    };
+  }, [visible, prices]);
 
   /**
    * Portée du remplissage assisté : les carburants affichés d'abord — tous au
@@ -187,11 +213,13 @@ export default function CarburantPage() {
     () => [
       ...visible.map((row) => row.item),
       ...visible.flatMap((row) =>
-        row.ingredients.flatMap((ingredient) => (ingredient.item ? [ingredient.item] : [])),
+        row.ingredients.flatMap((ingredient) =>
+          ingredient.item ? [ingredient.item] : [],
+        ),
       ),
     ],
     [visible],
-  )
+  );
 
   return (
     <div className="space-y-4">
@@ -213,8 +241,8 @@ export default function CarburantPage() {
       {unknown.length > 0 && (
         <p className="flex items-center gap-2 text-sm text-amber-500/80">
           <Icon.warning className="size-4 shrink-0" aria-hidden />
-          {unknown.length} carburant(s) du catalogue non reconnu(s), absent(s) du tableau :{' '}
-          {unknown.map((item) => item.name).join(', ')}.
+          {unknown.length} carburant(s) du catalogue non reconnu(s), absent(s)
+          du tableau : {unknown.map((item) => item.name).join(", ")}.
         </p>
       )}
 
@@ -223,6 +251,13 @@ export default function CarburantPage() {
           value={filters.search}
           placeholder="Carburant ou ingrédient…"
           onChange={(search) => update({ search }, { replace: true })}
+        />
+        <FilterDivider />
+        <FilterRange
+          icon={Icon.level}
+          label="Niveau d'Éleveur requis"
+          value={filters.level}
+          onChange={(range) => update({ level: range }, { replace: true })}
         />
         <FilterDivider />
         <FilterChips
@@ -249,13 +284,6 @@ export default function CarburantPage() {
           onChange={(sizes) => update({ sizes })}
         />
         <FilterDivider />
-        <FilterRange
-          icon={Icon.level}
-          label="Niveau d'Éleveur requis"
-          value={filters.level}
-          onChange={(range) => update({ level: range }, { replace: true })}
-        />
-        <FilterDivider />
         <FilterToggle
           icon={Icon.best}
           label="Meilleur rendement par jauge"
@@ -263,7 +291,9 @@ export default function CarburantPage() {
           onChange={(bestOnly) => update({ bestOnly })}
           tip="Une ligne par jauge : le carburant qui rend le plus de points par kama, parmi ceux affichés"
         />
-        {isFiltering(filters) && <FilterReset onClick={() => update(NO_FILTERS)} />}
+        {isFiltering(filters) && (
+          <FilterReset onClick={() => update(NO_FILTERS)} />
+        )}
       </FilterBar>
 
       <div className="overflow-hidden rounded-lg border border-slate-800">
@@ -283,7 +313,7 @@ export default function CarburantPage() {
                   width="w-28"
                   icon={Icon.gauge}
                   tip="Jauge remplie. Cliquer pour trier par jauge, puis par niveau."
-                  sort={sortControl('gauge')}
+                  sort={sortControl("gauge")}
                 >
                   Catégorie
                 </Th>
@@ -291,7 +321,7 @@ export default function CarburantPage() {
                   width="w-14"
                   align="right"
                   tip="Niveau d'Éleveur requis. Cliquer pour trier par niveau, puis par jauge."
-                  sort={sortControl('level')}
+                  sort={sortControl("level")}
                 >
                   Niv.
                 </Th>
@@ -311,7 +341,7 @@ export default function CarburantPage() {
                   width="w-28"
                   align="right"
                   tip="Points de jauge obtenus par kama dépensé : plus c'est haut, mieux c'est. Cliquer pour trier."
-                  sort={sortControl('ratio')}
+                  sort={sortControl("ratio")}
                 >
                   Points/kama
                 </Th>
@@ -319,17 +349,27 @@ export default function CarburantPage() {
                   width="w-28"
                   align="right"
                   tip="Prix HDV moins coût du craft. Cliquer pour trier."
-                  sort={sortControl('margin')}
+                  sort={sortControl("margin")}
                 >
                   Rentabilité
                 </Th>
                 <Th width="w-20" align="center">
                   Décision
                 </Th>
-                <Th width="w-20" align="right" icon={Icon.points} tip="Points de jauge rendus">
+                <Th
+                  width="w-20"
+                  align="right"
+                  icon={Icon.points}
+                  tip="Points de jauge rendus"
+                >
                   Points
                 </Th>
-                <Th width="w-24" align="right" icon={Icon.target} tip="Carburants à consommer">
+                <Th
+                  width="w-24"
+                  align="right"
+                  icon={Icon.target}
+                  tip="Carburants à consommer"
+                >
                   Nb maxer
                 </Th>
                 <Th
@@ -346,7 +386,10 @@ export default function CarburantPage() {
             <tbody>
               {visible.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-2 py-8 text-center text-sm text-slate-500">
+                  <td
+                    colSpan={12}
+                    className="px-2 py-8 text-center text-sm text-slate-500"
+                  >
                     Aucun carburant ne passe ces filtres.
                   </td>
                 </tr>
@@ -380,25 +423,38 @@ export default function CarburantPage() {
         </span>
         <span className="flex items-center gap-1.5">
           <Icon.cap className="size-3.5 shrink-0" aria-hidden />
-          Plafond de jauge : extrait 40 000, philtre 70 000, potion 90 000, élixir sans limite. La
-          jauge se vide en nourrissant les montures : on recharge en boucle, le plafond ne borne
-          pas le total.
+          Plafond de jauge : extrait 40 000, philtre 70 000, potion 90 000,
+          élixir sans limite. La jauge se vide en nourrissant les montures : on
+          recharge en boucle, le plafond ne borne pas le total.
         </span>
       </p>
     </div>
-  )
+  );
 }
 
-function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: number }) {
-  const gauge = GAUGE_INFO.get(row.gauge)
+function Row({
+  row,
+  best,
+  scale,
+}: {
+  row: CarburantRow;
+  best: boolean;
+  scale: number;
+}) {
+  const gauge = GAUGE_INFO.get(row.gauge);
 
   return (
-    <tr className={`border-t border-slate-800/60 align-top ${best ? 'bg-amber-500/[0.04]' : ''}`}>
+    <tr
+      className={`border-t border-slate-800/60 align-top ${best ? "bg-amber-500/[0.04]" : ""}`}
+    >
       {/* L'icône et le nom court ne font qu'un seul lien vers la fiche. Le
           nom complet et le plafond vivent dans la bulle. Hors tabulation,
           pour que Tab enchaîne les champs de prix. */}
       <td className="min-w-0 px-2 py-1.5">
-        <Tooltip content={`${row.item.name} — ${capLabel(row.cap)}`} className="block min-w-0">
+        <Tooltip
+          content={`${row.item.name} — ${capLabel(row.cap)}`}
+          className="block min-w-0"
+        >
           <Link
             to={`/item/${row.item.id}`}
             tabIndex={-1}
@@ -411,7 +467,10 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
         </Tooltip>
       </td>
       <td className="px-2 py-1.5">
-        <Tooltip content={gauge?.note} className="flex h-6 cursor-help items-center text-slate-300">
+        <Tooltip
+          content={gauge?.note}
+          className="flex h-6 cursor-help items-center text-slate-300"
+        >
           {gauge?.label ?? row.gauge}
         </Tooltip>
       </td>
@@ -446,7 +505,7 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
       </td>
       <td
         className={`px-2 py-1.5 text-right tabular-nums ${
-          best ? 'font-medium text-amber-300' : 'text-slate-300'
+          best ? "font-medium text-amber-300" : "text-slate-300"
         }`}
       >
         {row.pointsPerKama === null ? (
@@ -464,7 +523,7 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
       </td>
       <td
         className={`px-2 py-1.5 text-right tabular-nums ${
-          row.craftMargin === null ? '' : heat(row.craftMargin, scale)
+          row.craftMargin === null ? "" : heat(row.craftMargin, scale)
         }`}
       >
         <span className="flex h-6 items-center justify-end">
@@ -478,19 +537,25 @@ function Row({ row, best, scale }: { row: CarburantRow; best: boolean; scale: nu
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">
         <span className="flex h-6 items-center justify-end">
-          {row.points.toLocaleString('fr-FR')}
+          {row.points.toLocaleString("fr-FR")}
         </span>
       </td>
       {/* Le nombre de carburants ne dépend que du calibre : il reste affiché
           même sans aucun prix, contrairement au coût. */}
       <td className="px-2 py-1.5">
-        <Maxing maxing={row.maxing} render={(step) => step.count.toLocaleString('fr-FR')} />
+        <Maxing
+          maxing={row.maxing}
+          render={(step) => step.count.toLocaleString("fr-FR")}
+        />
       </td>
       <td className="px-2 py-1.5">
-        <Maxing maxing={row.maxing} render={(step) => <Kamas value={step.cost} />} />
+        <Maxing
+          maxing={row.maxing}
+          render={(step) => <Kamas value={step.cost} />}
+        />
       </td>
     </tr>
-  )
+  );
 }
 
 /**
@@ -503,7 +568,7 @@ function CraftCost({ row }: { row: CarburantRow }) {
     // Rien de saisi encore : un tiret suffit. L'orange est réservé au
     // chiffrage entamé mais incomplet, seul cas où le chiffre tromperait —
     // sinon cent vingt alertes s'allument sur une page vierge.
-    if (row.missing.length >= row.ingredients.length) return NONE
+    if (row.missing.length >= row.ingredients.length) return NONE;
     return (
       <Tooltip
         content={`Coût incomplet : ${new Set(row.missing).size} ingrédient(s) sans prix saisi`}
@@ -511,19 +576,24 @@ function CraftCost({ row }: { row: CarburantRow }) {
       >
         <Icon.warning className="size-3.5 shrink-0" aria-hidden />—
       </Tooltip>
-    )
+    );
   }
 
   return (
     <span className="flex items-center justify-end gap-1">
       {row.inStock.length > 0 && (
-        <Tooltip content={`${new Set(row.inStock).size} ingrédient(s) en stock, comptés pour 0`}>
-          <Icon.inStock className="size-3.5 shrink-0 cursor-help text-slate-500" aria-hidden />
+        <Tooltip
+          content={`${new Set(row.inStock).size} ingrédient(s) en stock, comptés pour 0`}
+        >
+          <Icon.inStock
+            className="size-3.5 shrink-0 cursor-help text-slate-500"
+            aria-hidden
+          />
         </Tooltip>
       )}
       <Kamas value={row.craft} />
     </span>
-  )
+  );
 }
 
 /**
@@ -531,33 +601,40 @@ function CraftCost({ row }: { row: CarburantRow }) {
  * qu'une colonne de 18rem, à douze colonnes.
  */
 function Ingredient({ ingredient }: { ingredient: CarburantIngredient }) {
-  const name = ingredient.item?.name ?? `Item #${ingredient.itemId}`
+  const name = ingredient.item?.name ?? `Item #${ingredient.itemId}`;
   return (
     <div className="min-w-0 space-y-0.5">
       <Tooltip
-        content={ingredient.inStock ? `${name} — en stock, compté pour 0` : name}
+        content={
+          ingredient.inStock ? `${name} — en stock, compté pour 0` : name
+        }
         className="flex min-w-0 items-center gap-1"
       >
         {ingredient.inStock && (
-          <Icon.inStock className="size-3 shrink-0 text-slate-500" aria-hidden />
+          <Icon.inStock
+            className="size-3 shrink-0 text-slate-500"
+            aria-hidden
+          />
         )}
         <Link
           to={`/item/${ingredient.itemId}`}
           tabIndex={-1}
           data-item-name={name}
           className={`truncate text-xs hover:text-amber-400 ${
-            ingredient.inStock ? 'text-slate-500' : 'text-slate-400'
+            ingredient.inStock ? "text-slate-500" : "text-slate-400"
           }`}
         >
           {name}
         </Link>
         {ingredient.quantity > 1 && (
-          <span className="shrink-0 text-xs text-slate-600">× {ingredient.quantity}</span>
+          <span className="shrink-0 text-xs text-slate-600">
+            × {ingredient.quantity}
+          </span>
         )}
       </Tooltip>
       <PriceField itemId={ingredient.itemId} layout="column" align="left" />
     </div>
-  )
+  );
 }
 
 /**
@@ -567,25 +644,31 @@ function Ingredient({ ingredient }: { ingredient: CarburantIngredient }) {
  *
  * L'ambre du craft ne mord pas sur l'emerald des marges.
  */
-function Decision({ decision, cost }: { decision: CarburantRow['decision']; cost: number | null }) {
-  if (decision === null) return NONE
+function Decision({
+  decision,
+  cost,
+}: {
+  decision: CarburantRow["decision"];
+  cost: number | null;
+}) {
+  if (decision === null) return NONE;
 
-  const craft = decision === 'craft'
-  const Glyph = craft ? Icon.craft : Icon.price
-  const verb = craft ? 'Fabriquer' : "Acheter à l'HDV"
+  const craft = decision === "craft";
+  const Glyph = craft ? Icon.craft : Icon.price;
+  const verb = craft ? "Fabriquer" : "Acheter à l'HDV";
   return (
     <Tooltip
       content={`${verb} revient à ${formatKamas(cost)} kamas l'unité`}
       className={`inline-flex cursor-help items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${
         craft
-          ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-          : 'border-slate-700 bg-slate-800 text-slate-300'
+          ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+          : "border-slate-700 bg-slate-800 text-slate-300"
       }`}
     >
       <Glyph className="size-3 shrink-0" aria-hidden />
-      {craft ? 'CRAFT' : 'ACHAT'}
+      {craft ? "CRAFT" : "ACHAT"}
     </Tooltip>
-  )
+  );
 }
 
 /**
@@ -596,16 +679,16 @@ function Maxing({
   maxing,
   render,
 }: {
-  maxing: MaxingEstimate[]
-  render: (step: MaxingEstimate) => ReactNode
+  maxing: MaxingEstimate[];
+  render: (step: MaxingEstimate) => ReactNode;
 }) {
   if (maxing.length <= 1) {
-    const only = maxing[0]
+    const only = maxing[0];
     return (
       <span className="flex h-6 items-center justify-end tabular-nums text-slate-300">
         {only ? render(only) : NONE}
       </span>
-    )
+    );
   }
 
   // Colonnes `auto` et non `1fr` : le libellé reste collé à sa valeur au lieu
@@ -615,10 +698,14 @@ function Maxing({
     <span className="grid grid-cols-[auto_auto] items-baseline justify-end gap-x-2 gap-y-1 pt-1">
       {maxing.map((step) => (
         <Fragment key={step.target}>
-          <span className="whitespace-nowrap text-[10px] text-slate-500">{step.label}</span>
-          <span className="text-right tabular-nums text-slate-300">{render(step)}</span>
+          <span className="whitespace-nowrap text-[10px] text-slate-500">
+            {step.label}
+          </span>
+          <span className="text-right tabular-nums text-slate-300">
+            {render(step)}
+          </span>
         </Fragment>
       ))}
     </span>
-  )
+  );
 }

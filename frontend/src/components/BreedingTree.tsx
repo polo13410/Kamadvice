@@ -8,6 +8,7 @@
  * sans état à tenir, et un arbre de génération 10 reste replié par défaut
  * au-delà des premiers niveaux.
  */
+import { useState } from 'react'
 import type { Cross, Slot, SlotSource } from '../domain/breeding'
 import { formatChance } from '../lib/format'
 import { Icon } from '../lib/icons'
@@ -122,15 +123,36 @@ export function StepCircle({
   )
 }
 
+/**
+ * Tout déplier ou tout replier : les `<details>` sont natifs, donc l'arbre est
+ * remonté (`key`) avec la consigne pour que chaque nœud reparte de là, quoi
+ * que l'utilisateur ait ouvert ou fermé à la main entre-temps.
+ */
 export default function BreedingTree({ root, theoretical = false }: { root: Slot; theoretical?: boolean }) {
+  const [reset, setReset] = useState<{ open: boolean | null; tick: number }>({ open: null, tick: 0 })
+  const unfold = (open: boolean) => setReset((state) => ({ open, tick: state.tick + 1 }))
+  const control = (label: string, Glyph: typeof Icon.expand, open: boolean) => (
+    <button
+      type="button"
+      onClick={() => unfold(open)}
+      className="flex items-center gap-1 text-xs text-slate-500 hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none"
+    >
+      <Glyph className="size-3.5" aria-hidden />
+      {label}
+    </button>
+  )
   return (
     <div className="text-sm">
-      <Node slot={root} theoretical={theoretical} />
+      <div className="mb-1 flex items-center justify-end gap-3">
+        {control('Tout déplier', Icon.expand, true)}
+        {control('Tout replier', Icon.collapse, false)}
+      </div>
+      <Node key={reset.tick} slot={root} theoretical={theoretical} forced={reset.open} />
     </div>
   )
 }
 
-function Node({ slot, theoretical }: { slot: Slot; theoretical: boolean }) {
+function Node({ slot, theoretical, forced }: { slot: Slot; theoretical: boolean; forced: boolean | null }) {
   const cross = slot.cross
   const head = (
     <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -173,7 +195,7 @@ function Node({ slot, theoretical }: { slot: Slot; theoretical: boolean }) {
   if (!cross) return <div className="py-1 pl-5">{head}</div>
 
   return (
-    <details open={slot.depth < OPEN_DEPTH} className="group">
+    <details open={forced ?? slot.depth < OPEN_DEPTH} className="group">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 [&::-webkit-details-marker]:hidden">
         <Icon.next
           className="size-3.5 shrink-0 text-slate-600 transition-transform group-open:rotate-90"
@@ -183,7 +205,7 @@ function Node({ slot, theoretical }: { slot: Slot; theoretical: boolean }) {
       </summary>
       <div className="ml-2 border-l border-slate-800 pl-3">
         {cross.parents.map((parent) => (
-          <Node key={parent.path} slot={parent} theoretical={theoretical} />
+          <Node key={parent.path} slot={parent} theoretical={theoretical} forced={forced} />
         ))}
       </div>
     </details>

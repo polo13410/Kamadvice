@@ -46,7 +46,15 @@ export interface NavMenuItem {
  * Délai avant la fermeture au survol. Le panneau est décollé du bouton : sans
  * ce sursis, traverser les quelques pixels qui les séparent le refermerait.
  */
-const CLOSE_DELAY_MS = 150
+export const CLOSE_DELAY_MS = 150
+
+/**
+ * Le panneau d'un menu du header, tel qu'il se déroule partout : sous son
+ * bouton, décollé de 0,5 rem, avec la petite entrée en fondu de
+ * `.dropdown-enter` (voir index.css). Le bord d'alignement s'ajoute.
+ */
+export const DROPDOWN =
+  'dropdown-enter absolute top-full z-30 mt-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50'
 
 const TRIGGER =
   'flex items-center gap-1.5 rounded px-2 py-1 text-sm hover:text-amber-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none'
@@ -212,9 +220,7 @@ export default function NavMenu({
         <div
           ref={panel}
           id={panelId}
-          className={`absolute top-full z-30 mt-2 max-h-[70vh] min-w-60 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          }`}
+          className={`${DROPDOWN} max-h-[70vh] min-w-60 ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {ordered.items.length === 0 && empty !== undefined && (
             <p className="max-w-64 px-3 py-2 text-xs text-slate-500">{empty}</p>

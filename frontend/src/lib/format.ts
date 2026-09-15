@@ -60,6 +60,19 @@ export function parseKamas(input: string): number | null {
   return Number.isFinite(value) ? value : null
 }
 
+const HOURS = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
+
+/**
+ * Une durée d'élevage : « 45 min », « 11,1 h », « 3,2 j ». Une décimale au
+ * plus — c'est un ordre de grandeur, pas un chronomètre.
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '—'
+  if (seconds < 3_600) return `${Math.round(seconds / 60)} min`
+  if (seconds < 48 * 3_600) return `${HOURS.format(seconds / 3_600)} h`
+  return `${HOURS.format(seconds / 86_400)} j`
+}
+
 /** Normalise pour la recherche : minuscules, sans accents. */
 export const normalize = (value: string): string =>
   value

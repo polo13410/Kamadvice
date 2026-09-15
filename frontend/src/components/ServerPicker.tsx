@@ -12,7 +12,9 @@
  * porte son épingle. Le bouton d'épingle n'est pas dans l'ordre de tabulation
  * du combobox — le focus reste sur le bouton —, il se clique.
  *
- * Fermeture comme `NavMenu` : clic extérieur, Échap, sortie au Tab.
+ * Fermeture comme `NavMenu` : clic extérieur, Échap, sortie au Tab. Dans le
+ * header, le survol ouvre la liste comme pour les menus voisins — à la
+ * souris seulement, avec le même sursis avant de refermer.
  *
  * Deux habillages du même bouton : `field`, un champ bordé à la hauteur des
  * contrôles de l'app, pour l'accueil ; `header`, texte nu accordé aux liens
@@ -23,7 +25,7 @@ import { PIN, pinnedFirst, usePins } from '../data/pins'
 import { KIND_LABEL, SERVERS, setServer, useServer } from '../data/servers'
 import { Icon } from '../lib/icons'
 import { BUTTON } from './Adorned'
-import { PinButton } from './NavMenu'
+import { CLOSE_DELAY_MS, DROPDOWN, PinButton } from './NavMenu'
 import ServerIcon from './ServerIcon'
 
 const TRIGGER = {
@@ -53,6 +55,10 @@ export default function ServerPicker({
   const root = useRef<HTMLDivElement>(null)
   const listId = useId()
   const optionId = (index: number) => `${listId}-${index}`
+  const closing = useRef<number | undefined>(undefined)
+  const cancelClose = () => window.clearTimeout(closing.current)
+  useEffect(() => cancelClose, [])
+  const hover = variant === 'header'
 
   // À l'ouverture, on repart du serveur courant, pas de la dernière option
   // survolée — et une épingle posée réordonne la liste, le rang suit.
@@ -119,6 +125,16 @@ export default function ServerPicker({
       onBlur={(event) => {
         if (!root.current?.contains(event.relatedTarget)) setOpen(false)
       }}
+      onPointerEnter={(event) => {
+        if (!hover || event.pointerType !== 'mouse') return
+        cancelClose()
+        setOpen(true)
+      }}
+      onPointerLeave={(event) => {
+        if (!hover || event.pointerType !== 'mouse') return
+        cancelClose()
+        closing.current = window.setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
+      }}
     >
       <button
         type="button"
@@ -148,7 +164,7 @@ export default function ServerPicker({
           role="listbox"
           aria-label="Serveurs de jeu"
           onPointerDown={(event) => event.preventDefault()}
-          className="absolute top-full left-0 z-30 mt-2 max-h-80 w-72 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-lg shadow-black/50"
+          className={`${DROPDOWN} left-0 max-h-80 w-72`}
         >
           {list.map((candidate, index) => {
             const selected = candidate === server
