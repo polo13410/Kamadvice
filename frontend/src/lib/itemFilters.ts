@@ -10,10 +10,21 @@ import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { Catalog } from '../domain/types'
 
-export type SortKey = 'name' | 'type' | 'level' | 'buy' | 'craft' | 'margin'
+/** `updated` : la date du dernier relevé de prix. */
+export type SortKey = 'name' | 'type' | 'level' | 'buy' | 'updated' | 'craft' | 'margin'
 export type SortDir = 'asc' | 'desc'
 
-const SORT_KEYS: SortKey[] = ['name', 'type', 'level', 'buy', 'craft', 'margin']
+const SORT_KEYS: SortKey[] = ['name', 'type', 'level', 'buy', 'updated', 'craft', 'margin']
+
+/**
+ * Le tri de la recherche qu'on ouvre : les derniers prix relevés en tête —
+ * ce qui bouge sur le serveur, et les items sans prix en bas (voir `sortRows`).
+ */
+export const DEFAULT_SORT: { key: SortKey; dir: SortDir } = { key: 'updated', dir: 'desc' }
+
+/** Le sens qu'un tri prend sans qu'on le précise : celui du tri d'ouverture, sinon le sens naturel de la clé. */
+const impliedDir = (key: SortKey): SortDir =>
+  key === DEFAULT_SORT.key ? DEFAULT_SORT.dir : defaultSortDir(key)
 
 export interface Filters {
   search: string
@@ -24,11 +35,12 @@ export interface Filters {
 }
 
 /**
- * Sens initial d'un tri : alphabétique par le début, chiffres par le haut —
- * « le plus rentable » est la question qu'on se pose en cliquant sur Marge.
+ * Sens initial d'un tri : alphabétique par le début, niveau en montant,
+ * kamas et dates par le haut — « le plus rentable », « le plus récent » sont
+ * les questions qu'on se pose en cliquant sur Marge ou sur Relevé.
  */
 export const defaultSortDir = (key: SortKey): SortDir =>
-  key === 'name' || key === 'type' ? 'asc' : 'desc'
+  key === 'name' || key === 'type' || key === 'level' ? 'asc' : 'desc'
 
 const toId = (raw: string | null): number | null => {
   if (raw === null) return null
@@ -45,7 +57,7 @@ function parse(params: URLSearchParams, catalog: Catalog): Filters {
   const type = catalog.types.find((candidate) => candidate.id === toId(params.get('type')))
   const typeId = type && (categoryId === null || type.categoryId === categoryId) ? type.id : null
 
-  const key = SORT_KEYS.find((candidate) => candidate === params.get('sort')) ?? 'name'
+  const key = SORT_KEYS.find((candidate) => candidate === params.get('sort')) ?? DEFAULT_SORT.key
   const dir = params.get('dir')
 
   return {
@@ -53,7 +65,7 @@ function parse(params: URLSearchParams, catalog: Catalog): Filters {
     categoryId,
     typeId,
     craftableOnly: params.get('craft') === '1',
-    sort: { key, dir: dir === 'asc' || dir === 'desc' ? dir : defaultSortDir(key) },
+    sort: { key, dir: dir === 'asc' || dir === 'desc' ? dir : impliedDir(key) },
   }
 }
 
@@ -64,8 +76,8 @@ function serialize(filters: Filters): URLSearchParams {
   if (filters.categoryId !== null) params.set('cat', String(filters.categoryId))
   if (filters.typeId !== null) params.set('type', String(filters.typeId))
   if (filters.craftableOnly) params.set('craft', '1')
-  if (filters.sort.key !== 'name') params.set('sort', filters.sort.key)
-  if (filters.sort.dir !== defaultSortDir(filters.sort.key)) params.set('dir', filters.sort.dir)
+  if (filters.sort.key !== DEFAULT_SORT.key) params.set('sort', filters.sort.key)
+  if (filters.sort.dir !== impliedDir(filters.sort.key)) params.set('dir', filters.sort.dir)
   return params
 }
 

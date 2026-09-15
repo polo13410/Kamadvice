@@ -20,7 +20,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsDownUp,
   ChevronsUp,
+  ChevronsUpDown,
   CircleCheck,
   CircleDashed,
   CircleDot,
@@ -47,6 +49,7 @@ import {
   ImageOff,
   Layers3,
   LayoutDashboard,
+  Link2,
   LoaderCircle,
   Mars,
   Milestone,
@@ -172,6 +175,11 @@ export const Icon = {
   add: Plus,
   /** Dupliquer une monture de l'étable. */
   duplicate: Copy,
+  /** Deux réglages liés l'un à l'autre : changer l'un déplace l'autre. */
+  linked: Link2,
+  /** Déplier / replier tout un arbre. */
+  expand: ChevronsUpDown,
+  collapse: ChevronsDownUp,
 
   // Fréquentation
   /** Navigateurs connectés en ce moment. */

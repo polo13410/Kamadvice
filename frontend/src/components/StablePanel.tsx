@@ -13,15 +13,16 @@
 import { useState } from 'react'
 import { useCatalog } from '../data/catalogContext'
 import { addMount, duplicateMount, prepareMount, removeMount, updateMount } from '../data/inventory'
-import { SPECIES, SPECIES_INFO, varietyName } from '../data/mounts'
+import { SPECIES, SPECIES_INFO } from '../data/mounts'
 import type { Evaluation, Sex, StableMount } from '../domain/breeding'
 import type { Species, VarietyId } from '../domain/types'
 import { Icon } from '../lib/icons'
 import { FIELD_TABLE } from './Adorned'
-import ItemIcon from './ItemIcon'
-import VarietyLink, { SexToggle, VarietySelect } from './MountVariety'
+import VarietyLink, { SexToggle } from './MountVariety'
+import NumberInput from './NumberInput'
 import Th from './TableHead'
 import { Tooltip } from './Tooltip'
+import { VarietyGridPicker } from './VarietyPicker'
 
 const SELECT = `${FIELD_TABLE} w-auto text-left`
 
@@ -53,23 +54,26 @@ export default function StablePanel({
 
       {shown.length === 0 ? (
         <p className="text-sm text-slate-500">
-          Aucune monture {species ? `de cette espèce ` : ''}à l’étable. Ajoutez celles que vous avez —
-          les plans les emploient aussitôt.
+          Aucune monture {species ? `de cette espèce ` : ''}dans l’enclos.
         </p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-800">
           <table className="w-full text-sm">
             <thead className="bg-slate-900 text-xs text-slate-400">
               <tr>
-                <Th icon={Icon.mount}>Monture</Th>
+                {/* Monture et parents prennent juste leur place, sans retour à
+                    la ligne ; c'est « Dans le plan » qui absorbe le reste. */}
+                <Th width="w-px" icon={Icon.mount}>
+                  Monture
+                </Th>
                 <Th width="w-24">Sexe</Th>
                 <Th width="w-20" align="right">
                   Niveau
                 </Th>
-                <Th width="w-80" icon={Icon.genealogy} tip="Ses deux parents directs : seuls eux comptent dans la reproduction">
+                <Th width="w-px" icon={Icon.genealogy} tip="Ses deux parents directs">
                   Parents
                 </Th>
-                <Th width="w-20" align="center" tip="Jauges faites, prête à reproduire — cocher la monte au niveau visé du plan. Une capture ou un bébé arrive à préparer.">
+                <Th width="w-20" align="center" tip="Jauges faites : cocher la monte au niveau cible">
                   Préparée
                 </Th>
                 <Th width="w-20" align="center" tip="A déjà reproduit : ne sert plus qu'au clonage">
@@ -108,7 +112,7 @@ function MountRow({
 
   return (
     <tr id={mountAnchor(mount)} className="border-t border-slate-800/60 align-top target:bg-amber-500/6">
-      <td className="px-2 py-1.5">
+      <td className="px-2 py-1.5 whitespace-nowrap">
         {variety ? (
           <VarietyLink variety={variety} full />
         ) : (
@@ -119,20 +123,17 @@ function MountRow({
         <SexToggle value={mount.sex} onChange={(sex) => updateMount(mount.id, { sex })} />
       </td>
       <td className="px-2 py-1.5">
-        <input
-          type="number"
+        <NumberInput
+          size="table"
+          value={mount.level}
           min={1}
           max={200}
-          value={mount.level}
-          onChange={(event) => {
-            const level = Number(event.target.value)
-            if (Number.isInteger(level) && level >= 1 && level <= 200) updateMount(mount.id, { level })
-          }}
-          aria-label="Niveau"
-          className={`${FIELD_TABLE} w-16`}
+          onChange={(level) => updateMount(mount.id, { level })}
+          ariaLabel="Niveau"
+          className="w-16"
         />
       </td>
-      <td className="px-2 py-1.5">
+      <td className="px-2 py-1.5 whitespace-nowrap">
         {variety && <ParentsEditor mount={mount} species={variety.species} />}
       </td>
       <td className="px-2 py-1.5 text-center">
@@ -207,42 +208,32 @@ function describeUsage(mount: StableMount, evaluation: Evaluation): string {
 }
 
 /**
- * Les deux parents directs, à même la ligne : l'icône de chacun devant son
- * choix — les mêmes icônes que partout où la monture se montre. Seuls les
- * parents directs comptent dans la reproduction ; un bébé raté porte leurs
- * gènes et peut retenter le croisement.
+ * Les deux parents directs, à même la ligne : chacun un bouton — icône, nom,
+ * génération — qui ouvre la fenêtre de choix. Seuls les parents directs
+ * comptent dans la reproduction ; un bébé raté porte leurs gènes et peut
+ * retenter le croisement.
  */
 function ParentsEditor({ mount, species }: { mount: StableMount; species: Species }) {
   const catalog = useCatalog()
   const options = catalog.mounts.varieties.filter((variety) => variety.species === species)
 
   return (
-    <span className="flex items-center gap-2">
-      {([0, 1] as const).map((index) => {
-        const id = mount.parents[index]
-        const item = id === null ? undefined : catalog.byId.get(id)
-        return (
-          <span key={index} className="flex min-w-0 items-center gap-1">
-            {item ? (
-              <ItemIcon item={item} size={20} />
-            ) : (
-              <span className="inline-block w-5 text-center text-slate-600">?</span>
-            )}
-            <VarietySelect
-              value={id}
-              options={options}
-              onChange={(parent) => {
-                const parents: StableMount['parents'] = [...mount.parents]
-                parents[index] = parent
-                updateMount(mount.id, { parents })
-              }}
-              placeholder="Inconnu"
-              ariaLabel={`Parent ${index + 1}`}
-              className={`${SELECT} w-32`}
-            />
-          </span>
-        )
-      })}
+    <span className="flex items-center gap-1.5">
+      {([0, 1] as const).map((index) => (
+        <VarietyGridPicker
+          key={index}
+          compact
+          allowNone
+          value={mount.parents[index]}
+          options={options}
+          onChange={(parent) => {
+            const parents: StableMount['parents'] = [...mount.parents]
+            parents[index] = parent
+            updateMount(mount.id, { parents })
+          }}
+          placeholder="Inconnu"
+        />
+      ))}
     </span>
   )
 }
@@ -287,13 +278,12 @@ function AddMountForm({ species: fixed }: { species?: Species }) {
           ))}
         </select>
       )}
-      <VarietySelect
+      <VarietyGridPicker
+        compact
         value={variety}
         options={options}
         onChange={setVariety}
         placeholder={`${SPECIES_INFO.get(current)?.label ?? 'Monture'} possédée…`}
-        ariaLabel="Variété"
-        className={`${SELECT} min-w-48`}
       />
       <SexToggle value={sex} onChange={setSex} />
       <label className="flex items-center gap-1">
@@ -315,9 +305,6 @@ function AddMountForm({ species: fixed }: { species?: Species }) {
       >
         Ajouter à l’étable
       </button>
-      {variety !== null && (
-        <span className="text-slate-600">{varietyName(catalog.mounts.byId.get(variety)!)}</span>
-      )}
     </form>
   )
 }

@@ -127,15 +127,17 @@ export function FilterChips<T extends string>({
  * sept cents recettes à chaque touche saccade, et « 10 000 » se tape en cinq
  * frappes. Entrée et la sortie du champ appliquent tout de suite.
  */
-const TYPING_DEBOUNCE_MS = 500
+export const TYPING_DEBOUNCE_MS = 500
 
 /**
  * Un brouillon qui ne remonte à la page qu'après un temps de silence.
  *
  * Une valeur venue d'ailleurs — « Tout effacer », bouton Retour — remplace le
  * brouillon et annule une frappe qui n'aurait pas encore été appliquée.
+ * Partagé avec `NumberInput` : tout champ dont chaque valeur déclenche un
+ * recalcul lourd passe par là.
  */
-function useDeferred<T>(value: T, onChange: (value: T) => void, same: (a: T, b: T) => boolean) {
+export function useDeferred<T>(value: T, onChange: (value: T) => void, same: (a: T, b: T) => boolean) {
   const [draft, setDraft] = useState<T>(value)
   const timer = useRef<number | undefined>(undefined)
   const latest = useRef(onChange)

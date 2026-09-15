@@ -8,11 +8,12 @@
  */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import Adorned, { CONTROL } from '../components/Adorned'
 import DashboardHeader from '../components/DashboardHeader'
 import ItemIcon from '../components/ItemIcon'
-import { GenerationBadge, VarietySelect } from '../components/MountVariety'
+import { GenerationBadge } from '../components/MountVariety'
 import StablePanel from '../components/StablePanel'
+import { VarietyGridPicker } from '../components/VarietyPicker'
+import { useBreederLevel } from '../data/breeder'
 import { useCatalog } from '../data/catalogContext'
 import { useStable } from '../data/inventory'
 import { SPECIES, SPECIES_INFO, varietyName } from '../data/mounts'
@@ -47,10 +48,10 @@ export default function BreedingPage() {
       <DashboardHeader
         icon={Icon.breeding}
         title="Élevage"
-        description="Choisissez la monture à obtenir : le plan se déroule sur votre étable, suggère la prochaine action et se recalcule à chaque accouplement ou clonage. Plans et étable restent dans ce navigateur."
+        description="Un plan se déroule sur votre enclos et se recalcule à chaque accouplement. Tout reste dans ce navigateur."
         stats={[
           { icon: Icon.plan, label: `${plans.length} plan${plans.length > 1 ? 's' : ''}` },
-          { icon: Icon.mount, label: `${stable.length} monture${stable.length > 1 ? 's' : ''} à l’étable` },
+          { icon: Icon.mount, label: `${stable.length} monture${stable.length > 1 ? 's' : ''} dans l’enclos` },
         ]}
       />
 
@@ -85,16 +86,13 @@ export default function BreedingPage() {
             )
           })}
         </div>
-        <Adorned icon={Icon.target}>
-          <VarietySelect
-            value={target}
-            options={options}
-            onChange={setTarget}
-            placeholder="Monture à obtenir…"
-            ariaLabel="Monture à obtenir"
-            className={`${CONTROL} min-w-64`}
-          />
-        </Adorned>
+        <VarietyGridPicker
+          key={species}
+          value={target}
+          options={options}
+          onChange={setTarget}
+          placeholder="Monture à obtenir…"
+        />
         <button
           type="submit"
           disabled={!chosen}
@@ -126,12 +124,9 @@ export default function BreedingPage() {
       <section className="space-y-2">
         <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-slate-500">
           <Icon.mount className="size-4 shrink-0" aria-hidden />
-          Étable
+          Enclos
         </h2>
-        <p className="text-xs text-slate-500">
-          Toutes vos montures, partagées par tous les plans. Un accouplement ou un clonage enregistré
-          depuis un plan la met à jour.
-        </p>
+        <p className="text-xs text-slate-500">Toutes vos montures, partagées par tous les plans.</p>
         <StablePanel mounts={stable} />
       </section>
     </div>
@@ -140,6 +135,7 @@ export default function BreedingPage() {
 
 function PlanCard({ plan, stable }: { plan: Plan; stable: readonly StableMount[] }) {
   const catalog = useCatalog()
+  const breederLevel = useBreederLevel()
   const [confirming, setConfirming] = useState(false)
   const variety = catalog.mounts.byId.get(plan.target)
   const item = variety && catalog.byId.get(variety.id)
@@ -147,12 +143,16 @@ function PlanCard({ plan, stable }: { plan: Plan; stable: readonly StableMount[]
   const summary = useMemo(() => {
     if (!variety) return null
     try {
-      const evaluation = evaluatePlan(catalog.mounts, plan, stable)
+      const evaluation = evaluatePlan(
+        catalog.mounts,
+        { ...plan, settings: { ...plan.settings, breederLevel } },
+        stable,
+      )
       return { crosses: evaluation.crosses.length, done: evaluation.done, suggestion: evaluation.suggestion.kind }
     } catch {
       return null
     }
-  }, [catalog.mounts, plan, stable, variety])
+  }, [breederLevel, catalog.mounts, plan, stable, variety])
 
   if (!variety) {
     return (

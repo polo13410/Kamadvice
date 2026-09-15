@@ -94,7 +94,8 @@ export default function FavoritesPage() {
   const catalog = useCatalog()
   const rows = useItemRows()
   const favorites = useFavorites()
-  const [sort, setSort] = useState<Sort>({ key: 'name', dir: 'asc' })
+  // Les favoris s'ouvrent par marge, la plus rentable en tête : c'est pour ça qu'on les garde.
+  const [sort, setSort] = useState<Sort>({ key: 'margin', dir: 'desc' })
   const [search, setSearch] = useState('')
   const [selection, setSelection] = useState<Selection>(NOTHING)
 

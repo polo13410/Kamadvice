@@ -168,10 +168,22 @@ reste se recalcule sur l'étable à chaque rendu.
   étape faite se coche sur place ; une étape couverte par une monture plus
   haut aussi, grisée ; une étape réglée par un clonage le dit. Le cercle
   d'une étape compte ses parents préparés, pas seulement présents.
-- **Niveau d'éleveur** (réglage du plan) : un enclos jusqu'au niveau 39, un
-  de plus tous les quarante niveaux, six au niveau 200 (`enclosuresFor`).
-  Chaque enclos prépare dix montures et accouple cinq couples à la fois ; la
-  fécondation les liste enclos par enclos.
+- **Niveau d'éleveur** (celui du joueur, gardé dans le navigateur —
+  `data/breeder.ts` — et commun à tous les plans) : un enclos jusqu'au niveau
+  39, un de plus tous les quarante niveaux, six au niveau 200
+  (`enclosuresFor`). Chaque enclos prépare dix montures et accouple cinq
+  couples à la fois ; la fécondation les liste enclos par enclos.
+- **Le temps restant** (`estimateTime`), à côté du coût : trois jauges de
+  fécondité de 20 000 points et la mangeoire, deux jauges à la fois à un
+  point par seconde, tout l'enclos ensemble — 40 000 secondes par plein
+  d'enclos tant que la mangeoire tient en 20 000. Par vagues de dix montures
+  par enclos ; une monture à faire naître attend ses parents préparés, le
+  bas de l'arbre passe d'abord.
+- **Les sorties d'un accouplement** (`possibleOffspring`), pour renseigner
+  le bébé : les deux parents, et toute variété dont une recette marie un
+  ancêtre d'un côté — parents et grands-parents compris — à un ancêtre de
+  l'autre ; une génération 1 présente dans les deux arbres. C'est ce que
+  l'écran du jeu liste ; leur répartition, elle, n'est pas publiée.
 - **« ≈ en moyenne »** à côté des nombres arrondis du nombre probable :
   `1 / chance` sans arrondi, fractionnaire, pour l'ordre de grandeur —
   52 % et 70 % font tous deux 2 tentatives arrondies, mais 1,9 et 1,4 en
@@ -217,7 +229,11 @@ reste se recalcule sur l'étable à chaque rendu.
   féconde utile.
 - **Niveau visé et points de mangeoire** sont les deux faces de la table d'XP
   (`meta.json`, `mountXp`, relevée sur la page des dragodindes) : niveau 39 =
-  19 266 points, 200 = 867 582.
+  19 266 points, 200 = 867 582. Le défaut est 20 000 points — un plein de
+  jauge, ce qu'on verse en pratique —, soit le niveau 39. Ces champs, comme
+  le niveau d'une monture de l'enclos, passent par `NumberInput` : la valeur
+  ne remonte qu'après un temps de silence, le plan ne se recalcule pas à
+  chaque frappe.
 - **« Nombre probable »** (réglage du plan) : chaque croisement se prévoit en
   `1 / chance` tentatives, arrondi en montant dès que la fraction dépasse 0,3
   (40 % → 3, 52 % → 2, 70 % → 2, 80 % → 1), et chaque tentative consomme un

@@ -10,6 +10,12 @@ import type { ItemId } from '../domain/types'
  *
  * Un champ laissé vide est une saisie abandonnée, pas un prix : elle est
  * annulée, comme avec Échap. Effacer un prix passe par l'historique.
+ *
+ * Un prix *tapé* vaut un relevé, même s'il est le même qu'avant : le joueur
+ * vient de le lire à l'HDV, la date se met à jour — comme dans le
+ * remplissage assisté. Cliquer dans le champ et en sortir sans rien taper,
+ * ou tout sélectionner sans rien remplacer, ne relève rien : le brouillon
+ * n'existe qu'à la première frappe.
  */
 export default function PriceInput({
   itemId,
@@ -29,7 +35,7 @@ export default function PriceInput({
   const commit = () => {
     if (draft === null) return
     const price = parseKamas(draft)
-    if (price !== null) setPrice(itemId, price)
+    if (price !== null) setPrice(itemId, price, { confirm: true })
     setDraft(null)
   }
 

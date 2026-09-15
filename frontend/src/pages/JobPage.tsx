@@ -39,6 +39,7 @@ import { formatKamas, formatPercent, normalize } from '../lib/format'
 import { heat, heatScale } from '../lib/heat'
 import { Icon } from '../lib/icons'
 import {
+  DEFAULT_SORT_KEY,
   defaultSortDir,
   isFiltering,
   NO_FILTERS,
@@ -185,7 +186,7 @@ function JobDashboard({ job }: { job: Job }) {
   const sortControl = (key: JobSortKey) => ({
     dir: filters.sort.key === key ? filters.sort.dir : null,
     onToggle: () => toggleSort(key),
-    onReset: () => update({ sort: { key: 'name', dir: 'asc' } }),
+    onReset: () => update({ sort: { key: DEFAULT_SORT_KEY, dir: defaultSortDir(DEFAULT_SORT_KEY) } }),
   })
 
   const { priced, expected, scale } = useMemo(() => {

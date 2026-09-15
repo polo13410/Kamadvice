@@ -45,7 +45,7 @@ export interface JobFilters {
   sort: { key: JobSortKey; dir: SortDir }
 }
 
-export const DEFAULT_SORT_KEY: JobSortKey = 'name'
+export const DEFAULT_SORT_KEY: JobSortKey = 'level'
 
 /**
  * Sens initial d'un tri : lecture par le début, chiffres par le haut —

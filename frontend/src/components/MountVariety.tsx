@@ -15,7 +15,30 @@ import { Icon } from '../lib/icons'
 import ItemIcon from './ItemIcon'
 import { Tooltip } from './Tooltip'
 
-/** « G5 », en pastille. */
+/**
+ * Une couleur par génération, la même partout où « Gx » se montre. Des
+ * teintes choisies pour que deux générations voisines ne se ressemblent pas
+ * — pas un dégradé, qu'on ne saurait pas lire à la volée.
+ */
+const GENERATION_TONE: Record<number, string> = {
+  1: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+  2: 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+  3: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+  4: 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300',
+  5: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+  6: 'border-lime-500/40 bg-lime-500/10 text-lime-300',
+  7: 'border-violet-500/40 bg-violet-500/10 text-violet-300',
+  8: 'border-orange-500/40 bg-orange-500/10 text-orange-300',
+  9: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
+  10: 'border-pink-500/40 bg-pink-500/10 text-pink-300',
+  11: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-300',
+}
+
+/** Les classes de couleur d'une génération, pour un chip ou un filtre qui la désigne. */
+export const generationTone = (generation: number): string =>
+  GENERATION_TONE[generation] ?? 'border-slate-700 bg-slate-800/80 text-slate-400'
+
+/** « G5 », en pastille de la couleur de sa génération. */
 export function GenerationBadge({
   generation,
   className = '',
@@ -26,7 +49,7 @@ export function GenerationBadge({
   return (
     <Tooltip
       content={`Génération ${generation}`}
-      className={`inline-flex shrink-0 cursor-help items-center gap-1 rounded border border-slate-700 bg-slate-800/80 px-1.5 py-px text-[10px] font-medium tabular-nums text-slate-400 ${className}`}
+      className={`inline-flex shrink-0 cursor-help items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium tabular-nums ${generationTone(generation)} ${className}`}
     >
       <Icon.generation className="size-2.5" aria-hidden />
       G{generation}
@@ -239,7 +262,7 @@ export function MountTag({
         </Tooltip>
       )}
       {!mount.sterile && !mount.ready && (
-        <Tooltip content="Jauges à faire avant de reproduire : comptées dans le coût restant" className="cursor-help text-sky-300">
+        <Tooltip content="Jauges à faire, comptées dans le coût" className="cursor-help text-sky-300">
           à préparer
         </Tooltip>
       )}
@@ -293,7 +316,7 @@ export function MountChip({ mount, className = '' }: { mount: StableMount; class
         </Tooltip>
       )}
       {!mount.sterile && !mount.ready && (
-        <Tooltip content="Jauges à faire avant de reproduire : comptées dans le coût restant" className="cursor-help text-sky-300">
+        <Tooltip content="Jauges à faire, comptées dans le coût" className="cursor-help text-sky-300">
           à préparer
         </Tooltip>
       )}
@@ -301,47 +324,55 @@ export function MountChip({ mount, className = '' }: { mount: StableMount; class
   )
 }
 
-/** Choix d'une variété parmi une liste, groupée par génération. */
-export function VarietySelect({
+/**
+ * Choix d'une variété à même la ligne : une icône par variété, le nom et la
+ * génération en infobulle, la retenue cernée d'ambre. Pour une poignée
+ * d'options — les sorties possibles d'un accouplement —, là où une liste
+ * déroulante cache ce qu'on veut voir d'un coup d'œil.
+ */
+export function VarietyIconPicker({
   value,
   options,
   onChange,
-  placeholder,
+  size = 28,
   className = '',
-  ariaLabel,
 }: {
   value: VarietyId | null
   options: readonly MountVariety[]
-  onChange: (id: VarietyId | null) => void
-  placeholder: string
+  onChange: (id: VarietyId) => void
+  size?: number
   className?: string
-  ariaLabel: string
 }) {
-  const generations = new Map<number, MountVariety[]>()
-  for (const variety of options) {
-    const group = generations.get(variety.generation)
-    if (group) group.push(variety)
-    else generations.set(variety.generation, [variety])
-  }
+  const catalog = useCatalog()
   return (
-    <select
-      value={value ?? ''}
-      onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
-      aria-label={ariaLabel}
-      className={className}
-    >
-      <option value="">{placeholder}</option>
-      {[...generations.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([generation, group]) => (
-          <optgroup key={generation} label={`Génération ${generation}`}>
-            {group.map((variety) => (
-              <option key={variety.id} value={variety.id}>
-                {variety.name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-    </select>
+    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} role="radiogroup">
+      {options.map((variety) => {
+        const item = catalog.byId.get(variety.id)
+        const active = variety.id === value
+        return (
+          <Tooltip key={variety.id} content={`${variety.name} — génération ${variety.generation}`}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={variety.name}
+              onClick={() => onChange(variety.id)}
+              className={`flex items-center justify-center rounded border p-0.5 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:outline-none ${
+                active
+                  ? 'border-amber-500/70 bg-amber-500/15'
+                  : 'border-transparent opacity-70 hover:border-slate-600 hover:bg-slate-800 hover:opacity-100'
+              }`}
+            >
+              {item ? (
+                <ItemIcon item={item} size={size} />
+              ) : (
+                <Icon.mount className="text-slate-600" style={{ width: size, height: size }} aria-hidden />
+              )}
+            </button>
+          </Tooltip>
+        )
+      })}
+    </span>
   )
 }
+

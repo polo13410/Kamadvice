@@ -34,14 +34,14 @@ export const varietyName = (variety: MountVariety): string =>
 /**
  * Réglages par défaut d'un plan d'élevage.
  *
- * Le niveau 39 — 19 266 points de mangeoire d'après la table d'XP — est le
- * compromis usuel entre le temps d'élevage et la probabilité, qui gagne
- * 0,15 % par niveau de chaque parent. Niveau et points restent liés par la
- * table : changer l'un déplace l'autre.
+ * On raisonne en points de mangeoire : 20 000, un plein de jauge, ce que les
+ * éleveurs versent en pratique — soit le niveau 39 d'après la table d'XP
+ * (20 437 au niveau 40). Niveau et points restent liés par la table :
+ * changer l'un déplace l'autre.
  */
 export const DEFAULT_SETTINGS: PlanSettings = {
   targetLevel: 39,
-  feedPoints: 19_266,
+  feedPoints: 20_000,
   optimakina: false,
   probable: false,
   breederLevel: 1,
@@ -49,6 +49,9 @@ export const DEFAULT_SETTINGS: PlanSettings = {
 
 /** La jauge d'expérience : c'est elle qui fait le niveau. */
 export const FEED_GAUGE: Gauge = 'mangeoire'
+
+/** L'item dont l'image dit « mangeoire » là où une icône ne parle pas : l'extrait de base. */
+export const FEED_EXTRACT_NAME = 'Extrait de Mangeoire'
 
 /**
  * Les trois jauges à porter au maximum pour qu'une monture devienne féconde :
